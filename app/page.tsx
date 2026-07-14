@@ -29,9 +29,12 @@ export default function Home() {
             <WorkoutPart time="3 min" name="Cooldown" />
           </div>
 
-          <button className="mt-8 w-full rounded-2xl bg-lime-400 px-5 py-4 text-lg font-bold text-zinc-950">
-            Spustit trénink
-          </button>
+          <a
+  href="/workout"
+  className="mt-8 block w-full rounded-2xl bg-lime-400 px-5 py-4 text-center text-lg font-bold text-zinc-950"
+>
+  Spustit trénink
+</a>
         </section>
 
         <section className="mt-6 grid grid-cols-2 gap-4">
