@@ -43,10 +43,13 @@ export default function Home() {
             <span className="mt-3 block font-semibold">Kalendář</span>
           </button>
 
-          <button className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 text-left">
-            <span className="text-2xl">📊</span>
-            <span className="mt-3 block font-semibold">Historie</span>
-          </button>
+          <a
+  href="/history"
+  className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 text-left"
+>
+  <span className="text-2xl">📊</span>
+  <span className="mt-3 block font-semibold">Historie</span>
+</a>
         </section>
       </div>
     </main>

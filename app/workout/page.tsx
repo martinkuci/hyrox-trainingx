@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import WorkoutResult from "./WorkoutResult";
 
 type Exercise = {
   section: string;
@@ -149,30 +150,9 @@ export default function WorkoutPage() {
       ? Math.max(exercise.duration - exerciseTime, 0)
       : exerciseTime;
 
-  if (finished) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-zinc-950 p-5 text-white">
-        <section className="w-full max-w-md rounded-3xl border border-zinc-800 bg-zinc-900 p-7 text-center">
-          <p className="text-sm font-semibold uppercase tracking-widest text-lime-400">
-            Trénink dokončen
-          </p>
-
-          <h1 className="mt-4 text-5xl font-bold">
-            {formatTime(totalTime)}
-          </h1>
-
-          <p className="mt-3 text-zinc-400">Celkový čas tréninku</p>
-
-          <a
-            href="/"
-            className="mt-8 block rounded-2xl bg-lime-400 px-5 py-4 font-bold text-zinc-950"
-          >
-            Zpět na přehled
-          </a>
-        </section>
-      </main>
-    );
-  }
+ if (finished) {
+  return <WorkoutResult totalTime={totalTime} />;
+}
 
   return (
     <main className="min-h-screen bg-zinc-950 p-5 text-white">
