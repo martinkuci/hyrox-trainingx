@@ -27,6 +27,7 @@ export type WorkoutTemplate = {
   title: string;
   description: string;
   durationMinutes: number;
+  tags: string[];
   blocks: WorkoutBlock[];
   createdAt: string;
   updatedAt: string;
@@ -40,6 +41,20 @@ export type ScheduledWorkout = {
   date: string;
   time: string;
   status: ScheduledWorkoutStatus;
+};
+
+export type WeeklyPlanDay = {
+  weekday: 0 | 1 | 2 | 3 | 4 | 5 | 6;
+  templateId: string | null;
+  time: string;
+};
+
+export type WeeklyPlanTemplate = {
+  id: string;
+  name: string;
+  days: WeeklyPlanDay[];
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type StepSplit = {
@@ -67,6 +82,7 @@ export type HyroxData = {
   templates: WorkoutTemplate[];
   scheduledWorkouts: ScheduledWorkout[];
   results: WorkoutResult[];
+  weeklyPlans: WeeklyPlanTemplate[];
 };
 
 export type NewWorkoutTemplate = Omit<
@@ -76,4 +92,7 @@ export type NewWorkoutTemplate = Omit<
 
 export type NewScheduledWorkout = Omit<ScheduledWorkout, "id">;
 export type NewWorkoutResult = Omit<WorkoutResult, "id">;
-
+export type NewWeeklyPlanTemplate = Omit<
+  WeeklyPlanTemplate,
+  "id" | "createdAt" | "updatedAt"
+>;
