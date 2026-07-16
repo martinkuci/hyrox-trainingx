@@ -40,8 +40,43 @@ export type WorkoutTemplate = {
   createdAt: string;
   updatedAt: string;
 };
+
+export type ProgramPhase = "base" | "build" | "deload" | "specific" | "taper";
+export type ProgramSession = {
+  id: string;
+  weekday: 0 | 1 | 2 | 3 | 4 | 5 | 6;
+  time: string;
+  templateId: string | null;
+  note: string;
+};
+export type ProgramWeek = {
+  weekNumber: number;
+  title: string;
+  phase: ProgramPhase;
+  focus: string;
+  sessions: ProgramSession[];
+};
+export type TrainingProgram = {
+  id: string;
+  code: string;
+  name: string;
+  description: string;
+  weeks: ProgramWeek[];
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type ScheduledWorkoutStatus = "planned" | "completed" | "skipped";
-export type ScheduledWorkout = { id: string; templateId: string; date: string; time: string; status: ScheduledWorkoutStatus };
+export type ScheduledWorkout = {
+  id: string;
+  templateId: string;
+  date: string;
+  time: string;
+  status: ScheduledWorkoutStatus;
+  programId?: string;
+  programWeek?: number;
+  programSessionId?: string;
+};
 export type WeeklyPlanDay = { weekday: 0 | 1 | 2 | 3 | 4 | 5 | 6; templateId: string | null; time: string };
 export type WeeklyPlanTemplate = { id: string; name: string; days: WeeklyPlanDay[]; createdAt: string; updatedAt: string };
 export type StepSplit = { blockId: string; stepId: string; round: number; durationSeconds: number; blockTitle?: string; stepName?: string; stepDetail?: string };
@@ -60,8 +95,16 @@ export type WorkoutResult = {
   notes: string;
   splits: StepSplit[];
 };
-export type HyroxData = { version: 1; templates: WorkoutTemplate[]; scheduledWorkouts: ScheduledWorkout[]; results: WorkoutResult[]; weeklyPlans: WeeklyPlanTemplate[] };
+export type HyroxData = {
+  version: 1;
+  templates: WorkoutTemplate[];
+  scheduledWorkouts: ScheduledWorkout[];
+  results: WorkoutResult[];
+  weeklyPlans: WeeklyPlanTemplate[];
+  trainingPrograms: TrainingProgram[];
+};
 export type NewWorkoutTemplate = Omit<WorkoutTemplate, "id" | "createdAt" | "updatedAt">;
 export type NewScheduledWorkout = Omit<ScheduledWorkout, "id">;
 export type NewWorkoutResult = Omit<WorkoutResult, "id">;
 export type NewWeeklyPlanTemplate = Omit<WeeklyPlanTemplate, "id" | "createdAt" | "updatedAt">;
+export type NewTrainingProgram = Omit<TrainingProgram, "id" | "createdAt" | "updatedAt">;
