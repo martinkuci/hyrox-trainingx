@@ -1,15 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
+import type { FormEvent } from "react";
 import {
   AUTH_EVENT,
-  CloudUser,
   createEmailAccount,
   loadCloudUser,
   signInWithEmail,
   signOutCloud,
 } from "@/lib/firebase-rest";
+import type { CloudUser } from "@/lib/firebase-rest";
 
 export default function AccountPage() {
   const [user, setUser] = useState<CloudUser | null>(null);
