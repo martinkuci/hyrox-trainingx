@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { PlanningShell } from "@/components/planning/PlanningShell";
 import { useHyroxData } from "@/hooks/useHyroxData";
 import type { NewScheduledWorkout, ProgramPhase, ProgramWeek } from "@/lib/types";
@@ -26,18 +26,19 @@ function dateKey(date: Date) {
   return `${y}-${m}-${d}`;
 }
 
-function monday(date: Date) {
+function firstMondayOnOrAfter(date: Date) {
   const result = new Date(date);
-  const day = result.getDay();
-  result.setDate(result.getDate() + (day === 0 ? -6 : 1 - day));
   result.setHours(12, 0, 0, 0);
+  const day = result.getDay();
+  const offset = day === 1 ? 0 : day === 0 ? 1 : 8 - day;
+  result.setDate(result.getDate() + offset);
   return result;
 }
 
 function defaultWeeks(): ProgramWeek[] {
   return Array.from({ length: 12 }, (_, index) => {
     const week = index + 1;
-    const phase: ProgramPhase = week <= 3 ? "base" : week === 4 ? "deload" : week <= 7 ? "build" : week === 8 ? "deload" : week <= 10 ? "specific" : week === 11 ? "specific" : "taper";
+    const phase: ProgramPhase = week <= 3 ? "base" : week === 4 ? "deload" : week <= 7 ? "build" : week === 8 ? "deload" : week <= 11 ? "specific" : "taper";
     return {
       weekNumber: week,
       title: `Týden ${week}`,
@@ -60,8 +61,12 @@ export default function ProgramsPage() {
   const [name, setName] = useState("HYROX Base to Race · 12 týdnů");
   const [description, setDescription] = useState("Tři tréninky týdně s postupem od základní vytrvalosti k závodní specifice.");
   const [weeks, setWeeks] = useState<ProgramWeek[]>(defaultWeeks);
-  const [startDate, setStartDate] = useState(dateKey(new Date()));
+  const [startDate, setStartDate] = useState("");
   const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    setStartDate(dateKey(new Date()));
+  }, []);
 
   const assigned = useMemo(() => weeks.flatMap((week) => week.sessions).filter((session) => session.templateId).length, [weeks]);
 
@@ -83,7 +88,9 @@ export default function ProgramsPage() {
   }
 
   function scheduleProgram() {
-    const base = monday(new Date(`${startDate}T12:00:00`));
+    if (!startDate) return setMessage("Vyber datum zahájení programu.");
+    const selectedStart = new Date(`${startDate}T12:00:00`);
+    const base = firstMondayOnOrAfter(selectedStart);
     const program = createTrainingProgram({ code: code.trim() || "PLAN", name: name.trim(), description: description.trim(), weeks });
     const items: NewScheduledWorkout[] = [];
     for (const week of weeks) {
@@ -104,7 +111,7 @@ export default function ProgramsPage() {
       }
     }
     scheduleMany(items);
-    setMessage(`Program je uložený a do kalendáře bylo přidáno ${items.length} tréninků.`);
+    setMessage(`Program začíná ${dateKey(base)} a do kalendáře bylo přidáno ${items.length} tréninků.`);
   }
 
   return (
@@ -112,7 +119,7 @@ export default function ProgramsPage() {
       <section className="rounded-3xl border border-lime-400/20 bg-zinc-900 p-5 sm:p-6">
         <div className="grid gap-4 sm:grid-cols-2">
           <label><span className="text-sm font-bold text-zinc-300">Kód programu</span><input value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} className="mt-2 w-full rounded-2xl border border-zinc-700 bg-zinc-800 px-4 py-3.5" /></label>
-          <label><span className="text-sm font-bold text-zinc-300">Začátek programu</span><input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="mt-2 w-full rounded-2xl border border-zinc-700 bg-zinc-800 px-4 py-3.5" /></label>
+          <label><span className="text-sm font-bold text-zinc-300">Nejdřívější datum zahájení</span><input type="date" value={startDate} min={startDate || undefined} onChange={(e) => setStartDate(e.target.value)} className="mt-2 w-full rounded-2xl border border-zinc-700 bg-zinc-800 px-4 py-3.5" /><span className="mt-2 block text-xs text-zinc-500">Program se vloží od prvního pondělí, které není před tímto datem.</span></label>
           <label className="sm:col-span-2"><span className="text-sm font-bold text-zinc-300">Název</span><input value={name} onChange={(e) => setName(e.target.value)} className="mt-2 w-full rounded-2xl border border-zinc-700 bg-zinc-800 px-4 py-3.5" /></label>
           <label className="sm:col-span-2"><span className="text-sm font-bold text-zinc-300">Popis</span><textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} className="mt-2 w-full rounded-2xl border border-zinc-700 bg-zinc-800 px-4 py-3.5" /></label>
         </div>
