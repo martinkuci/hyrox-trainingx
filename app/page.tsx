@@ -58,7 +58,10 @@ export default function Home() {
     <main className="safe-screen min-h-screen bg-zinc-950 px-5 py-8 text-white">
       <div className="mx-auto max-w-md">
         <header className="mb-8">
-          <p className="text-sm font-black uppercase tracking-[0.28em] text-lime-400">HYROX Training</p>
+          <div className="flex items-center justify-between gap-4">
+            <p className="text-sm font-black uppercase tracking-[0.28em] text-lime-400">HYROX Training</p>
+            <Link href="/account" className="rounded-full border border-zinc-800 bg-zinc-900 px-3 py-2 text-xs font-bold text-zinc-300">☁ Cloud</Link>
+          </div>
           <div className="mt-3 flex items-end justify-between gap-4">
             <div>
               <h1 className="text-4xl font-black tracking-tight">Dnešní plán</h1>
@@ -132,10 +135,11 @@ export default function Home() {
           </section>
         )}
 
-        <nav className="mt-6 grid grid-cols-3 gap-3" aria-label="Hlavní navigace">
+        <nav className="mt-6 grid grid-cols-4 gap-3" aria-label="Hlavní navigace">
           <NavCard href="/calendar" icon="📅" label="Kalendář" />
           <NavCard href="/workouts" icon="🏋️" label="Tréninky" />
           <NavCard href="/history" icon="📊" label="Historie" />
+          <NavCard href="/account" icon="☁️" label="Cloud" />
         </nav>
       </div>
     </main>
@@ -153,9 +157,9 @@ function Stat({ value, label }: { value: number; label: string }) {
 
 function NavCard({ href, icon, label }: { href: string; icon: string; label: string }) {
   return (
-    <Link href={href} className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4 text-center transition active:scale-95 active:bg-zinc-800">
-      <span className="text-2xl" aria-hidden="true">{icon}</span>
-      <span className="mt-2 block text-sm font-bold">{label}</span>
+    <Link href={href} className="rounded-2xl border border-zinc-800 bg-zinc-900 p-3 text-center transition active:scale-95 active:bg-zinc-800">
+      <span className="text-xl" aria-hidden="true">{icon}</span>
+      <span className="mt-2 block text-xs font-bold">{label}</span>
     </Link>
   );
 }
