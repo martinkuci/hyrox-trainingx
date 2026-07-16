@@ -24,7 +24,26 @@ export default function WorkoutsPage() {
   }
 
   return (
-    <PlanningShell eyebrow="Knihovna" title="Tréninky" description="Vytvoř si vlastní WOD, filtruj podle zaměření a spusť ho kdykoliv." action={<Link href="/workouts/editor" className="shrink-0 rounded-2xl bg-lime-400 px-4 py-3 text-sm font-black text-zinc-950">+ Nový</Link>}>
+    <PlanningShell
+      eyebrow="Knihovna"
+      title="Tréninky"
+      description="Na PC importuj připravený plán, v mobilu trénink hlavně spusť nebo rychle uprav."
+      action={
+        <div className="flex shrink-0 gap-2">
+          <Link href="/import" className="rounded-2xl border border-lime-400/40 px-4 py-3 text-sm font-black text-lime-300">Import</Link>
+          <Link href="/workouts/editor" className="rounded-2xl bg-lime-400 px-4 py-3 text-sm font-black text-zinc-950">+ Nový</Link>
+        </div>
+      }
+    >
+      <section className="mb-5 rounded-3xl border border-lime-400/20 bg-zinc-900 p-4 sm:flex sm:items-center sm:justify-between sm:gap-4">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-lime-400">PC import</p>
+          <h2 className="mt-1 text-lg font-black">Vlož celý trénink z ChatGPT</h2>
+          <p className="mt-1 text-sm text-zinc-400">JSON se zkontroluje, doplní interní ID a uloží do knihovny.</p>
+        </div>
+        <Link href="/import" className="mt-4 block rounded-2xl bg-zinc-800 px-4 py-3 text-center font-bold sm:mt-0">Otevřít import</Link>
+      </section>
+
       <section className="mb-5 rounded-3xl border border-zinc-800 bg-zinc-900 p-4">
         <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Hledat trénink…" className="w-full rounded-2xl border border-zinc-700 bg-zinc-800 px-4 py-3 outline-none focus:border-lime-400" />
         <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
