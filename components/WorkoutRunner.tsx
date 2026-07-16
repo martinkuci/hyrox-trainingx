@@ -19,6 +19,8 @@ type RunnableStep = {
   emomMinutes?: number;
 };
 
+type RunnerMode = "overview" | "block-preview" | "countdown" | "running" | "finished";
+
 type WorkoutRunnerProps = {
   template: WorkoutTemplate;
   scheduledWorkoutId?: string;
@@ -71,14 +73,14 @@ function formatClock(milliseconds: number) {
 export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutRunnerProps) {
   const router = useRouter();
   const steps = useMemo(() => flattenTemplate(template), [template]);
-  const [started, setStarted] = useState(false);
+  const [mode, setMode] = useState<RunnerMode>("overview");
   const [paused, setPaused] = useState(false);
-  const [finished, setFinished] = useState(false);
   const [showQuit, setShowQuit] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [totalElapsed, setTotalElapsed] = useState(0);
   const [stepElapsed, setStepElapsed] = useState(0);
   const [splits, setSplits] = useState<StepSplit[]>([]);
+  const [countdown, setCountdown] = useState(10);
 
   const currentIndexRef = useRef(0);
   const totalAccumulatedRef = useRef(0);
@@ -89,14 +91,12 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
   const audioContextRef = useRef<AudioContext | null>(null);
 
   const currentStep = steps[currentIndex];
+  const nextStep = steps[currentIndex + 1];
+  const currentBlock = template.blocks.find((block) => block.id === currentStep?.blockId);
 
   function ensureAudio() {
-    if (!audioContextRef.current) {
-      audioContextRef.current = new AudioContext();
-    }
-    if (audioContextRef.current.state === "suspended") {
-      void audioContextRef.current.resume();
-    }
+    if (!audioContextRef.current) audioContextRef.current = new AudioContext();
+    if (audioContextRef.current.state === "suspended") void audioContextRef.current.resume();
   }
 
   function beep(frequency = 880) {
@@ -129,15 +129,60 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
     setSplits(splitsRef.current);
   }
 
+  function beginCountdown() {
+    if (!currentStep) return;
+    ensureAudio();
+    setCountdown(10);
+    setMode("countdown");
+  }
+
+  function beginRunning() {
+    const now = Date.now();
+    if (totalStartedAtRef.current === null) totalStartedAtRef.current = now;
+    stepStartedAtRef.current = now;
+    stepAccumulatedRef.current = 0;
+    setStepElapsed(0);
+    setPaused(false);
+    setMode("running");
+    beep(1040);
+  }
+
   function completeWorkout(now: number) {
     const finalDuration = elapsed(totalAccumulatedRef.current, totalStartedAtRef.current, now);
     totalAccumulatedRef.current = finalDuration;
     totalStartedAtRef.current = null;
     stepStartedAtRef.current = null;
     setTotalElapsed(finalDuration);
-    setFinished(true);
     setPaused(false);
+    setMode("finished");
     beep(1040);
+  }
+
+  function moveToNextStep(now: number, leftoverMilliseconds = 0) {
+    if (currentIndexRef.current >= steps.length - 1) {
+      completeWorkout(now);
+      return;
+    }
+
+    const previous = steps[currentIndexRef.current];
+    const nextIndex = currentIndexRef.current + 1;
+    const next = steps[nextIndex];
+    currentIndexRef.current = nextIndex;
+    setCurrentIndex(nextIndex);
+    stepAccumulatedRef.current = 0;
+    stepStartedAtRef.current = null;
+    setStepElapsed(0);
+
+    if (previous.blockId !== next.blockId) {
+      totalAccumulatedRef.current = elapsed(totalAccumulatedRef.current, totalStartedAtRef.current, now);
+      totalStartedAtRef.current = null;
+      setTotalElapsed(totalAccumulatedRef.current);
+      setMode("block-preview");
+      return;
+    }
+
+    stepStartedAtRef.current = now - leftoverMilliseconds;
+    if (next.durationSeconds) beep();
   }
 
   function advanceManual() {
@@ -145,29 +190,7 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
     const now = Date.now();
     const step = steps[currentIndexRef.current];
     recordSplit(step, elapsed(stepAccumulatedRef.current, stepStartedAtRef.current, now));
-
-    if (currentIndexRef.current >= steps.length - 1) {
-      completeWorkout(now);
-      return;
-    }
-
-    const nextIndex = currentIndexRef.current + 1;
-    currentIndexRef.current = nextIndex;
-    setCurrentIndex(nextIndex);
-    stepAccumulatedRef.current = 0;
-    stepStartedAtRef.current = now;
-    setStepElapsed(0);
-    if (steps[nextIndex].durationSeconds) beep();
-  }
-
-  function start() {
-    if (steps.length === 0) return;
-    ensureAudio();
-    const now = Date.now();
-    totalStartedAtRef.current = now;
-    stepStartedAtRef.current = now;
-    setStarted(true);
-    if (steps[0].durationSeconds) beep();
+    moveToNextStep(now);
   }
 
   function togglePause() {
@@ -180,16 +203,8 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
       return;
     }
 
-    totalAccumulatedRef.current = elapsed(
-      totalAccumulatedRef.current,
-      totalStartedAtRef.current,
-      now,
-    );
-    stepAccumulatedRef.current = elapsed(
-      stepAccumulatedRef.current,
-      stepStartedAtRef.current,
-      now,
-    );
+    totalAccumulatedRef.current = elapsed(totalAccumulatedRef.current, totalStartedAtRef.current, now);
+    stepAccumulatedRef.current = elapsed(stepAccumulatedRef.current, stepStartedAtRef.current, now);
     totalStartedAtRef.current = null;
     stepStartedAtRef.current = null;
     setTotalElapsed(totalAccumulatedRef.current);
@@ -198,7 +213,19 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
   }
 
   useEffect(() => {
-    if (!started || paused || finished) return;
+    if (mode !== "countdown") return;
+    if (countdown <= 0) {
+      beginRunning();
+      return;
+    }
+    beep(countdown <= 3 ? 1040 : 720);
+    const timer = window.setTimeout(() => setCountdown((value) => value - 1), 1000);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [countdown, mode]);
+
+  useEffect(() => {
+    if (mode !== "running" || paused) return;
 
     const tick = () => {
       const now = Date.now();
@@ -217,14 +244,26 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
           return;
         }
 
+        const next = steps[index + 1];
+        if (next.blockId !== step.blockId) {
+          currentIndexRef.current = index + 1;
+          setCurrentIndex(index + 1);
+          stepAccumulatedRef.current = 0;
+          stepStartedAtRef.current = null;
+          totalAccumulatedRef.current = total;
+          totalStartedAtRef.current = null;
+          setTotalElapsed(total);
+          setStepElapsed(0);
+          setMode("block-preview");
+          return;
+        }
+
         index += 1;
-        step = steps[index];
+        step = next;
         currentIndexRef.current = index;
         setCurrentIndex(index);
         stepAccumulatedRef.current = 0;
         stepStartedAtRef.current = now - stepTime;
-
-        if (!step.durationSeconds) break;
       }
 
       setTotalElapsed(total);
@@ -234,23 +273,19 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
     tick();
     const timer = window.setInterval(tick, 200);
     return () => window.clearInterval(timer);
-    // completeWorkout only reads refs and stable state setters; restarting this
-    // interval on every render would make the stopwatch less reliable.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [finished, paused, started, steps]);
+  }, [mode, paused, steps]);
 
   useEffect(() => {
-    if (!started || finished) return;
+    if (mode !== "running" && mode !== "countdown" && mode !== "block-preview") return;
     const preventClose = (event: BeforeUnloadEvent) => event.preventDefault();
     window.addEventListener("beforeunload", preventClose);
     return () => window.removeEventListener("beforeunload", preventClose);
-  }, [finished, started]);
+  }, [mode]);
 
-  useEffect(() => () => {
-    void audioContextRef.current?.close();
-  }, []);
+  useEffect(() => () => { void audioContextRef.current?.close(); }, []);
 
-  if (finished) {
+  if (mode === "finished") {
     return (
       <WorkoutResultForm
         template={template}
@@ -261,121 +296,103 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
     );
   }
 
-  if (!started) {
+  if (mode === "overview") {
     return (
-      <main className="flex min-h-dvh items-center justify-center bg-zinc-950 p-5 text-white">
-        <section className="w-full max-w-md rounded-3xl border border-zinc-800 bg-zinc-900 p-7">
-          <button onClick={() => router.back()} className="text-sm text-zinc-400">
-            ← Zpět
-          </button>
-          <p className="mt-10 text-sm font-bold uppercase tracking-[0.22em] text-lime-400">
-            Připraven?
-          </p>
+      <main className="min-h-dvh bg-zinc-950 p-5 text-white">
+        <section className="mx-auto w-full max-w-md rounded-3xl border border-zinc-800 bg-zinc-900 p-7">
+          <button onClick={() => router.back()} className="text-sm text-zinc-400">← Zpět</button>
+          <p className="mt-8 text-sm font-bold uppercase tracking-[0.22em] text-lime-400">Přehled tréninku</p>
           <h1 className="mt-2 text-4xl font-black">{template.title}</h1>
           <p className="mt-3 leading-6 text-zinc-400">{template.description}</p>
-          <div className="mt-6 flex gap-3 text-sm text-zinc-300">
-            <span className="rounded-full bg-zinc-800 px-3 py-1.5">{steps.length} úseků</span>
-            <span className="rounded-full bg-zinc-800 px-3 py-1.5">cca {template.durationMinutes} min</span>
+          <div className="mt-6 space-y-3">
+            {template.blocks.map((block, index) => (
+              <div key={block.id} className="rounded-2xl bg-zinc-800 p-4">
+                <p className="text-xs font-bold uppercase tracking-wider text-lime-400">Blok {index + 1}</p>
+                <h2 className="mt-1 text-lg font-black">{block.title}</h2>
+                <p className="mt-1 text-sm text-zinc-400">{block.type === "emom" ? `${block.minutes} min EMOM` : `${block.repeat}× opakovat`}</p>
+              </div>
+            ))}
           </div>
-          <button
-            type="button"
-            onClick={start}
-            disabled={steps.length === 0}
-            className="mt-10 w-full rounded-2xl bg-lime-400 px-5 py-5 text-xl font-black text-zinc-950 disabled:opacity-40"
-          >
-            Spustit trénink
+          <button type="button" onClick={() => setMode("block-preview")} disabled={steps.length === 0} className="mt-8 w-full rounded-2xl bg-lime-400 px-5 py-5 text-xl font-black text-zinc-950 disabled:opacity-40">
+            Připravit první blok
           </button>
         </section>
       </main>
     );
   }
 
-  const shownTime = currentStep.durationSeconds
-    ? currentStep.durationSeconds * 1000 - stepElapsed
-    : stepElapsed;
+  if (mode === "block-preview" && currentStep && currentBlock) {
+    return (
+      <main className="min-h-dvh bg-zinc-950 p-5 text-white">
+        <section className="mx-auto w-full max-w-md rounded-3xl border border-zinc-800 bg-zinc-900 p-7">
+          <p className="text-sm font-bold uppercase tracking-[0.22em] text-lime-400">Následuje blok</p>
+          <h1 className="mt-2 text-4xl font-black">{currentBlock.title}</h1>
+          <p className="mt-2 text-zinc-400">{currentBlock.type === "emom" ? `${currentBlock.minutes} minut` : `${currentBlock.repeat} kol`}</p>
+          <ol className="mt-6 space-y-3">
+            {currentBlock.steps.map((step, index) => (
+              <li key={step.id} className="flex gap-3 rounded-2xl bg-zinc-800 p-4">
+                <span className="font-black text-lime-400">{index + 1}.</span>
+                <div><p className="font-bold">{step.name}</p>{step.detail && <p className="mt-1 text-sm text-zinc-400">{step.detail}</p>}</div>
+              </li>
+            ))}
+          </ol>
+          <p className="mt-6 rounded-2xl border border-zinc-700 p-4 text-sm text-zinc-300">Po stisknutí poběží 10sekundový odpočet. Čas bloku začne až po něm.</p>
+          <button type="button" onClick={beginCountdown} className="mt-6 w-full rounded-2xl bg-lime-400 px-5 py-5 text-xl font-black text-zinc-950">Jsem připraven</button>
+        </section>
+      </main>
+    );
+  }
+
+  if (mode === "countdown" && currentStep) {
+    return (
+      <main className="grid min-h-dvh place-items-center bg-zinc-950 p-5 text-center text-white">
+        <section>
+          <p className="text-sm font-black uppercase tracking-[0.25em] text-lime-400">Připrav se</p>
+          <p className="mt-4 text-8xl font-black tabular-nums">{countdown}</p>
+          <h1 className="mt-8 text-3xl font-black">{currentStep.name}</h1>
+          {currentStep.detail && <p className="mt-2 text-lg text-zinc-400">{currentStep.detail}</p>}
+        </section>
+      </main>
+    );
+  }
+
+  if (!currentStep) return null;
+
+  const shownTime = currentStep.durationSeconds ? currentStep.durationSeconds * 1000 - stepElapsed : stepElapsed;
 
   return (
     <main className="min-h-dvh bg-zinc-950 p-5 text-white">
       <div className="mx-auto flex min-h-[calc(100dvh-40px)] max-w-md flex-col">
         <header className="grid grid-cols-3 items-center">
-          <button
-            type="button"
-            onClick={() => setShowQuit(true)}
-            className="justify-self-start text-sm text-zinc-400"
-          >
-            × Ukončit
-          </button>
-          <button
-            type="button"
-            onClick={togglePause}
-            className="justify-self-center rounded-full bg-zinc-800 px-4 py-2 text-sm font-semibold"
-          >
-            {paused ? "Pokračovat" : "Pauza"}
-          </button>
-          <span className="justify-self-end font-mono text-sm text-zinc-300">
-            {formatClock(totalElapsed)}
-          </span>
+          <button type="button" onClick={() => setShowQuit(true)} className="justify-self-start text-sm text-zinc-400">× Ukončit</button>
+          <button type="button" onClick={togglePause} className="justify-self-center rounded-full bg-zinc-800 px-4 py-2 text-sm font-semibold">{paused ? "Pokračovat" : "Pauza"}</button>
+          <span className="justify-self-end font-mono text-sm text-zinc-300">{formatClock(totalElapsed)}</span>
         </header>
 
-        <section className="flex flex-1 flex-col justify-center py-8 text-center">
-          <p className="text-sm font-black uppercase tracking-[0.22em] text-lime-400">
-            {currentStep.blockTitle}
-          </p>
-          <p className="mt-2 text-sm text-zinc-500">
-            {currentStep.emomMinute
-              ? `Minuta ${currentStep.emomMinute} z ${currentStep.emomMinutes}`
-              : currentStep.roundCount > 1
-                ? `Kolo ${currentStep.round} z ${currentStep.roundCount}`
-                : `Úsek ${currentIndex + 1} z ${steps.length}`}
-          </p>
-          <h1 className="mt-6 text-4xl font-black leading-tight sm:text-5xl">
-            {currentStep.name}
-          </h1>
-          {currentStep.detail && (
-            <p className="mt-4 text-lg leading-7 text-zinc-400">{currentStep.detail}</p>
-          )}
-          <div className="mt-10 font-mono text-6xl font-black tracking-tight">
-            {formatClock(shownTime)}
+        <section className="flex flex-1 flex-col justify-center py-6 text-center">
+          <p className="text-sm font-black uppercase tracking-[0.22em] text-lime-400">{currentStep.blockTitle}</p>
+          <p className="mt-2 text-sm text-zinc-500">{currentStep.emomMinute ? `Minuta ${currentStep.emomMinute} z ${currentStep.emomMinutes}` : currentStep.roundCount > 1 ? `Kolo ${currentStep.round} z ${currentStep.roundCount}` : `Úsek ${currentIndex + 1} z ${steps.length}`}</p>
+          <h1 className="mt-6 text-4xl font-black leading-tight sm:text-5xl">{currentStep.name}</h1>
+          {currentStep.detail && <p className="mt-4 text-lg leading-7 text-zinc-400">{currentStep.detail}</p>}
+          <div className="mt-10 font-mono text-6xl font-black tracking-tight">{formatClock(shownTime)}</div>
+          <p className="mt-3 text-sm text-zinc-500">{paused ? "Časovač je pozastavený" : currentStep.durationSeconds ? "Zbývá v minutě" : "Čas aktuálního úseku"}</p>
+
+          <div className="mt-8 rounded-2xl border border-zinc-800 bg-zinc-900 p-4 text-left">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-zinc-500">Následuje</p>
+            {nextStep ? (
+              <><p className="mt-2 text-lg font-black">{nextStep.blockId === currentStep.blockId ? nextStep.name : `Pauza před blokem ${nextStep.blockTitle}`}</p>{nextStep.blockId === currentStep.blockId && nextStep.detail && <p className="mt-1 text-sm text-zinc-400">{nextStep.detail}</p>}</>
+            ) : <p className="mt-2 text-lg font-black">Dokončení tréninku</p>}
           </div>
-          <p className="mt-3 text-sm text-zinc-500">
-            {paused
-              ? "Časovač je pozastavený"
-              : currentStep.durationSeconds
-                ? "Zbývá v minutě"
-                : "Čas aktuálního úseku"}
-          </p>
-          <div className="mt-8 h-1.5 overflow-hidden rounded-full bg-zinc-800">
-            <div
-              className="h-full rounded-full bg-lime-400 transition-[width] duration-200"
-              style={{ width: `${((currentIndex + 1) / steps.length) * 100}%` }}
-            />
-          </div>
+
+          <div className="mt-6 h-1.5 overflow-hidden rounded-full bg-zinc-800"><div className="h-full rounded-full bg-lime-400 transition-[width] duration-200" style={{ width: `${((currentIndex + 1) / steps.length) * 100}%` }} /></div>
         </section>
 
-        <button
-          type="button"
-          onClick={advanceManual}
-          disabled={paused}
-          className="w-full rounded-2xl bg-lime-400 px-5 py-5 text-xl font-black text-zinc-950 transition disabled:opacity-40"
-        >
-          {currentIndex === steps.length - 1
-            ? "Dokončit trénink"
-            : currentStep.durationSeconds
-              ? "Přeskočit minutu →"
-              : "Hotovo →"}
+        <button type="button" onClick={advanceManual} disabled={paused} className="w-full rounded-2xl bg-lime-400 px-5 py-5 text-xl font-black text-zinc-950 transition disabled:opacity-40">
+          {currentIndex === steps.length - 1 ? "Dokončit trénink" : currentStep.durationSeconds ? "Přeskočit minutu →" : "Hotovo →"}
         </button>
       </div>
 
-      <ConfirmDialog
-        open={showQuit}
-        title="Ukončit trénink?"
-        description="Aktuální čas a mezičasy se neuloží."
-        confirmLabel="Ukončit"
-        destructive
-        onCancel={() => setShowQuit(false)}
-        onConfirm={() => router.push("/")}
-      />
+      <ConfirmDialog open={showQuit} title="Ukončit trénink?" description="Aktuální čas a mezičasy se neuloží." confirmLabel="Ukončit" destructive onCancel={() => setShowQuit(false)} onConfirm={() => router.push("/")} />
     </main>
   );
 }
-
