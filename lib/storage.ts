@@ -2,10 +2,12 @@ import { createDefaultHyroxData } from "./default-data";
 import type {
   HyroxData,
   NewScheduledWorkout,
+  NewTrainingProgram,
   NewWeeklyPlanTemplate,
   NewWorkoutResult,
   NewWorkoutTemplate,
   ScheduledWorkout,
+  TrainingProgram,
   WeeklyPlanTemplate,
   WorkoutResult,
   WorkoutTemplate,
@@ -44,18 +46,16 @@ function normalize(value: unknown): HyroxData {
           tags: Array.isArray(template.tags) ? template.tags : [],
         }))
       : fallback.templates,
-    scheduledWorkouts: Array.isArray(data.scheduledWorkouts)
-      ? data.scheduledWorkouts
-      : [],
+    scheduledWorkouts: Array.isArray(data.scheduledWorkouts) ? data.scheduledWorkouts : [],
     results: Array.isArray(data.results) ? data.results : [],
     weeklyPlans: Array.isArray(data.weeklyPlans) ? data.weeklyPlans : [],
+    trainingPrograms: Array.isArray(data.trainingPrograms) ? data.trainingPrograms : [],
   };
 }
 
 export function loadHyroxData(): HyroxData {
   const storage = getStorage();
   if (!storage) return createDefaultHyroxData();
-
   try {
     const raw = storage.getItem(HYROX_STORAGE_KEY);
     if (!raw) return createDefaultHyroxData();
@@ -68,7 +68,6 @@ export function loadHyroxData(): HyroxData {
 export function saveHyroxData(data: HyroxData) {
   const storage = getStorage();
   if (!storage) return false;
-
   try {
     storage.setItem(HYROX_STORAGE_KEY, JSON.stringify(data));
     window.dispatchEvent(new CustomEvent(HYROX_DATA_EVENT));
@@ -86,32 +85,18 @@ function updateData(updater: (data: HyroxData) => HyroxData) {
 
 export function createTemplate(input: NewWorkoutTemplate): WorkoutTemplate {
   const now = new Date().toISOString();
-  const template: WorkoutTemplate = {
-    ...input,
-    tags: input.tags ?? [],
-    id: makeId("template"),
-    createdAt: now,
-    updatedAt: now,
-  };
+  const template: WorkoutTemplate = { ...input, tags: input.tags ?? [], id: makeId("template"), createdAt: now, updatedAt: now };
   updateData((data) => ({ ...data, templates: [...data.templates, template] }));
   return template;
 }
 
-export function updateTemplate(
-  id: string,
-  updates: Partial<NewWorkoutTemplate>,
-) {
+export function updateTemplate(id: string, updates: Partial<NewWorkoutTemplate>) {
   let found: WorkoutTemplate | null = null;
   updateData((data) => ({
     ...data,
     templates: data.templates.map((template) =>
       template.id === id
-        ? (found = {
-            ...template,
-            ...updates,
-            id,
-            updatedAt: new Date().toISOString(),
-          })
+        ? (found = { ...template, ...updates, id, updatedAt: new Date().toISOString() })
         : template,
     ),
   }));
@@ -122,74 +107,55 @@ export function deleteTemplate(id: string) {
   updateData((data) => ({
     ...data,
     templates: data.templates.filter((template) => template.id !== id),
-    scheduledWorkouts: data.scheduledWorkouts.filter(
-      (scheduled) => scheduled.templateId !== id,
-    ),
+    scheduledWorkouts: data.scheduledWorkouts.filter((scheduled) => scheduled.templateId !== id),
     weeklyPlans: data.weeklyPlans.map((plan) => ({
       ...plan,
-      days: plan.days.map((day) =>
-        day.templateId === id ? { ...day, templateId: null } : day,
-      ),
+      days: plan.days.map((day) => (day.templateId === id ? { ...day, templateId: null } : day)),
+    })),
+    trainingPrograms: data.trainingPrograms.map((program) => ({
+      ...program,
+      weeks: program.weeks.map((week) => ({
+        ...week,
+        sessions: week.sessions.map((session) =>
+          session.templateId === id ? { ...session, templateId: null } : session,
+        ),
+      })),
     })),
   }));
   return true;
 }
 
-export function scheduleWorkout(
-  input: NewScheduledWorkout,
-): ScheduledWorkout {
+export function scheduleWorkout(input: NewScheduledWorkout): ScheduledWorkout {
   const item = { ...input, id: makeId("scheduled") };
-  updateData((data) => ({
-    ...data,
-    scheduledWorkouts: [...data.scheduledWorkouts, item],
-  }));
+  updateData((data) => ({ ...data, scheduledWorkouts: [...data.scheduledWorkouts, item] }));
   return item;
 }
 
 export function scheduleMany(inputs: NewScheduledWorkout[]) {
-  const items = inputs.map((input) => ({
-    ...input,
-    id: makeId("scheduled"),
-  }));
-  updateData((data) => ({
-    ...data,
-    scheduledWorkouts: [...data.scheduledWorkouts, ...items],
-  }));
+  const items = inputs.map((input) => ({ ...input, id: makeId("scheduled") }));
+  updateData((data) => ({ ...data, scheduledWorkouts: [...data.scheduledWorkouts, ...items] }));
   return items;
 }
 
-export function replaceSchedulesForDates(
-  inputs: NewScheduledWorkout[],
-  dates: string[],
-) {
+export function replaceSchedulesForDates(inputs: NewScheduledWorkout[], dates: string[]) {
   const dateSet = new Set(dates);
-  const items = inputs.map((input) => ({
-    ...input,
-    id: makeId("scheduled"),
-  }));
+  const items = inputs.map((input) => ({ ...input, id: makeId("scheduled") }));
   updateData((data) => ({
     ...data,
     scheduledWorkouts: [
-      ...data.scheduledWorkouts.filter(
-        (scheduled) => !dateSet.has(scheduled.date),
-      ),
+      ...data.scheduledWorkouts.filter((scheduled) => !dateSet.has(scheduled.date)),
       ...items,
     ],
   }));
   return items;
 }
 
-export function updateScheduledWorkout(
-  id: string,
-  updates: Partial<NewScheduledWorkout>,
-) {
+export function updateScheduledWorkout(id: string, updates: Partial<NewScheduledWorkout>) {
   let found: ScheduledWorkout | null = null;
   updateData((data) => ({
     ...data,
     scheduledWorkouts: data.scheduledWorkouts.map((scheduled) =>
-      scheduled.id === id
-        ? (found = { ...scheduled, ...updates, id })
-        : scheduled,
+      scheduled.id === id ? (found = { ...scheduled, ...updates, id }) : scheduled,
     ),
   }));
   return found;
@@ -198,34 +164,48 @@ export function updateScheduledWorkout(
 export function deleteScheduledWorkout(id: string) {
   updateData((data) => ({
     ...data,
-    scheduledWorkouts: data.scheduledWorkouts.filter(
-      (scheduled) => scheduled.id !== id,
-    ),
+    scheduledWorkouts: data.scheduledWorkouts.filter((scheduled) => scheduled.id !== id),
   }));
   return true;
 }
 
-export function createWeeklyPlan(
-  input: NewWeeklyPlanTemplate,
-): WeeklyPlanTemplate {
+export function createWeeklyPlan(input: NewWeeklyPlanTemplate): WeeklyPlanTemplate {
   const now = new Date().toISOString();
-  const plan = {
-    ...input,
-    id: makeId("plan"),
-    createdAt: now,
-    updatedAt: now,
-  };
-  updateData((data) => ({
-    ...data,
-    weeklyPlans: [...data.weeklyPlans, plan],
-  }));
+  const plan = { ...input, id: makeId("plan"), createdAt: now, updatedAt: now };
+  updateData((data) => ({ ...data, weeklyPlans: [...data.weeklyPlans, plan] }));
   return plan;
 }
 
 export function deleteWeeklyPlan(id: string) {
+  updateData((data) => ({ ...data, weeklyPlans: data.weeklyPlans.filter((plan) => plan.id !== id) }));
+  return true;
+}
+
+export function createTrainingProgram(input: NewTrainingProgram): TrainingProgram {
+  const now = new Date().toISOString();
+  const program: TrainingProgram = { ...input, id: makeId("program"), createdAt: now, updatedAt: now };
+  updateData((data) => ({ ...data, trainingPrograms: [...data.trainingPrograms, program] }));
+  return program;
+}
+
+export function updateTrainingProgram(id: string, updates: Partial<NewTrainingProgram>) {
+  let found: TrainingProgram | null = null;
   updateData((data) => ({
     ...data,
-    weeklyPlans: data.weeklyPlans.filter((plan) => plan.id !== id),
+    trainingPrograms: data.trainingPrograms.map((program) =>
+      program.id === id
+        ? (found = { ...program, ...updates, id, updatedAt: new Date().toISOString() })
+        : program,
+    ),
+  }));
+  return found;
+}
+
+export function deleteTrainingProgram(id: string) {
+  updateData((data) => ({
+    ...data,
+    trainingPrograms: data.trainingPrograms.filter((program) => program.id !== id),
+    scheduledWorkouts: data.scheduledWorkouts.filter((item) => item.programId !== id),
   }));
   return true;
 }
@@ -236,10 +216,7 @@ export function addResult(input: NewWorkoutResult): WorkoutResult {
   return result;
 }
 
-export function updateResult(
-  id: string,
-  updates: Partial<NewWorkoutResult>,
-) {
+export function updateResult(id: string, updates: Partial<NewWorkoutResult>) {
   let found: WorkoutResult | null = null;
   updateData((data) => ({
     ...data,
@@ -251,10 +228,7 @@ export function updateResult(
 }
 
 export function deleteResult(id: string) {
-  updateData((data) => ({
-    ...data,
-    results: data.results.filter((result) => result.id !== id),
-  }));
+  updateData((data) => ({ ...data, results: data.results.filter((result) => result.id !== id) }));
   return true;
 }
 
