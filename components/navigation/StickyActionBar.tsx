@@ -1,10 +1,16 @@
 import type { ReactNode } from "react";
 
-type StickyActionBarProps = {
+type Props = {
   children: ReactNode;
   className?: string;
 };
 
-export function StickyActionBar({ children, className = "" }: StickyActionBarProps) {
+export function StickyActionBar({ children, className = "" }: Props) {
   return (
-    <div className="fixed inset-x-0 bottom-0 z-50 border-t border-zinc-800 bg-zinc-950/95 px-4 pb-[max(1rem,env
+    <div className="fixed inset-x-0 bottom-0 z-50 bg-zinc-950 p-4">
+      <div className={"mx-auto flex max-w-2xl gap-3 " + className}>
+        {children}
+      </div>
+    </div>
+  );
+}
