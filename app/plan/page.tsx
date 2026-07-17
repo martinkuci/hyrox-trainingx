@@ -10,4 +10,4 @@ export default function PlanPage() {
   const programs = data.trainingPrograms.length;
   const next = [...data.scheduledWorkouts]
     .filter((item) => item.status === "planned")
-    .sort((a, b) =>
+    .sort((a, b) => `${
