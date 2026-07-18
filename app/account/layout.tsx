@@ -1,0 +1,1 @@
+import type{ReactNode}from"react";import{StickyHeader}from"@/components/navigation/StickyHeader";export default function AccountLayout({children}:{children:ReactNode}){return <><StickyHeader title="Účet" fallbackHref="/"/><div className="pt-16">{children}</div></>}
