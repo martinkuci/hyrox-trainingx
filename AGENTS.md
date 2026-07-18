@@ -1,9 +1,10 @@
 <!-- BEGIN:nextjs-agent-rules -->
-# This is NOT the Next.js you know
-
-This project uses Next.js 16. APIs and conventions may differ from older versions. Read the relevant guide in `node_modules/next/dist/docs/` before changing framework-specific code and respect deprecation notices.
+# Next.js 16
+Read relevant guides in `node_modules/next/dist/docs/` before framework-specific changes.
 <!-- END:nextjs-agent-rules -->
 
-# HYROX Training App - Agent Instructions
-
-These rules apply to the whole repository
+# HYROX Training App
+Read `docs/PROJECT.md`, `docs/CURRENT_TASK.md`, and `docs/ENGINEERING_RULES.md` before editing.
+Work mobile-first and preserve existing training data and behavior.
+Prefer small components and small verified commits over large file replacements.
+After
