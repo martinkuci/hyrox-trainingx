@@ -445,7 +445,7 @@ export default function ScreenshotResultImportPage() {
               value={templateId}
               onChange={(event) => selectTemplate(event.target.value)}
               disabled={!ready}
-              className="mt-2 w-full rounded-2xl border border-zinc-700 bg-zinc-800 px-4 py-3.5"
+              className="mt-2 w-full rounded-2xl border border-zinc-700 bg-zinc-800 px-4 py-3.5 text-base"
             >
               <option value="">Bez přiřazení</option>
               {templates.map((template) => (
@@ -461,7 +461,7 @@ export default function ScreenshotResultImportPage() {
               type="datetime-local"
               value={completedAt}
               onChange={(event) => setCompletedAt(event.target.value)}
-              className="mt-2 w-full rounded-2xl border border-zinc-700 bg-zinc-800 px-4 py-3.5"
+              className="mt-2 w-full rounded-2xl border border-zinc-700 bg-zinc-800 px-4 py-3.5 text-base"
             />
           </label>
           <TextField
@@ -487,7 +487,7 @@ export default function ScreenshotResultImportPage() {
               value={notes}
               onChange={(event) => setNotes(event.target.value)}
               rows={4}
-              className="mt-2 w-full resize-none rounded-2xl border border-zinc-700 bg-zinc-800 px-4 py-3.5 outline-none focus:border-lime-400"
+              className="mt-2 w-full resize-none rounded-2xl border border-zinc-700 bg-zinc-800 px-4 py-3.5 text-base outline-none focus:border-lime-400"
             />
           </label>
 
@@ -525,7 +525,7 @@ function TextField({
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
         inputMode={inputMode}
-        className="mt-2 w-full rounded-2xl border border-zinc-700 bg-zinc-800 px-4 py-3.5 outline-none focus:border-lime-400"
+        className="mt-2 w-full rounded-2xl border border-zinc-700 bg-zinc-800 px-4 py-3.5 text-base outline-none focus:border-lime-400"
       />
     </label>
   );
