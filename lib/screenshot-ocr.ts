@@ -43,6 +43,14 @@ function numberAfterLabel(
   return validInteger(valueMatch?.[1], min, max);
 }
 
+function averageBpmLabel(text: string) {
+  for (const match of text.matchAll(/\bprumer\w*\s+(\d{2,3})\s*bpm\b/g)) {
+    const value = validInteger(match[1], 20, 260);
+    if (value !== null) return value;
+  }
+  return null;
+}
+
 function repeatedBpm(text: string) {
   const counts = new Map<number, number>();
   for (const match of text.matchAll(/\b(\d{2,3})\s*bpm\b/g)) {
@@ -79,7 +87,7 @@ function readTimeRange(text: string) {
 }
 
 function readDate(text: string) {
-  for (const match of text.matchAll(/(?:^|\s)(\d{1,2})\s*[./]\s*(\d{1,2})\s*[.]?(?=\s|$)/g)) {
+  for (const match of text.matchAll(/(?:^|[^\d])(\d{1,2})\s*[./]\s*(\d{1,2})\s*[.]?(?=\s|$)/g)) {
     const day = Number(match[1]);
     const month = Number(match[2]);
     if (day >= 1 && day <= 31 && month >= 1 && month <= 12) {
@@ -173,7 +181,9 @@ export function extractResultFromOcr(rawText: string, now = new Date()): LocalOc
       /(\d{2,3})\s*bpm/,
       20,
       260,
-    ) ?? repeatedBpm(text);
+    ) ??
+    averageBpmLabel(text) ??
+    repeatedBpm(text);
   const maxHeartRate = numberAfterLabel(
     text,
     /maximaln\w*\s+tepov\w*\s+frekven\w*/,
