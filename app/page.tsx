@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { StickyBottomNavigation } from "@/components/navigation/StickyBottomNavigation";
+import { StickyHeader } from "@/components/navigation/StickyHeader";
 import { useHyroxData } from "@/hooks/useHyroxData";
 
 function localDateKey(date: Date) {
@@ -92,16 +94,15 @@ export default function Home() {
     : "Po prvním dokončeném tréninku se zde objeví doporučení podle RPE a výsledku.";
 
   return (
-    <main className="safe-screen min-h-screen bg-zinc-950 px-5 py-8 text-white">
-      <div className="mx-auto max-w-md">
-        <header className="mb-7">
-          <div className="flex items-center justify-between gap-4">
-            <p className="text-sm font-black uppercase tracking-[0.28em] text-lime-400">HYROX Training</p>
-            <Link href="/account" className="rounded-full border border-zinc-800 bg-zinc-900 px-3 py-2 text-xs font-bold text-zinc-300">☁ Cloud</Link>
-          </div>
-          <h1 className="mt-4 text-4xl font-black tracking-tight">Dnešní přehled</h1>
-          <p className="mt-2 capitalize text-zinc-400">{todayLabel}</p>
-        </header>
+    <>
+      <StickyHeader title="Dnešní přehled" fallbackHref="/" />
+
+      <main className="min-h-screen bg-zinc-950 px-5 pb-28 pt-24 text-white">
+        <div className="mx-auto max-w-md">
+          <header className="mb-7">
+            <h1 className="text-4xl font-black tracking-tight">Dnešní přehled</h1>
+            <p className="mt-2 capitalize text-zinc-400">{todayLabel}</p>
+          </header>
 
         {!ready ? (
           <section className="h-80 animate-pulse rounded-[2rem] border border-zinc-800 bg-zinc-900" />
@@ -134,12 +135,12 @@ export default function Home() {
               <>
                 <p className="mt-2 text-zinc-400">Další trénink je {new Intl.DateTimeFormat("cs-CZ", { weekday: "long", day: "numeric", month: "numeric" }).format(new Date(`${upcomingSchedule.date}T12:00:00`))} v {upcomingSchedule.time}.</p>
                 <div className="mt-5 rounded-2xl bg-zinc-800 p-4"><p className="font-black">{upcomingTemplate.title}</p><p className="mt-1 text-sm text-zinc-400">{upcomingTemplate.durationMinutes} min</p></div>
-                <Link href="/plan" className="mt-4 block text-center text-sm font-bold text-lime-300">Otevřít plán</Link>
+                <Link href={activeProgram ? "/calendar/program" : "/programs"} className="mt-4 block text-center text-sm font-bold text-lime-300">Otevřít plán</Link>
               </>
             ) : (
               <>
                 <p className="mt-2 text-zinc-400">Nemáš naplánovaný další trénink.</p>
-                <Link href="/plan" className="mt-5 block rounded-2xl bg-lime-400 px-5 py-4 text-center font-black text-zinc-950">Vytvořit tréninkový program</Link>
+                <Link href="/programs" className="mt-5 block rounded-2xl bg-lime-400 px-5 py-4 text-center font-black text-zinc-950">Vytvořit tréninkový program</Link>
                 <Link href="/workouts" className="mt-3 block text-center text-sm font-bold text-zinc-400">Nebo vybrat z knihovny</Link>
               </>
             )}
@@ -154,7 +155,7 @@ export default function Home() {
             </div>
             <div className="mt-4 h-2 overflow-hidden rounded-full bg-zinc-800"><div className="h-full rounded-full bg-lime-400" style={{ width: `${activeProgramRate}%` }} /></div>
             <p className="mt-3 text-sm text-zinc-400">{activeProgramCompleted} z {activeProgramTotal} jednotek dokončeno</p>
-            <Link href="/plan" className="mt-4 block text-sm font-bold text-lime-300">Zobrazit program →</Link>
+            <Link href="/calendar/program" className="mt-4 block text-sm font-bold text-lime-300">Zobrazit program →</Link>
           </section>
         )}
 
@@ -179,13 +180,11 @@ export default function Home() {
           </section>
         )}
 
-        <nav className="mt-6 grid grid-cols-3 gap-3" aria-label="Hlavní navigace">
-          <NavCard href="/plan" icon="🗓️" label="Plán" />
-          <NavCard href="/workouts" icon="🏋️" label="Tréninky" />
-          <NavCard href="/history" icon="📊" label="Výsledky" />
-        </nav>
-      </div>
-    </main>
+        </div>
+      </main>
+
+      <StickyBottomNavigation />
+    </>
   );
 }
 
@@ -195,8 +194,4 @@ function Metric({ label, value }: { label: string; value: string }) {
 
 function Stat({ value, label }: { value: number; label: string }) {
   return <div className="rounded-xl bg-zinc-800 px-2 py-3"><p className="text-lg font-black">{value}</p><p className="mt-1 text-[9px] uppercase tracking-wide text-zinc-500">{label}</p></div>;
-}
-
-function NavCard({ href, icon, label }: { href: string; icon: string; label: string }) {
-  return <Link href={href} className="rounded-2xl border border-zinc-800 bg-zinc-900 p-3 text-center transition active:scale-95 active:bg-zinc-800"><span className="text-xl" aria-hidden="true">{icon}</span><span className="mt-2 block text-xs font-bold">{label}</span></Link>;
 }

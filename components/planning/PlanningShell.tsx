@@ -1,12 +1,15 @@
-import Link from "next/link";
 import type { ReactNode } from "react";
+import { StickyActionBar } from "@/components/navigation/StickyActionBar";
+import { StickyBottomNavigation } from "@/components/navigation/StickyBottomNavigation";
+import { StickyHeader } from "@/components/navigation/StickyHeader";
 
-type PlanningShellProps = {
+type Props = {
   eyebrow: string;
   title: string;
   description?: string;
   backHref?: string;
   action?: ReactNode;
+  bottomAction?: ReactNode;
   children: ReactNode;
 };
 
@@ -16,39 +19,42 @@ export function PlanningShell({
   description,
   backHref = "/",
   action,
+  bottomAction,
   children,
-}: PlanningShellProps) {
+}: Props) {
   return (
-    <main className="min-h-screen bg-zinc-950 px-4 py-6 text-white sm:px-6 sm:py-10">
-      <div className="mx-auto w-full max-w-2xl">
-        <Link
-          href={backHref}
-          className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-zinc-400 transition hover:text-white"
-        >
-          <span aria-hidden="true">←</span> Zpět
-        </Link>
+    <>
+      <StickyHeader title={title} fallbackHref={backHref} />
 
-        <header className="mt-5 flex items-end justify-between gap-5">
-          <div className="min-w-0">
-            <p className="text-xs font-bold uppercase tracking-[0.24em] text-lime-400">
-              {eyebrow}
-            </p>
-            <h1 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">
-              {title}
-            </h1>
-            {description ? (
-              <p className="mt-2 max-w-xl text-sm leading-6 text-zinc-400">
-                {description}
+      <main
+        className={`min-h-screen bg-zinc-950 px-4 pt-24 text-white sm:px-6 sm:pt-28 ${
+          bottomAction ? "pb-52" : "pb-28"
+        }`}
+      >
+        <div className="mx-auto w-full max-w-2xl">
+          <header className="flex items-end justify-between gap-5">
+            <div className="min-w-0">
+              <p className="text-xs font-bold uppercase tracking-[0.24em] text-lime-400">
+                {eyebrow}
               </p>
-            ) : null}
-          </div>
-          {action}
-        </header>
+              <h1 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">
+                {title}
+              </h1>
+              {description && (
+                <p className="mt-2 max-w-xl text-sm leading-6 text-zinc-400">
+                  {description}
+                </p>
+              )}
+            </div>
+            {action}
+          </header>
 
-        <div className="mt-8">{children}</div>
-      </div>
-    </main>
+          <div className="mt-8">{children}</div>
+        </div>
+      </main>
+
+      {bottomAction && <StickyActionBar>{bottomAction}</StickyActionBar>}
+      <StickyBottomNavigation />
+    </>
   );
 }
-
-
