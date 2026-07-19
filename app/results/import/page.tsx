@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ChangeEvent, useMemo, useState } from "react";
 import { PlanningShell } from "@/components/planning/PlanningShell";
 import { getValidCloudUser } from "@/lib/firebase-rest";
+import { extractResultFromOcr } from "@/lib/screenshot-ocr";
 import { useHyroxData } from "@/hooks/useHyroxData";
 
 type ExtractedResult = {
@@ -110,6 +111,8 @@ export default function ScreenshotResultImportPage() {
   const [fileName, setFileName] = useState("");
   const [preparing, setPreparing] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
+  const [readingLocally, setReadingLocally] = useState(false);
+  const [ocrProgress, setOcrProgress] = useState(0);
   const [reviewReady, setReviewReady] = useState(false);
   const [error, setError] = useState("");
   const [warnings, setWarnings] = useState<string[]>([]);
@@ -138,6 +141,7 @@ export default function ScreenshotResultImportPage() {
     setReviewReady(false);
     setWarnings([]);
     setConfidence(null);
+    setOcrProgress(0);
 
     if (!ACCEPTED_TYPES.has(file.type) || file.size > MAX_FILE_SIZE) {
       setImageDataUrl("");
@@ -180,6 +184,53 @@ export default function ScreenshotResultImportPage() {
     setWarnings(result.warnings);
     setConfidence(result.confidence);
     setReviewReady(true);
+  }
+
+  async function readWithLocalOcr() {
+    if (!imageDataUrl) return;
+    setReadingLocally(true);
+    setOcrProgress(0);
+    setError("");
+
+    try {
+      const { createWorker } = await import("tesseract.js");
+      const worker = await createWorker("eng", undefined, {
+        logger(message) {
+          if (message.status === "recognizing text") {
+            setOcrProgress(Math.round(message.progress * 100));
+          }
+        },
+      });
+
+      try {
+        const recognition = await worker.recognize(imageDataUrl);
+        if (!recognition.data.text.trim()) {
+          throw new Error("OCR ve screenshotu nenašlo čitelný text.");
+        }
+
+        const result = extractResultFromOcr(recognition.data.text);
+        const foundUsefulValue =
+          result.durationSeconds !== null ||
+          result.averageHeartRate !== null ||
+          result.calories !== null;
+        if (!foundUsefulValue) {
+          throw new Error("OCR nenašlo čas, tep ani kalorie. Zkus ruční vyplnění.");
+        }
+
+        setOcrProgress(100);
+        applyResult(result);
+      } finally {
+        await worker.terminate();
+      }
+    } catch (reason) {
+      setError(
+        reason instanceof Error
+          ? reason.message
+          : "Lokální OCR se nepodařilo spustit. Zkus ruční vyplnění.",
+      );
+    } finally {
+      setReadingLocally(false);
+    }
   }
 
   async function analyzeScreenshot() {
@@ -319,27 +370,41 @@ export default function ScreenshotResultImportPage() {
             </div>
             <p className="mt-3 truncate text-center text-xs text-zinc-500">{fileName}</p>
             {!reviewReady && (
-              <div className="mt-5 grid gap-3 sm:grid-cols-2">
+              <div className="mt-5 space-y-3">
                 <button
                   type="button"
-                  onClick={analyzeScreenshot}
-                  disabled={analyzing}
-                  className="rounded-2xl bg-lime-400 px-5 py-4 font-black text-zinc-950 disabled:cursor-wait disabled:opacity-60"
+                  onClick={readWithLocalOcr}
+                  disabled={readingLocally || analyzing}
+                  className="w-full rounded-2xl bg-lime-400 px-5 py-4 font-black text-zinc-950 disabled:cursor-wait disabled:opacity-60"
                 >
-                  {analyzing ? "Čtu hodnoty…" : "Načíst hodnoty pomocí AI"}
+                  {readingLocally
+                    ? ocrProgress > 0
+                      ? `Čtu v zařízení… ${ocrProgress} %`
+                      : "Připravuji lokální OCR…"
+                    : "Načíst zdarma v zařízení"}
                 </button>
-                <button
-                  type="button"
-                  onClick={startManualReview}
-                  disabled={analyzing}
-                  className="rounded-2xl border border-zinc-700 px-5 py-4 font-bold text-zinc-300 disabled:opacity-60"
-                >
-                  Vyplnit ručně
-                </button>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={analyzeScreenshot}
+                    disabled={readingLocally || analyzing}
+                    className="rounded-2xl bg-zinc-800 px-5 py-4 font-bold text-zinc-200 disabled:cursor-wait disabled:opacity-60"
+                  >
+                    {analyzing ? "Čtu přes OpenAI…" : "Načíst přes OpenAI"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={startManualReview}
+                    disabled={readingLocally || analyzing}
+                    className="rounded-2xl border border-zinc-700 px-5 py-4 font-bold text-zinc-300 disabled:opacity-60"
+                  >
+                    Vyplnit ručně
+                  </button>
+                </div>
               </div>
             )}
             <p className="mt-3 text-xs leading-5 text-zinc-500">
-              AI analýza odešle obrázek na OpenAI API. Do tréninkového deníku se uloží až potvrzené hodnoty, nikoli screenshot.
+              Bezplatné OCR zpracuje obrázek v tomto prohlížeči. Pouze volba OpenAI odešle obrázek k externí analýze. Uloží se až tebou potvrzené hodnoty.
             </p>
           </div>
         )}
