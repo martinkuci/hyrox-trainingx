@@ -103,7 +103,7 @@ export function signOutCloud() {
   saveUser(null);
 }
 
-async function validUser() {
+export async function getValidCloudUser() {
   const user = loadCloudUser();
   if (!user) return null;
   if (user.expiresAt > Date.now() + 60_000) return user;
@@ -134,7 +134,7 @@ function documentUrl(uid: string) {
 }
 
 export async function downloadCloudData(): Promise<HyroxData | null> {
-  const user = await validUser();
+  const user = await getValidCloudUser();
   if (!user) return null;
   const response = await fetch(documentUrl(user.uid), {
     headers: { Authorization: `Bearer ${user.idToken}` },
@@ -148,7 +148,7 @@ export async function downloadCloudData(): Promise<HyroxData | null> {
 }
 
 export async function uploadCloudData(data: HyroxData) {
-  const user = await validUser();
+  const user = await getValidCloudUser();
   if (!user) return false;
   const response = await fetch(documentUrl(user.uid), {
     method: "PATCH",
