@@ -33,6 +33,37 @@ function getStorage(): Storage | null {
   }
 }
 
+function normalizeTemplates(data: Partial<HyroxData>, fallback: HyroxData) {
+  if (!Array.isArray(data.templates)) return fallback.templates;
+
+  const stored = data.templates.map((template) => ({
+    ...template,
+    tags: Array.isArray(template.tags) ? template.tags : [],
+  }));
+  const storedCatalogVersion =
+    typeof data.catalogVersion === "number" ? data.catalogVersion : 0;
+  const currentCatalogVersion = fallback.catalogVersion ?? 0;
+  if (storedCatalogVersion >= currentCatalogVersion) return stored;
+
+  const legacySeedTimestamp = "2026-07-14T00:00:00.000Z";
+  const upgraded = stored.map((template) => {
+    const isUnmodifiedLegacyDefault =
+      template.id === "hyrox-02" &&
+      !template.metadata &&
+      template.createdAt === legacySeedTimestamp &&
+      template.updatedAt === legacySeedTimestamp;
+    return isUnmodifiedLegacyDefault
+      ? fallback.templates.find((item) => item.id === template.id) ?? template
+      : template;
+  });
+  const existingIds = new Set(upgraded.map((template) => template.id));
+
+  return [
+    ...upgraded,
+    ...fallback.templates.filter((template) => !existingIds.has(template.id)),
+  ];
+}
+
 function normalize(value: unknown): HyroxData {
   const fallback = createDefaultHyroxData();
   if (!value || typeof value !== "object") return fallback;
@@ -40,16 +71,16 @@ function normalize(value: unknown): HyroxData {
 
   return {
     version: 1,
-    templates: Array.isArray(data.templates)
-      ? data.templates.map((template) => ({
-          ...template,
-          tags: Array.isArray(template.tags) ? template.tags : [],
-        }))
-      : fallback.templates,
-    scheduledWorkouts: Array.isArray(data.scheduledWorkouts) ? data.scheduledWorkouts : [],
+    catalogVersion: fallback.catalogVersion,
+    templates: normalizeTemplates(data, fallback),
+    scheduledWorkouts: Array.isArray(data.scheduledWorkouts)
+      ? data.scheduledWorkouts
+      : [],
     results: Array.isArray(data.results) ? data.results : [],
     weeklyPlans: Array.isArray(data.weeklyPlans) ? data.weeklyPlans : [],
-    trainingPrograms: Array.isArray(data.trainingPrograms) ? data.trainingPrograms : [],
+    trainingPrograms: Array.isArray(data.trainingPrograms)
+      ? data.trainingPrograms
+      : [],
   };
 }
 
