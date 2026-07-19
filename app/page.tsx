@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { StickyBottomNavigation } from "@/components/navigation/StickyBottomNavigation";
+import { StickyHeader } from "@/components/navigation/StickyHeader";
 import { useHyroxData } from "@/hooks/useHyroxData";
 
 function localDateKey(date: Date) {
@@ -92,14 +94,13 @@ export default function Home() {
     : "Po prvním dokončeném tréninku se zde objeví doporučení podle RPE a výsledku.";
 
   return (
-    <main className="safe-screen min-h-screen bg-zinc-950 px-5 py-8 text-white">
-      <div className="mx-auto max-w-md">
-        <header className="mb-7">
-          <div className="flex items-center justify-between gap-4">
-            <p className="text-sm font-black uppercase tracking-[0.28em] text-lime-400">HYROX Training</p>
-            <Link href="/account" className="rounded-full border border-zinc-800 bg-zinc-900 px-3 py-2 text-xs font-bold text-zinc-300">☁ Cloud</Link>
-          </div>
-          <h1 className="mt-4 text-4xl font-black tracking-tight">Dnešní přehled</h1>
+    <>
+      <StickyHeader title="Dnešní přehled" fallbackHref="/" />
+
+      <main className="min-h-screen bg-zinc-950 px-5 pb-28 pt-24 text-white">
+        <div className="mx-auto max-w-md">
+          <header className="mb-7">
+            <h1 className="text-4xl font-black tracking-tight">Dnešní přehled</h1>
           <p className="mt-2 capitalize text-zinc-400">{todayLabel}</p>
         </header>
 
@@ -179,13 +180,11 @@ export default function Home() {
           </section>
         )}
 
-        <nav className="mt-6 grid grid-cols-3 gap-3" aria-label="Hlavní navigace">
-          <NavCard href="/plan" icon="🗓️" label="Plán" />
-          <NavCard href="/workouts" icon="🏋️" label="Tréninky" />
-          <NavCard href="/history" icon="📊" label="Výsledky" />
-        </nav>
-      </div>
-    </main>
+        </div>
+      </main>
+
+      <StickyBottomNavigation />
+    </>
   );
 }
 
@@ -195,8 +194,4 @@ function Metric({ label, value }: { label: string; value: string }) {
 
 function Stat({ value, label }: { value: number; label: string }) {
   return <div className="rounded-xl bg-zinc-800 px-2 py-3"><p className="text-lg font-black">{value}</p><p className="mt-1 text-[9px] uppercase tracking-wide text-zinc-500">{label}</p></div>;
-}
-
-function NavCard({ href, icon, label }: { href: string; icon: string; label: string }) {
-  return <Link href={href} className="rounded-2xl border border-zinc-800 bg-zinc-900 p-3 text-center transition active:scale-95 active:bg-zinc-800"><span className="text-xl" aria-hidden="true">{icon}</span><span className="mt-2 block text-xs font-bold">{label}</span></Link>;
 }
