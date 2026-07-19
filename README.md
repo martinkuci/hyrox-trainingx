@@ -1,36 +1,85 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# HYROX Training
 
-## Getting Started
+Mobilně orientovaná webová aplikace pro plánování HYROX tréninků, programový kalendář, časovač, historii výsledků a import údajů ze screenshotů.
 
-First, run the development server:
+## Funkce první verze
+
+- knihovna a JSON import tréninků,
+- tvorba vícetýdenních programů,
+- kalendář s přesouváním jedné jednotky nebo zbytku programu,
+- časovač a mezičasy,
+- ukládání výsledků a RPE,
+- import screenshotu z hodinek nebo fitness aplikace,
+- volitelný účet a cloudová synchronizace přes Firebase.
+
+Screenshot se používá pouze jako dočasný vstup. Aplikace uloží až hodnoty, které uživatel zkontroluje; samotný obrázek se neukládá do aplikace ani do Firestore.
+
+## Technologie
+
+- Next.js 16 App Router,
+- React 19 a TypeScript,
+- Tailwind CSS 4,
+- lokální úložiště v prohlížeči,
+- Firebase Authentication a Firestore REST API,
+- OpenAI Responses API pro rozpoznání screenshotu,
+- GitHub a Vercel.
+
+## Lokální spuštění
+
+1. Nainstaluj Node.js a závislosti:
+
+   ```bash
+   npm install
+   ```
+
+2. Zkopíruj `.env.example` do `.env.local` a doplň skutečné hodnoty.
+
+3. Spusť aplikaci:
+
+   ```bash
+   npm run dev
+   ```
+
+4. Otevři `http://localhost:3000`.
+
+## Environment variables
+
+| Proměnná | Kde se používá | Povinná |
+| --- | --- | --- |
+| `NEXT_PUBLIC_FIREBASE_API_KEY` | přihlášení, synchronizace a ověření importu | ano pro cloud a AI import |
+| `NEXT_PUBLIC_FIREBASE_PROJECT_ID` | Firestore synchronizace | ano pro cloud |
+| `OPENAI_API_KEY` | serverové rozpoznání screenshotu | ano pro AI import |
+| `OPENAI_VISION_MODEL` | model pro rozpoznání; výchozí `gpt-5.6-luna` | ne |
+
+`OPENAI_API_KEY` nikdy nevkládej do proměnné začínající `NEXT_PUBLIC_` ani do repozitáře.
+
+## Kontroly před odesláním
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm run lint
+npm run build
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Po změně UI zkontroluj mobilní odsazení, jedinou hlavičku stránky a případnou kolizi se sticky nebo fixed navigací.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## GitHub workflow
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Aktuální práce probíhá na větvi `feature/screenshot-result-import`.
 
-## Learn More
+1. Každý commit obsahuje jeden malý logický krok.
+2. Otevři draft pull request do `main`.
+3. Zkontroluj změny, stav Vercel Preview a případné GitHub Actions.
+4. Po úspěšné kontrole změň pull request na ready a merge do `main`.
 
-To learn more about Next.js, take a look at the following resources:
+Pravidla projektu jsou v `AGENTS.md` a složce `docs`.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Nasazení na Vercel
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1. Ve Vercelu zvol **Add New → Project**.
+2. Importuj GitHub repozitář `martinkuci/hyrox-trainingx`.
+3. Framework nech rozpoznat jako **Next.js** a ponech výchozí build command `npm run build`.
+4. V **Settings → Environment Variables** vlož proměnné z tabulky výše. Skutečné klíče vlož alespoň pro Production; pro plné testování také pro Preview.
+5. Spusť deployment.
+6. Každý pull request následně získá vlastní Preview deployment. Merge do `main` spustí produkční deployment.
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Po změně environment variables spusť nový deployment; staré nasazení je automaticky nepřevezme.

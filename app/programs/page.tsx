@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { PlanningShell } from "@/components/planning/PlanningShell";
 import { useHyroxData } from "@/hooks/useHyroxData";
 import type { NewScheduledWorkout, ProgramPhase, ProgramWeek, WorkoutCategory, WorkoutTemplate } from "@/lib/types";
@@ -80,11 +80,9 @@ export default function ProgramsPage() {
   const [duration, setDuration] = useState<4 | 8 | 12>(12);
   const [frequency, setFrequency] = useState(3);
   const [trainingDays, setTrainingDays] = useState<number[]>([1, 3, 6]);
-  const [startDate, setStartDate] = useState("");
+  const [startDate, setStartDate] = useState(() => dateKey(new Date()));
   const [weeks, setWeeks] = useState<ProgramWeek[]>([]);
   const [message, setMessage] = useState("");
-
-  useEffect(() => setStartDate(dateKey(new Date())), []);
 
   const totalUnits = duration * frequency;
   const assigned = weeks.flatMap((week) => week.sessions).filter((session) => session.templateId).length;

@@ -1,32 +1,33 @@
-# HYROX Training App
+# HYROX Training — projekt
 
-## Purpose
-A mobile-first personal training app for planning, completing, and reviewing HYROX workouts.
+## Cíl
 
-## Core user flow
-1. Create or select a workout template.
-2. Schedule it in a weekly plan or calendar.
-3. Run the workout with the workout runner.
-4. Save duration, RPE, weights, notes, and splits.
-5. Review completed sessions in history.
+Mobilně orientovaná webová aplikace pro plánování HYROX tréninků, práci s tréninkovými programy, přesouvání jednotek v kalendáři a ukládání výsledků.
 
-## Technology
-- Next.js 16
-- React 19
-- TypeScript
-- Tailwind CSS 4
+## Uživatel a hlavní scénáře
 
-## Core data
-The main data model is `HyroxData` in `lib/types.ts`. It contains workout templates, scheduled workouts, results, weekly plans, and training programs.
+- sportovec si vytvoří nebo importuje trénink,
+- sestaví program a vloží jej do kalendáře,
+- spustí trénink s časovačem a mezičasy,
+- po dokončení uloží výsledek,
+- nahraje screenshot z hodinek nebo fitness aplikace, nechá z něj předvyplnit údaje a před uložením je zkontroluje,
+- volitelně synchronizuje data přes Firebase.
 
-## Version 1.0 goal
-Deliver a stable personal HYROX training app that works well on a phone and preserves training data reliably.
+## Aktuální architektura
 
-## Current non-goals
-- General application-building platform
-- Multi-user accounts
-- Social features
-- Paid subscriptions
-- Large backend redesign
+- Next.js App Router, React, TypeScript a Tailwind CSS,
+- klientská data v `localStorage`,
+- volitelná synchronizace přes Firebase Authentication a Firestore REST API,
+- nasazení z GitHubu na Vercel,
+- mobilní rozhraní v češtině.
 
-Finish the HYROX app first. Reusable foundations may be extracted later.
+## Hranice první verze
+
+První verze musí nabídnout použitelný tok od naplánování tréninku po uložení výsledku. Screenshot se používá pouze jako dočasný vstup pro rozpoznání; aplikace ukládá až uživatelem potvrzené strukturované hodnoty, nikoli samotný obrázek.
+
+## Důležité zásady
+
+- API klíče nesmí být v klientském kódu ani v repozitáři.
+- Každý automaticky rozpoznaný údaj musí být před uložením editovatelný.
+- Aplikace musí zůstat použitelná na telefonu.
+- Stávající lokální data musí zůstat zpětně kompatibilní.

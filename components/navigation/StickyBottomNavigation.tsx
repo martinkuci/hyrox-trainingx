@@ -23,6 +23,9 @@ function isActiveRoute(pathname: string, href: string) {
   if (href === "/workouts") {
     return pathname.startsWith("/workouts") || pathname.startsWith("/workout/");
   }
+  if (href === "/history") {
+    return pathname.startsWith("/history") || pathname.startsWith("/results");
+  }
   return pathname.startsWith(href);
 }
 
