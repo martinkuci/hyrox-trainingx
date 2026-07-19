@@ -180,8 +180,8 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
   useEffect(() => {
     if (mode !== "countdown") return;
     if (countdown <= 0) {
-      beginRunning();
-      return;
+      const startTimer = window.setTimeout(beginRunning, 0);
+      return () => window.clearTimeout(startTimer);
     }
     tone(countdown <= 3 ? 1080 : 720, countdown <= 3 ? 0.24 : 0.14, countdown <= 3 ? 0.2 : 0.1);
     const timer = window.setTimeout(() => setCountdown((value) => value - 1), 1000);
