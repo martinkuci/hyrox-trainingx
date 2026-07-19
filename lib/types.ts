@@ -107,6 +107,7 @@ export type WorkoutResult = {
 };
 export type HyroxData = {
   version: 1;
+  catalogVersion?: number;
   templates: WorkoutTemplate[];
   scheduledWorkouts: ScheduledWorkout[];
   results: WorkoutResult[];

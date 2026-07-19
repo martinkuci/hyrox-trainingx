@@ -3,10 +3,9 @@
 import { useMemo, useState } from "react";
 import { PlanningShell } from "@/components/planning/PlanningShell";
 import { useHyroxData } from "@/hooks/useHyroxData";
-import type { NewScheduledWorkout, ProgramPhase, ProgramWeek, WorkoutCategory, WorkoutTemplate } from "@/lib/types";
-
-type Goal = "race" | "fitness" | "run" | "strength";
-type Level = 1 | 2 | 3;
+import type { NewScheduledWorkout, ProgramWeek } from "@/lib/types";
+import { buildProgramWeeks, phaseLabels } from "@/lib/program-generator";
+import type { ProgramGoal as Goal, ProgramLevel as Level } from "@/lib/program-generator";
 
 const weekdays = [
   { value: 1, label: "Po" }, { value: 2, label: "Út" }, { value: 3, label: "St" },
@@ -24,55 +23,6 @@ const goalLabels: Record<Goal, string> = {
 function dateKey(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
-function phaseForWeek(week: number, duration: number): ProgramPhase {
-  const ratio = week / duration;
-  if (week === duration) return "taper";
-  if (week % 4 === 0) return "deload";
-  if (ratio <= 0.3) return "base";
-  if (ratio <= 0.65) return "build";
-  return "specific";
-}
-function categoryPattern(frequency: number, goal: Goal): WorkoutCategory[] {
-  const base: Record<Goal, WorkoutCategory[]> = {
-    race: ["base-engine", "strength", "race-simulation", "threshold", "long-engine"],
-    fitness: ["base-engine", "strength", "mixed", "long-engine", "recovery"],
-    run: ["base-engine", "threshold", "long-engine", "strength", "mixed"],
-    strength: ["strength", "base-engine", "mixed", "threshold", "long-engine"],
-  };
-  return base[goal].slice(0, frequency);
-}
-function chooseTemplate(templates: WorkoutTemplate[], category: WorkoutCategory, level: Level, cursor: number) {
-  const exact = templates.filter((item) => item.metadata?.category === category && (item.metadata?.difficultyLevel ?? 1) <= level);
-  const pool = exact.length ? exact : templates.filter((item) => (item.metadata?.difficultyLevel ?? 1) <= level);
-  const fallback = pool.length ? pool : templates;
-  return fallback.length ? fallback[cursor % fallback.length] : undefined;
-}
-function buildProgramWeeks(templates: WorkoutTemplate[], duration: number, frequency: number, goal: Goal, level: Level, days: number[]): ProgramWeek[] {
-  const pattern = categoryPattern(frequency, goal);
-  let cursor = 0;
-  return Array.from({ length: duration }, (_, index) => {
-    const weekNumber = index + 1;
-    const phase = phaseForWeek(weekNumber, duration);
-    return {
-      weekNumber,
-      title: `Týden ${weekNumber}`,
-      phase,
-      focus: phase === "base" ? "Aerobní základ a technika" : phase === "build" ? "Vyšší výkon a pracovní kapacita" : phase === "deload" ? "Lehčí objem a regenerace" : phase === "specific" ? "HYROX specifika a přechody" : "Odpočinek a zachování ostrosti",
-      sessions: Array.from({ length: frequency }, (_, sessionIndex) => {
-        const category: WorkoutCategory = phase === "deload" && sessionIndex === frequency - 1 ? "recovery" : pattern[sessionIndex % pattern.length];
-        const template = chooseTemplate(templates, category, level, cursor++);
-        return {
-          id: crypto.randomUUID(),
-          weekday: (days[sessionIndex] ?? days[0] ?? 1) as 0 | 1 | 2 | 3 | 4 | 5 | 6,
-          time: sessionIndex === frequency - 1 && frequency >= 3 ? "09:00" : "18:00",
-          templateId: template?.id ?? null,
-          note: category,
-        };
-      }),
-    };
-  });
-}
-
 export default function ProgramsPage() {
   const { data, ready, createTrainingProgram, deleteTrainingProgram, scheduleMany } = useHyroxData();
   const [goal, setGoal] = useState<Goal>("race");
@@ -118,7 +68,7 @@ export default function ProgramsPage() {
   }
   function generateProgram() {
     if (!data.templates.length) return setMessage("Nejdřív je potřeba mít alespoň jeden trénink v knihovně.");
-    setWeeks(buildProgramWeeks(data.templates, duration, frequency, goal, level, trainingDays));
+    setWeeks(buildProgramWeeks({ templates: data.templates, duration, frequency, goal, level, days: trainingDays }));
     setMessage(`Vygenerováno ${duration} týdnů a ${totalUnits} jednotek. Konkrétní tréninky můžeš před uložením změnit.`);
   }
   function updateSession(weekIndex: number, sessionIndex: number, templateId: string) {
@@ -152,7 +102,7 @@ export default function ProgramsPage() {
 
       <section className="mt-6 rounded-3xl border border-zinc-800 bg-zinc-900 p-5 sm:p-6">
         <p className="text-xs font-black uppercase tracking-[0.2em] text-lime-400">3 · Dostupnost</p>
-        <label className="mt-4 block"><span className="text-sm font-bold text-zinc-300">Začátek programu</span><input type="date" value={startDate} min={dateKey(new Date())} onChange={(e) => { setStartDate(e.target.value); setWeeks([]); }} className="mt-2 w-full rounded-2xl border border-zinc-700 bg-zinc-800 px-4 py-3.5" /></label>
+        <label className="mt-4 block"><span className="text-sm font-bold text-zinc-300">Začátek programu</span><input type="date" value={startDate} min={dateKey(new Date())} onChange={(e) => { setStartDate(e.target.value); setWeeks([]); }} className="mt-2 w-full rounded-2xl border border-zinc-700 bg-zinc-800 px-4 py-3.5 text-base" /></label>
         <div className="mt-4 grid grid-cols-7 gap-2">{weekdays.map((day) => <button key={day.value} type="button" onClick={() => toggleDay(day.value)} className={`rounded-xl py-3 text-sm font-black ${trainingDays.includes(day.value) ? "bg-lime-400 text-zinc-950" : "bg-zinc-800 text-zinc-500"}`}>{day.label}</button>)}</div>
         <p className="mt-3 text-center text-sm text-zinc-500">Vybráno {trainingDays.length} z {frequency} dnů</p>
       </section>
@@ -162,7 +112,7 @@ export default function ProgramsPage() {
 
       {weeks.length > 0 && <>
         <section className="mt-6 rounded-3xl border border-zinc-800 bg-zinc-900 p-5"><div className="flex items-center justify-between"><div><p className="text-xs font-black uppercase tracking-[0.2em] text-lime-400">4 · Náhled</p><h2 className="mt-2 text-2xl font-black">{duration} týdnů · {assigned} jednotek</h2></div><button type="button" onClick={generateProgram} className="rounded-xl border border-zinc-700 px-3 py-2 text-sm font-bold">Regenerovat</button></div></section>
-        <div className="mt-4 space-y-4">{weeks.map((week, weekIndex) => <section key={week.weekNumber} className="rounded-3xl border border-zinc-800 bg-zinc-900 p-5"><div className="flex items-center justify-between"><div><p className="text-xs font-black uppercase tracking-wide text-lime-400">Týden {week.weekNumber}</p><h3 className="mt-1 text-lg font-black">{week.focus}</h3></div><span className="rounded-full bg-zinc-800 px-3 py-1 text-xs font-bold">{week.phase}</span></div><div className="mt-4 grid gap-3 sm:grid-cols-2">{week.sessions.map((session, sessionIndex) => <label key={session.id} className="rounded-2xl bg-zinc-800 p-3"><span className="text-xs font-black uppercase tracking-wide text-lime-300">Jednotka {sessionIndex + 1}</span><select value={session.templateId ?? ""} onChange={(e) => updateSession(weekIndex, sessionIndex, e.target.value)} className="mt-2 w-full rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-3 text-sm">{data.templates.map((template) => <option key={template.id} value={template.id}>{template.metadata?.workoutCode ? `${template.metadata.workoutCode} · ` : ""}{template.title}</option>)}</select></label>)}</div></section>)}</div>
+        <div className="mt-4 space-y-4">{weeks.map((week, weekIndex) => <section key={week.weekNumber} className="rounded-3xl border border-zinc-800 bg-zinc-900 p-5"><div className="flex items-center justify-between"><div><p className="text-xs font-black uppercase tracking-wide text-lime-400">Týden {week.weekNumber}</p><h3 className="mt-1 text-lg font-black">{week.focus}</h3></div><span className="rounded-full bg-zinc-800 px-3 py-1 text-xs font-bold">{phaseLabels[week.phase]}</span></div><div className="mt-4 grid gap-3 sm:grid-cols-2">{week.sessions.map((session, sessionIndex) => <label key={session.id} className="rounded-2xl bg-zinc-800 p-3"><span className="text-xs font-black uppercase tracking-wide text-lime-300">Jednotka {sessionIndex + 1}</span><select value={session.templateId ?? ""} onChange={(e) => updateSession(weekIndex, sessionIndex, e.target.value)} className="mt-2 w-full rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-3 text-base">{data.templates.map((template) => <option key={template.id} value={template.id}>{template.metadata?.workoutCode ? `${template.metadata.workoutCode} · ` : ""}{template.title}</option>)}</select></label>)}</div></section>)}</div>
         <button type="button" onClick={saveAndSchedule} className="mt-6 w-full rounded-2xl bg-lime-400 px-5 py-4 text-lg font-black text-zinc-950">Uložit a vložit do kalendáře</button>
       </>}
 
