@@ -200,6 +200,7 @@ export function extractResultFromOcr(rawText: string, now = new Date()): LocalOc
   if (workoutTitle === "Trénink ze screenshotu") {
     warnings.push("OCR nerozpoznalo název tréninku.");
   }
+  warnings.push("RPE na screenshotu není uvedené; výchozí hodnotu 7 uprav podle pocitu.");
 
   const recognized = [
     durationSeconds !== null,
