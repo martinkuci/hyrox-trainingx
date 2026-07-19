@@ -22,6 +22,38 @@ function errorResponse(message: string, status: number) {
   return Response.json({ error: message }, { status });
 }
 
+function openAiErrorCode(value: unknown) {
+  const body = objectValue(value);
+  const error = objectValue(body?.error);
+  return typeof error?.code === "string"
+    ? error.code
+    : typeof error?.type === "string"
+      ? error.type
+      : "";
+}
+
+function openAiFailureMessage(status: number, code: string) {
+  if (status === 401) {
+    return "OpenAI API klíč není platný. Zkontroluj hodnotu OPENAI_API_KEY pro Vercel Preview a spusť nový deployment.";
+  }
+  if (status === 403) {
+    return "OpenAI projekt nemá oprávnění použít zvolený model. Zkontroluj oprávnění API klíče a projektu.";
+  }
+  if (status === 404 || code === "model_not_found") {
+    return "Zvolený OpenAI model není pro tento projekt dostupný. Zkontroluj OPENAI_VISION_MODEL ve Vercelu.";
+  }
+  if (status === 429 && code === "insufficient_quota") {
+    return "OpenAI projekt nemá dostupný kredit nebo má vyčerpanou kvótu. Zkontroluj Billing a Usage Limits.";
+  }
+  if (status === 429) {
+    return "OpenAI API právě překročilo limit požadavků. Po chvíli zkus import znovu.";
+  }
+  if (status === 400) {
+    return "OpenAI odmítlo požadavek na analýzu. Zkontroluj nastavený vision model a zkus import znovu.";
+  }
+  return "Automatické čtení screenshotu se nepodařilo. Zkus to znovu později.";
+}
+
 function objectValue(value: unknown): JsonRecord | null {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as JsonRecord)
@@ -110,8 +142,8 @@ async function verifyFirebaseUser(idToken: string, apiKey: string) {
 }
 
 export async function POST(request: Request) {
-  const firebaseApiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
-  const openAiApiKey = process.env.OPENAI_API_KEY;
+  const firebaseApiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY?.trim();
+  const openAiApiKey = process.env.OPENAI_API_KEY?.trim();
 
   if (!firebaseApiKey || !openAiApiKey) {
     return errorResponse("Import screenshotu zatím není na serveru nakonfigurovaný.", 503);
@@ -215,8 +247,17 @@ export async function POST(request: Request) {
   });
 
   if (!response.ok) {
-    console.error("OpenAI screenshot import failed", response.status);
-    return errorResponse("Automatické čtení screenshotu se nepodařilo. Zkus to znovu později.", 502);
+    let code = "";
+    try {
+      code = openAiErrorCode(await response.json());
+    } catch {
+      // The status code still provides a safe user-facing fallback.
+    }
+    console.error("OpenAI screenshot import failed", {
+      status: response.status,
+      code: code || "unknown",
+    });
+    return errorResponse(openAiFailureMessage(response.status, code), 502);
   }
 
   try {
