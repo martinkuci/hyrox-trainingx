@@ -31,8 +31,7 @@ export default function HistoryPage() {
   return (
     <main className="min-h-dvh bg-zinc-950 px-5 py-8 text-white">
       <div className="mx-auto max-w-lg">
-        <Link href="/" className="text-sm text-zinc-400">← Zpět</Link>
-        <p className="mt-9 text-sm font-black uppercase tracking-[0.22em] text-lime-400">HYROX Training</p>
+        <p className="text-sm font-black uppercase tracking-[0.22em] text-lime-400">HYROX Training</p>
         <h1 className="mt-2 text-4xl font-black">Historie</h1>
         <p className="mt-2 text-zinc-400">Výsledky a mezičasy tvých tréninků.</p>
         <Link href="/results/import" className="mt-5 block rounded-2xl bg-lime-400 px-5 py-4 text-center font-black text-zinc-950">
