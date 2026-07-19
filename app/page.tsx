@@ -135,12 +135,12 @@ export default function Home() {
               <>
                 <p className="mt-2 text-zinc-400">Další trénink je {new Intl.DateTimeFormat("cs-CZ", { weekday: "long", day: "numeric", month: "numeric" }).format(new Date(`${upcomingSchedule.date}T12:00:00`))} v {upcomingSchedule.time}.</p>
                 <div className="mt-5 rounded-2xl bg-zinc-800 p-4"><p className="font-black">{upcomingTemplate.title}</p><p className="mt-1 text-sm text-zinc-400">{upcomingTemplate.durationMinutes} min</p></div>
-                <Link href="/plan" className="mt-4 block text-center text-sm font-bold text-lime-300">Otevřít plán</Link>
+                <Link href={activeProgram ? "/calendar/program" : "/programs"} className="mt-4 block text-center text-sm font-bold text-lime-300">Otevřít plán</Link>
               </>
             ) : (
               <>
                 <p className="mt-2 text-zinc-400">Nemáš naplánovaný další trénink.</p>
-                <Link href="/plan" className="mt-5 block rounded-2xl bg-lime-400 px-5 py-4 text-center font-black text-zinc-950">Vytvořit tréninkový program</Link>
+                <Link href="/programs" className="mt-5 block rounded-2xl bg-lime-400 px-5 py-4 text-center font-black text-zinc-950">Vytvořit tréninkový program</Link>
                 <Link href="/workouts" className="mt-3 block text-center text-sm font-bold text-zinc-400">Nebo vybrat z knihovny</Link>
               </>
             )}
@@ -155,7 +155,7 @@ export default function Home() {
             </div>
             <div className="mt-4 h-2 overflow-hidden rounded-full bg-zinc-800"><div className="h-full rounded-full bg-lime-400" style={{ width: `${activeProgramRate}%` }} /></div>
             <p className="mt-3 text-sm text-zinc-400">{activeProgramCompleted} z {activeProgramTotal} jednotek dokončeno</p>
-            <Link href="/plan" className="mt-4 block text-sm font-bold text-lime-300">Zobrazit program →</Link>
+            <Link href="/calendar/program" className="mt-4 block text-sm font-bold text-lime-300">Zobrazit program →</Link>
           </section>
         )}
 
