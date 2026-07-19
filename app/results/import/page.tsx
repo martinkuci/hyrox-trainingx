@@ -1,7 +1,6 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChangeEvent, useMemo, useState } from "react";
 import { PlanningShell } from "@/components/planning/PlanningShell";
@@ -291,14 +290,6 @@ export default function ScreenshotResultImportPage() {
       title="Načíst screenshot"
       description="Nahraj souhrn z hodinek nebo fitness aplikace. Rozpoznané hodnoty vždy nejdřív zkontroluješ."
       backHref="/history"
-      action={
-        <Link
-          href="/account"
-          className="shrink-0 rounded-full border border-zinc-700 bg-zinc-900 px-3 py-2 text-xs font-bold text-zinc-300"
-        >
-          Cloud účet
-        </Link>
-      }
     >
       <section className="rounded-3xl border border-zinc-800 bg-zinc-900 p-5 sm:p-6">
         <h2 className="text-xl font-black">1. Vyber screenshot</h2>
