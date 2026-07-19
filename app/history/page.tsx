@@ -34,6 +34,9 @@ export default function HistoryPage() {
         <p className="text-sm font-black uppercase tracking-[0.22em] text-lime-400">HYROX Training</p>
         <h1 className="mt-2 text-4xl font-black">Historie</h1>
         <p className="mt-2 text-zinc-400">Výsledky a mezičasy tvých tréninků.</p>
+        <Link href="/results/import" className="mt-5 block rounded-2xl bg-lime-400 px-5 py-4 text-center font-black text-zinc-950">
+          Načíst výsledek ze screenshotu
+        </Link>
 
         {!ready && <p className="mt-10 text-zinc-400">Načítám výsledky…</p>}
         {ready && results.length === 0 && <section className="mt-8 rounded-3xl border border-zinc-800 bg-zinc-900 p-8 text-center"><div className="text-4xl">◷</div><h2 className="mt-4 text-xl font-bold">Zatím žádné výsledky</h2><p className="mt-2 text-zinc-400">Dokončený trénink se zobrazí tady.</p><Link href="/" className="mt-7 block rounded-2xl bg-lime-400 px-5 py-4 font-bold text-zinc-950">Vybrat trénink</Link></section>}
@@ -54,8 +57,9 @@ export default function HistoryPage() {
             return (
               <article key={result.id} className="overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-900">
                 <div className="p-6">
-                  <div className="flex items-start justify-between gap-4"><div><p className="text-sm font-bold text-lime-400">{new Intl.DateTimeFormat("cs-CZ", { dateStyle: "medium", timeStyle: "short" }).format(new Date(result.completedAt))}</p><h2 className="mt-1 text-2xl font-black">{result.workoutTitle}</h2></div><span className="shrink-0 rounded-full bg-zinc-800 px-3 py-1.5 text-sm font-semibold">RPE {result.rpe}</span></div>
+                  <div className="flex items-start justify-between gap-4"><div><p className="text-sm font-bold text-lime-400">{new Intl.DateTimeFormat("cs-CZ", { dateStyle: "medium", timeStyle: "short" }).format(new Date(result.completedAt))}</p><h2 className="mt-1 text-2xl font-black">{result.workoutTitle}</h2></div><div className="flex shrink-0 flex-col items-end gap-2">{result.source === "screenshot" && <span className="rounded-full bg-lime-400/15 px-3 py-1 text-xs font-black text-lime-300">Screenshot</span>}<span className="rounded-full bg-zinc-800 px-3 py-1.5 text-sm font-semibold">RPE {result.rpe}</span></div></div>
                   <div className="mt-5 flex items-end justify-between rounded-2xl bg-zinc-800 p-4"><div><p className="text-sm text-zinc-400">Celkový čas</p><p className="mt-1 font-mono text-3xl font-black">{formatDuration(result.durationSeconds)}</p></div><span className="text-sm text-zinc-500">{result.splits.length} úseků</span></div>
+                  {result.metrics && Object.values(result.metrics).some((value) => value !== undefined) && <div className="mt-4 grid grid-cols-2 gap-2">{result.metrics.averageHeartRate !== undefined && <ResultMetric label="Průměrný tep" value={result.metrics.averageHeartRate + " bpm"} />}{result.metrics.maxHeartRate !== undefined && <ResultMetric label="Maximální tep" value={result.metrics.maxHeartRate + " bpm"} />}{result.metrics.calories !== undefined && <ResultMetric label="Kalorie" value={result.metrics.calories + " kcal"} />}{result.metrics.distanceKm !== undefined && <ResultMetric label="Vzdálenost" value={result.metrics.distanceKm.toLocaleString("cs-CZ", { maximumFractionDigits: 2 }) + " km"} />}</div>}
                   {result.weights && <div className="mt-4"><p className="text-xs font-bold uppercase tracking-wider text-zinc-500">Váhy</p><p className="mt-1 text-zinc-200">{result.weights}</p></div>}
                   {result.notes && <div className="mt-4"><p className="text-xs font-bold uppercase tracking-wider text-zinc-500">Poznámka</p><p className="mt-1 whitespace-pre-wrap text-zinc-300">{result.notes}</p></div>}
                   <div className="mt-5 grid grid-cols-[1fr_auto] gap-3"><button type="button" onClick={() => setExpandedId(expanded ? null : result.id)} className="rounded-xl bg-zinc-800 px-4 py-3 text-sm font-semibold text-zinc-200">{expanded ? "Skrýt mezičasy" : "Zobrazit mezičasy"}</button><button type="button" onClick={() => setPendingDelete(result)} className="rounded-xl border border-red-500/30 px-4 py-3 text-sm font-semibold text-red-300">Smazat</button></div>
@@ -89,4 +93,8 @@ export default function HistoryPage() {
 
 function Stat({ label, value }: { label: string; value: string }) {
   return <div className="rounded-xl bg-zinc-800 px-2 py-3"><p className="font-mono text-sm font-black text-zinc-100">{value}</p><p className="mt-1 text-[10px] uppercase tracking-wide text-zinc-500">{label}</p></div>;
+}
+
+function ResultMetric({ label, value }: { label: string; value: string }) {
+  return <div className="rounded-xl bg-zinc-800 px-3 py-3"><p className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">{label}</p><p className="mt-1 font-black text-zinc-100">{value}</p></div>;
 }
