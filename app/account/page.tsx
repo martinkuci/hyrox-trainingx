@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import {
@@ -45,8 +44,7 @@ export default function AccountPage() {
   return (
     <main className="min-h-dvh bg-zinc-950 px-5 py-8 text-white">
       <div className="mx-auto max-w-md">
-        <Link href="/" className="text-sm text-zinc-400">← Zpět</Link>
-        <p className="mt-9 text-sm font-black uppercase tracking-[0.22em] text-lime-400">Cloud</p>
+        <p className="text-sm font-black uppercase tracking-[0.22em] text-lime-400">Cloud</p>
         <h1 className="mt-2 text-4xl font-black">Účet a synchronizace</h1>
 
         {user ? (
