@@ -1,25 +1,33 @@
-# Current Task
+# Aktuální úkol
 
-## Goal
-Complete Phase 1 and prepare a structured audit of the HYROX app.
+## Feature větev
 
-## Current work
-- Keep project documentation short and accurate.
-- Verify every written file after saving it.
-- Work on branch `feature/sticky-navigation-3b6a`.
+`feature/screenshot-result-import-rebase`
 
-## Next action
-Audit the app area by area and create a prioritized list of issues and missing behavior.
+## Cíl změny
 
-## Audit order
-1. Workout library
-2. Workout editor
-3. Workout runner
-4. Calendar and planning
-5. Training programs
-6. History and results
-7. Import, export, and recovery
-8. Settings and account area
+Přenést otestovaný import výsledků ze screenshotu na aktuální `main` po dokončení společné horní a spodní navigace.
 
-## Definition of done
-Phase 1 is complete when `PROJECT.md`, `ROADMAP.md`, `CURRENT_TASK.md`, `ENGINEERING_RULES.md`, and `UI_GUIDELINES.md` exist and have been re-read from GitHub without truncation.
+## Rozsah
+
+- zachovat společnou pevnou hlavičku a spodní navigaci z `main`,
+- přenést lokální OCR a volitelnou analýzu přes OpenAI,
+- zachovat kontrolu a ruční opravu rozpoznaných hodnot,
+- ukládat pouze potvrzená strukturovaná data, nikoli screenshot,
+- zachovat zobrazení importovaných metrik v historii,
+- zachovat mobilní opravy včetně formulářů bez automatického zoomu v Safari.
+
+## Akceptační kritéria
+
+- dodaný Apple Fitness screenshot načte čas, aktivní kalorie a průměrný tep 151 BPM,
+- hodnota osy grafu se neuloží jako maximální tep,
+- import je dostupný z historie výsledků,
+- existující lokální i cloudová data zůstanou kompatibilní,
+- na mobilu nejsou duplicitní hlavičky ani kolize s pevnou navigací,
+- lint, TypeScript nebo produkční build a Vercel preview projdou.
+
+## Mimo rozsah
+
+- změny tréninkového katalogu a generátoru programu,
+- automatické ukládání obrázků,
+- dávkový import.
