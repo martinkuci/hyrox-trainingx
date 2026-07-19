@@ -1,7 +1,7 @@
 # HYROX Training App Roadmap
 
 ## Phase 1 - Project foundation
-Status: in progress
+Status: complete
 
 - Define project purpose and version 1.0 scope.
 - Define current task and development rules.
