@@ -43,6 +43,19 @@ function numberAfterLabel(
   return validInteger(valueMatch?.[1], min, max);
 }
 
+function repeatedBpm(text: string) {
+  const counts = new Map<number, number>();
+  for (const match of text.matchAll(/\b(\d{2,3})\s*bpm\b/g)) {
+    const value = validInteger(match[1], 20, 260);
+    if (value !== null) counts.set(value, (counts.get(value) ?? 0) + 1);
+  }
+
+  for (const [value, count] of counts) {
+    if (count >= 2) return value;
+  }
+  return null;
+}
+
 function readDuration(text: string) {
   for (const match of text.matchAll(/\b(\d{1,2})[:.](\d{2})[:.](\d{2})\b/g)) {
     const hours = Number(match[1]);
@@ -106,7 +119,7 @@ function completedAtFromText(text: string, now: Date) {
 }
 
 function readWorkoutTitle(rawText: string, normalizedText: string) {
-  if (/funkc\w*\s+silov\w*\s+tr[eé]nink/i.test(normalizedText)) {
+  if (/funk\w{2,8}\s+silov\w*\s+trenink/i.test(normalizedText)) {
     return "Funkční silový trénink";
   }
 
@@ -153,13 +166,14 @@ export function extractResultFromOcr(rawText: string, now = new Date()): LocalOc
     0,
     20_000,
   );
-  const averageHeartRate = numberAfterLabel(
-    text,
-    /prumer\w*\s+tepov\w*\s+frekven\w*/,
-    /(\d{2,3})\s*bpm/,
-    20,
-    260,
-  );
+  const averageHeartRate =
+    numberAfterLabel(
+      text,
+      /prumer\w*\s+tepov\w*\s+frekven\w*/,
+      /(\d{2,3})\s*bpm/,
+      20,
+      260,
+    ) ?? repeatedBpm(text);
   const maxHeartRate = numberAfterLabel(
     text,
     /maximaln\w*\s+tepov\w*\s+frekven\w*/,
