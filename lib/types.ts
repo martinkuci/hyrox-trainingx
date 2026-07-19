@@ -80,6 +80,13 @@ export type ScheduledWorkout = {
 export type WeeklyPlanDay = { weekday: 0 | 1 | 2 | 3 | 4 | 5 | 6; templateId: string | null; time: string };
 export type WeeklyPlanTemplate = { id: string; name: string; days: WeeklyPlanDay[]; createdAt: string; updatedAt: string };
 export type StepSplit = { blockId: string; stepId: string; round: number; durationSeconds: number; blockTitle?: string; stepName?: string; stepDetail?: string };
+export type WorkoutResultMetrics = {
+  averageHeartRate?: number;
+  maxHeartRate?: number;
+  calories?: number;
+  distanceKm?: number;
+};
+
 export type WorkoutResult = {
   id: string;
   templateId: string;
@@ -94,6 +101,9 @@ export type WorkoutResult = {
   weights: string;
   notes: string;
   splits: StepSplit[];
+  source?: "runner" | "screenshot";
+  sourceImageName?: string;
+  metrics?: WorkoutResultMetrics;
 };
 export type HyroxData = {
   version: 1;
