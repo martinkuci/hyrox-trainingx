@@ -62,8 +62,6 @@ export default function LiveProgramCalendarPage() {
     return planned.filter((item) => item.programId === effectiveProgramId);
   }, [data.scheduledWorkouts, programId]);
 
-  const effectiveProgramId = programId || programSchedules[0]?.programId || "";
-  const program = data.trainingPrograms.find((item) => item.id === effectiveProgramId);
   const cells = monthCells(month);
   const firstDate = programSchedules[0]?.date;
   const lastDate = programSchedules[programSchedules.length - 1]?.date;
