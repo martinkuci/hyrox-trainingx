@@ -101,8 +101,8 @@ export default function Home() {
         <div className="mx-auto max-w-md">
           <header className="mb-7">
             <h1 className="text-4xl font-black tracking-tight">Dnešní přehled</h1>
-          <p className="mt-2 capitalize text-zinc-400">{todayLabel}</p>
-        </header>
+            <p className="mt-2 capitalize text-zinc-400">{todayLabel}</p>
+          </header>
 
         {!ready ? (
           <section className="h-80 animate-pulse rounded-[2rem] border border-zinc-800 bg-zinc-900" />
