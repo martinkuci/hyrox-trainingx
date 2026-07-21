@@ -15,7 +15,8 @@ Usnadnit první použití aplikace a soustředit účet, cloud, nápovědu a zp�
 - umožnit průvodce kdykoli znovu otevřít ze sekce účtu,
 - rozšířit sekci Cloud na „Účet, cloud a pomoc“,
 - doplnit funkční obnovu hesla přes stávající Firebase Authentication,
-- přidat kontaktní a zpětnovazební formulář bez ukládání rozepsaného textu do cloudu,
+- odesílat kontaktní a zpětnovazební formulář přímo tvůrci aplikace,
+- označit předmět e-mailu podle typu podnětu,
 - doplnit přehledné FAQ,
 - zachovat existující přihlášení, synchronizaci a všechna tréninková data.
 
@@ -27,7 +28,10 @@ Usnadnit první použití aplikace a soustředit účet, cloud, nápovědu a zp�
 - průvodce je čitelný na telefonu a respektuje safe-area,
 - přihlášený i odhlášený uživatel se dostane k nápovědě a FAQ,
 - reset hesla odešle bezpečný Firebase e-mail a zobrazí srozumitelný stav,
-- zpětná vazba umožní připravit kontakt bez zveřejnění neověřené adresy v kódu,
+- zpětná vazba se odešle bez otevření e-mailového klienta,
+- příjemce a API klíč nejsou dostupné v klientském JavaScriptu,
+- předmět rozlišuje nápad, chybu, dotaz a jinou připomínku,
+- endpoint neumožňuje změnit příjemce, validuje délku a e-mail a omezuje opakované odesílání,
 - formulářová pole mají nejméně 16px a na iPhonu se při psaní nezvětšují,
 - stránka nemá duplicitní hlavičku ani kolizi se spodní navigací,
 - lint, produkční build a Vercel Preview projdou.
