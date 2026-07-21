@@ -85,6 +85,7 @@ export type WorkoutResultMetrics = {
   maxHeartRate?: number;
   calories?: number;
   distanceKm?: number;
+  watchDurationSeconds?: number;
 };
 
 export type WorkoutResult = {
