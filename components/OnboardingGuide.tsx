@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 
 const ONBOARDING_STORAGE_KEY = "hyrox-onboarding-seen-v1";
 const ONBOARDING_STATE_EVENT = "hyrox-onboarding-state";
@@ -88,9 +94,22 @@ export default function OnboardingGuide() {
   );
   const [manualOpen, setManualOpen] = useState(false);
   const [stepIndex, setStepIndex] = useState(0);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
   const open = manualOpen || !hasSeenGuide;
   const step = steps[stepIndex];
   const lastStep = stepIndex === steps.length - 1;
+
+  const rememberAndClose = useCallback(() => {
+    try {
+      window.localStorage.setItem(ONBOARDING_STORAGE_KEY, "1");
+    } catch {
+      // The guide can still be closed when private storage is unavailable.
+    }
+    window.dispatchEvent(new CustomEvent(ONBOARDING_STATE_EVENT));
+    setManualOpen(false);
+    setStepIndex(0);
+  }, []);
 
   useEffect(() => {
     function handleOpen() {
@@ -102,22 +121,54 @@ export default function OnboardingGuide() {
     return () => window.removeEventListener(OPEN_ONBOARDING_EVENT, handleOpen);
   }, []);
 
-  function rememberAndClose() {
-    try {
-      window.localStorage.setItem(ONBOARDING_STORAGE_KEY, "1");
-    } catch {
-      // The guide can still be closed when private storage is unavailable.
+  useEffect(() => {
+    if (!open) return;
+
+    const previousFocus =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    closeButtonRef.current?.focus();
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        rememberAndClose();
+        return;
+      }
+      if (event.key !== "Tab") return;
+
+      const focusable = Array.from(
+        dialogRef.current?.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ) ?? [],
+      );
+      if (focusable.length === 0) return;
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
     }
-    window.dispatchEvent(new CustomEvent(ONBOARDING_STATE_EVENT));
-    setManualOpen(false);
-    setStepIndex(0);
-  }
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = previousOverflow;
+      previousFocus?.focus();
+    };
+  }, [open, rememberAndClose]);
 
   if (!open) return null;
 
   return (
     <div className="fixed inset-0 z-[100] overflow-y-auto overscroll-contain bg-zinc-950/95 p-4 text-white backdrop-blur-sm safe-screen">
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="onboarding-title"
@@ -136,6 +187,7 @@ export default function OnboardingGuide() {
               ))}
             </div>
             <button
+              ref={closeButtonRef}
               type="button"
               onClick={rememberAndClose}
               className="grid min-h-11 min-w-11 place-items-center rounded-xl text-2xl text-zinc-400 active:bg-zinc-800 active:text-white"
