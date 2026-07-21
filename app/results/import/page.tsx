@@ -200,7 +200,7 @@ function ScreenshotResultImportContent() {
     setTemplateId(existing?.templateId ?? matched?.id ?? "");
     setWorkoutTitle(existing?.workoutTitle ?? matched?.title ?? (result.workoutTitle || "Trénink ze screenshotu"));
     setCompletedAt(toDateTimeLocal(existing?.completedAt ?? result.completedAt));
-    setDuration(formatDurationInput(result.durationSeconds ?? existing?.durationSeconds ?? null));
+    setDuration(formatDurationInput(result.durationSeconds ?? existing?.metrics?.watchDurationSeconds ?? null));
     setRpe(String(existing?.rpe ?? result.rpe ?? 7));
     setAverageHeartRate(String(result.averageHeartRate ?? existing?.metrics?.averageHeartRate ?? ""));
     setMaxHeartRate(String(result.maxHeartRate ?? existing?.metrics?.maxHeartRate ?? ""));
@@ -296,7 +296,7 @@ function ScreenshotResultImportContent() {
     setTemplateId(targetResult?.templateId ?? "");
     setWorkoutTitle(targetResult?.workoutTitle ?? "Trénink ze screenshotu");
     setCompletedAt(toDateTimeLocal(targetResult?.completedAt ?? null));
-    setDuration(formatDurationInput(targetResult?.durationSeconds ?? null));
+    setDuration(formatDurationInput(targetResult?.metrics?.watchDurationSeconds ?? null));
     setRpe(String(targetResult?.rpe ?? 7));
     setAverageHeartRate(String(targetResult?.metrics?.averageHeartRate ?? ""));
     setMaxHeartRate(String(targetResult?.metrics?.maxHeartRate ?? ""));
@@ -323,7 +323,7 @@ function ScreenshotResultImportContent() {
     setTemplateId(existing.templateId);
     setWorkoutTitle(existing.workoutTitle);
     setCompletedAt(toDateTimeLocal(existing.completedAt));
-    setDuration((current) => current || formatDurationInput(existing.durationSeconds));
+    setDuration((current) => current || formatDurationInput(existing.metrics?.watchDurationSeconds ?? null));
     setRpe(String(existing.rpe));
     setAverageHeartRate((current) => current || String(existing.metrics?.averageHeartRate ?? ""));
     setMaxHeartRate((current) => current || String(existing.metrics?.maxHeartRate ?? ""));
@@ -334,14 +334,14 @@ function ScreenshotResultImportContent() {
   }
 
   function saveResult() {
-    const durationSeconds = parseDuration(duration);
+    const importedDurationSeconds = parseDuration(duration);
     const parsedRpe = Number(rpe);
     const date = new Date(completedAt);
     if (!workoutTitle.trim()) {
       setError("Doplň název tréninku.");
       return;
     }
-    if (!durationSeconds) {
+    if (!importedDurationSeconds && !targetResult) {
       setError("Doplň čas ve formátu HH:MM:SS, například 00:42:18.");
       return;
     }
@@ -360,6 +360,9 @@ function ScreenshotResultImportContent() {
       maxHeartRate: optionalNumber(maxHeartRate) ?? targetResult?.metrics?.maxHeartRate,
       calories: optionalNumber(calories) ?? targetResult?.metrics?.calories,
       distanceKm: optionalNumber(distanceKm) ?? targetResult?.metrics?.distanceKm,
+      watchDurationSeconds: targetResult
+        ? importedDurationSeconds ?? targetResult.metrics?.watchDurationSeconds
+        : undefined,
     };
 
     if (targetResult) {
@@ -371,7 +374,7 @@ function ScreenshotResultImportContent() {
         metadataSnapshot: targetResult.metadataSnapshot,
         scheduledWorkoutId: targetResult.scheduledWorkoutId,
         completedAt: targetResult.completedAt,
-        durationSeconds,
+        durationSeconds: targetResult.durationSeconds,
         rpe: parsedRpe,
         weights: weights.trim(),
         notes: notes.trim(),
@@ -388,7 +391,7 @@ function ScreenshotResultImportContent() {
         templateVersion: template?.metadata?.templateVersion,
         metadataSnapshot: template?.metadata ? structuredClone(template.metadata) : undefined,
         completedAt: date.toISOString(),
-        durationSeconds,
+        durationSeconds: importedDurationSeconds!,
         rpe: parsedRpe,
         weights: weights.trim(),
         notes: notes.trim(),
@@ -418,7 +421,7 @@ function ScreenshotResultImportContent() {
             <p className="text-xs font-black uppercase tracking-[0.18em] text-lime-400">Doplňuješ existující výsledek</p>
             <p className="mt-2 font-black text-white">{targetResult.workoutTitle}</p>
             <p className="mt-1 text-sm text-zinc-300">{formatResultOption(targetResult.completedAt, "", targetResult.rpe).replace(" ·  ·", " ·")}</p>
-            <p className="mt-2 text-sm leading-5 text-zinc-400">RPE, váhy, poznámka a mezičasy zůstanou zachované.</p>
+            <p className="mt-2 text-sm leading-5 text-zinc-400">Čas aplikace, RPE, váhy, poznámka a mezičasy zůstanou zachované.</p>
           </div>
         )}
         <label className="mt-5 block cursor-pointer rounded-2xl border border-dashed border-lime-400/50 bg-lime-400/5 px-5 py-6 text-center font-black text-lime-300">
@@ -516,7 +519,7 @@ function ScreenshotResultImportContent() {
           <label className="mt-5 block text-sm font-bold text-zinc-300">
             Doplnit konkrétní dokončený trénink
             <select
-              value={targetResultId}
+              value={targetResult?.id ?? ""}
               onChange={(event) => selectTargetResult(event.target.value)}
               disabled={!ready}
               className="mt-2 w-full rounded-2xl border border-zinc-700 bg-zinc-800 px-4 py-3.5 text-base"
@@ -529,11 +532,11 @@ function ScreenshotResultImportContent() {
               ))}
             </select>
             <span className="mt-2 block text-xs font-normal leading-5 text-zinc-500">
-              U konkrétního záznamu se doplní data ze screenshotu; RPE, váhy, poznámka a mezičasy se nesmažou.
+              U konkrétního záznamu se doplní data ze screenshotu; čas aplikace, RPE, váhy, poznámka a mezičasy se nesmažou.
             </span>
           </label>
 
-          {!targetResultId && (
+          {!targetResult && (
             <label className="mt-5 block text-sm font-bold text-zinc-300">
               Přiřadit nový záznam k šabloně
               <select
@@ -550,7 +553,7 @@ function ScreenshotResultImportContent() {
             </label>
           )}
 
-          {!targetResultId && (
+          {!targetResult && (
             <>
               <TextField label="Název tréninku" value={workoutTitle} onChange={setWorkoutTitle} />
               <label className="mt-5 block text-sm font-bold text-zinc-300">
@@ -565,7 +568,7 @@ function ScreenshotResultImportContent() {
             </>
           )}
           <TextField
-            label="Celkový čas"
+            label={targetResult ? "Čas podle hodinek (volitelné)" : "Celkový čas"}
             value={duration}
             onChange={setDuration}
             placeholder="00:42:18"
@@ -596,7 +599,7 @@ function ScreenshotResultImportContent() {
             onClick={saveResult}
             className="mt-7 w-full rounded-2xl bg-lime-400 px-5 py-4 text-lg font-black text-zinc-950"
           >
-            {targetResultId ? "Doplnit data do výsledku" : "Uložit nový výsledek"}
+            {targetResult ? "Doplnit data do výsledku" : "Uložit nový výsledek"}
           </button>
         </section>
       )}
