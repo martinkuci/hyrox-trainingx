@@ -207,15 +207,15 @@ export default function ScreenshotResultImportPage() {
     const existing = targetResults.find((item) => item.id === targetResultId);
 
     setTemplateId(existing?.templateId ?? matched?.id ?? "");
-    setWorkoutTitle(existing?.workoutTitle ?? matched?.title ?? result.workoutTitle || "Trénink ze screenshotu");
+    setWorkoutTitle(existing?.workoutTitle ?? matched?.title ?? (result.workoutTitle || "Trénink ze screenshotu"));
     setCompletedAt(toDateTimeLocal(existing?.completedAt ?? result.completedAt));
     setDuration(formatDurationInput(result.durationSeconds ?? existing?.durationSeconds ?? null));
-    setRpe(String(result.rpe ?? existing?.rpe ?? 7));
+    setRpe(String(existing?.rpe ?? result.rpe ?? 7));
     setAverageHeartRate(String(result.averageHeartRate ?? existing?.metrics?.averageHeartRate ?? ""));
     setMaxHeartRate(String(result.maxHeartRate ?? existing?.metrics?.maxHeartRate ?? ""));
     setCalories(String(result.calories ?? existing?.metrics?.calories ?? ""));
     setDistanceKm(String(result.distanceKm ?? existing?.metrics?.distanceKm ?? ""));
-    setWeights(result.weights.trim() || existing?.weights || "");
+    setWeights(existing?.weights ?? result.weights);
     setNotes(mergeNotes(existing?.notes ?? "", result.notes));
     setWarnings(result.warnings);
     setConfidence(result.confidence);
@@ -559,16 +559,20 @@ export default function ScreenshotResultImportPage() {
             </label>
           )}
 
-          <TextField label="Název tréninku" value={workoutTitle} onChange={setWorkoutTitle} />
-          <label className="mt-5 block text-sm font-bold text-zinc-300">
-            Datum a čas
-            <input
-              type="datetime-local"
-              value={completedAt}
-              onChange={(event) => setCompletedAt(event.target.value)}
-              className="mt-2 w-full rounded-2xl border border-zinc-700 bg-zinc-800 px-4 py-3.5 text-base"
-            />
-          </label>
+          {!targetResultId && (
+            <>
+              <TextField label="Název tréninku" value={workoutTitle} onChange={setWorkoutTitle} />
+              <label className="mt-5 block text-sm font-bold text-zinc-300">
+                Datum a čas
+                <input
+                  type="datetime-local"
+                  value={completedAt}
+                  onChange={(event) => setCompletedAt(event.target.value)}
+                  className="mt-2 w-full rounded-2xl border border-zinc-700 bg-zinc-800 px-4 py-3.5 text-base"
+                />
+              </label>
+            </>
+          )}
           <TextField
             label="Celkový čas"
             value={duration}
