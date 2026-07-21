@@ -38,10 +38,42 @@ a {
   touch-action: manipulation;
 }
 
-@supports (padding: env(safe-area-inset-bottom)) {
-  .safe-screen {
-    padding-top: max(1.25rem, env(safe-area-inset-top));
-    padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
-  }
+.safe-screen {
+  padding-top: 1.25rem;
+  padding-bottom: 1.25rem;
 }
 
+.app-content-safe {
+  padding-top: 6rem;
+  padding-bottom: 7rem;
+}
+
+.app-content-safe-with-action {
+  padding-bottom: 13rem;
+}
+
+.route-layout-safe {
+  padding-top: 5rem;
+  padding-bottom: 6rem;
+}
+
+@supports (padding: env(safe-area-inset-top)) {
+  .safe-screen {
+    padding-top: calc(env(safe-area-inset-top) + 1.25rem);
+    padding-bottom: calc(env(safe-area-inset-bottom) + 1.25rem);
+  }
+
+  .app-content-safe {
+    padding-top: calc(env(safe-area-inset-top) + 6rem);
+    padding-bottom: calc(env(safe-area-inset-bottom) + 7rem);
+  }
+
+  .app-content-safe-with-action {
+    padding-bottom: calc(env(safe-area-inset-bottom) + 13rem);
+  }
+
+  .route-layout-safe {
+    padding-top: calc(env(safe-area-inset-top) + 5rem);
+    padding-bottom: calc(env(safe-area-inset-bottom) + 6rem);
+  }
+}
