@@ -27,8 +27,8 @@ export function PlanningShell({
       <StickyHeader title={title} fallbackHref={backHref} />
 
       <main
-        className={`min-h-screen bg-zinc-950 px-4 pt-24 text-white sm:px-6 sm:pt-28 ${
-          bottomAction ? "pb-52" : "pb-28"
+        className={`app-content-safe min-h-screen bg-zinc-950 px-4 text-white sm:px-6 ${
+          bottomAction ? "app-content-safe-with-action" : ""
         }`}
       >
         <div className="mx-auto w-full max-w-2xl">

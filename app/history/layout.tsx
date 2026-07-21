@@ -6,7 +6,7 @@ export default function HistoryLayout({ children }: { children: ReactNode }) {
   return (
     <>
       <StickyHeader title="Historie" fallbackHref="/" />
-      <div className="pb-24 pt-20">{children}</div>
+      <div className="route-layout-safe">{children}</div>
       <StickyBottomNavigation />
     </>
   );

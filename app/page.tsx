@@ -97,7 +97,7 @@ export default function Home() {
     <>
       <StickyHeader title="Dnešní přehled" fallbackHref="/" />
 
-      <main className="min-h-screen bg-zinc-950 px-5 pb-28 pt-24 text-white">
+      <main className="app-content-safe min-h-screen bg-zinc-950 px-5 text-white">
         <div className="mx-auto max-w-md">
           <header className="mb-7">
             <h1 className="text-4xl font-black tracking-tight">Dnešní přehled</h1>
