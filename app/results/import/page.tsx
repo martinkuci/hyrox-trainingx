@@ -1,8 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import { useRouter } from "next/navigation";
-import { ChangeEvent, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { ChangeEvent, Suspense, useMemo, useState } from "react";
 import { PlanningShell } from "@/components/planning/PlanningShell";
 import { getValidCloudUser } from "@/lib/firebase-rest";
 import { extractResultFromOcr } from "@/lib/screenshot-ocr";
@@ -123,8 +123,9 @@ function formatResultOption(completedAt: string, title: string, rpe: number) {
   return `${date} · ${title} · RPE ${rpe}`;
 }
 
-export default function ScreenshotResultImportPage() {
+function ScreenshotResultImportContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { data, ready, addResult, updateResult } = useHyroxData();
   const [imageDataUrl, setImageDataUrl] = useState("");
   const [fileName, setFileName] = useState("");
@@ -136,8 +137,7 @@ export default function ScreenshotResultImportPage() {
   const [error, setError] = useState("");
   const [warnings, setWarnings] = useState<string[]>([]);
   const [confidence, setConfidence] = useState<number | null>(null);
-  const [targetResultId, setTargetResultId] = useState("");
-  const [initialTargetResolved, setInitialTargetResolved] = useState(false);
+  const [targetResultId, setTargetResultId] = useState(() => searchParams.get("resultId") ?? "");
   const [templateId, setTemplateId] = useState("");
   const [workoutTitle, setWorkoutTitle] = useState("");
   const [completedAt, setCompletedAt] = useState(toDateTimeLocal(null));
@@ -159,15 +159,6 @@ export default function ScreenshotResultImportPage() {
     [data.results],
   );
   const targetResult = targetResults.find((result) => result.id === targetResultId);
-
-  useEffect(() => {
-    if (!ready || initialTargetResolved) return;
-    const requestedResultId = new URLSearchParams(window.location.search).get("resultId");
-    if (requestedResultId && data.results.some((result) => result.id === requestedResultId)) {
-      setTargetResultId(requestedResultId);
-    }
-    setInitialTargetResolved(true);
-  }, [data.results, initialTargetResolved, ready]);
 
   async function chooseFile(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -610,6 +601,25 @@ export default function ScreenshotResultImportPage() {
         </section>
       )}
     </PlanningShell>
+  );
+}
+
+export default function ScreenshotResultImportPage() {
+  return (
+    <Suspense
+      fallback={
+        <PlanningShell
+          eyebrow="Výsledky"
+          title="Načíst screenshot"
+          description="Připravuji propojení s vybraným výsledkem…"
+          backHref="/history"
+        >
+          <div className="h-48 animate-pulse rounded-3xl bg-zinc-900" />
+        </PlanningShell>
+      }
+    >
+      <ScreenshotResultImportContent />
+    </Suspense>
   );
 }
 
