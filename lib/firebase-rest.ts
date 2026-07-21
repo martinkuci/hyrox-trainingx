@@ -58,8 +58,12 @@ export function loadCloudUser(): CloudUser | null {
   }
 }
 
-function friendlyError(message = "UNKNOWN") {
-  const code = message.split(" : ")[0];
+function firebaseErrorCode(message = "UNKNOWN") {
+  return message.split(" : ")[0];
+}
+
+function friendlyError(message = "UNKNOWN", fallback = "Přihlášení selhalo") {
+  const code = firebaseErrorCode(message);
   const messages: Record<string, string> = {
     EMAIL_EXISTS: "Účet s tímto e-mailem už existuje.",
     INVALID_LOGIN_CREDENTIALS: "Nesprávný e-mail nebo heslo.",
@@ -68,7 +72,7 @@ function friendlyError(message = "UNKNOWN") {
     TOO_MANY_ATTEMPTS_TRY_LATER: "Příliš mnoho pokusů. Zkus to později.",
     USER_DISABLED: "Tento účet je zablokovaný.",
   };
-  return messages[code] ?? `Přihlášení selhalo: ${code}`;
+  return messages[code] ?? `${fallback}: ${code}`;
 }
 
 async function identityRequest(path: string, email: string, password: string) {
@@ -97,6 +101,33 @@ export function signInWithEmail(email: string, password: string) {
 
 export function createEmailAccount(email: string, password: string) {
   return identityRequest("signUp", email.trim(), password);
+}
+
+export async function sendPasswordResetEmail(email: string) {
+  ensureConfigured();
+  const normalizedEmail = email.trim();
+  if (!normalizedEmail) throw new Error("Nejdřív vyplň e-mail.");
+
+  const response = await fetch(
+    `https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=${API_KEY}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        requestType: "PASSWORD_RESET",
+        email: normalizedEmail,
+      }),
+    },
+  );
+  const body = (await response.json()) as FirebaseError;
+
+  if (!response.ok) {
+    // Do not reveal whether an account exists for the supplied address.
+    if (firebaseErrorCode(body.error?.message) === "EMAIL_NOT_FOUND") return true;
+    throw new Error(friendlyError(body.error?.message, "Obnova hesla selhala"));
+  }
+
+  return true;
 }
 
 export function signOutCloud() {
