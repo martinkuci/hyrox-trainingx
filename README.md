@@ -10,7 +10,8 @@ Mobilně orientovaná webová aplikace pro plánování HYROX tréninků, progra
 - časovač a mezičasy,
 - ukládání výsledků a RPE,
 - import screenshotu z hodinek nebo fitness aplikace,
-- volitelný účet a cloudová synchronizace přes Firebase.
+- volitelný účet a cloudová synchronizace přes Firebase,
+- úvod pro nové uživatele, FAQ, reset hesla a zpětná vazba.
 
 Screenshot se používá pouze jako dočasný vstup. Aplikace uloží až hodnoty, které uživatel zkontroluje; samotný obrázek se neukládá do aplikace ani do Firestore.
 
@@ -21,7 +22,7 @@ Screenshot se používá pouze jako dočasný vstup. Aplikace uloží až hodnot
 - Tailwind CSS 4,
 - lokální úložiště v prohlížeči,
 - Firebase Authentication a Firestore REST API,
-- OpenAI Responses API pro rozpoznání screenshotu,
+- lokální OCR a volitelné OpenAI Responses API pro rozpoznání screenshotu,
 - GitHub a Vercel.
 
 ## Lokální spuštění
@@ -46,12 +47,13 @@ Screenshot se používá pouze jako dočasný vstup. Aplikace uloží až hodnot
 
 | Proměnná | Kde se používá | Povinná |
 | --- | --- | --- |
-| `NEXT_PUBLIC_FIREBASE_API_KEY` | přihlášení, synchronizace a ověření importu | ano pro cloud a AI import |
+| `NEXT_PUBLIC_FIREBASE_API_KEY` | přihlášení, reset hesla, synchronizace a ověření importu | ano pro cloud a AI import |
 | `NEXT_PUBLIC_FIREBASE_PROJECT_ID` | Firestore synchronizace | ano pro cloud |
+| `NEXT_PUBLIC_SUPPORT_EMAIL` | cílová adresa formuláře zpětné vazby; bez ní se použije GitHub | ne |
 | `OPENAI_API_KEY` | serverové rozpoznání screenshotu | ano pro AI import |
 | `OPENAI_VISION_MODEL` | model pro rozpoznání; výchozí `gpt-5.6-luna` | ne |
 
-`OPENAI_API_KEY` nikdy nevkládej do proměnné začínající `NEXT_PUBLIC_` ani do repozitáře.
+`OPENAI_API_KEY` nikdy nevkládej do proměnné začínající `NEXT_PUBLIC_` ani do repozitáře. `NEXT_PUBLIC_SUPPORT_EMAIL` je ze své podstaty veřejně viditelný v klientské aplikaci.
 
 ## Kontroly před odesláním
 
@@ -64,7 +66,7 @@ Po změně UI zkontroluj mobilní odsazení, jedinou hlavičku stránky a příp
 
 ## GitHub workflow
 
-Aktuální práce probíhá na větvi `feature/screenshot-result-import`.
+Aktuální práce probíhá na větvi `feature/onboarding-help-feedback`.
 
 1. Každý commit obsahuje jeden malý logický krok.
 2. Otevři draft pull request do `main`.
