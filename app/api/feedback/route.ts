@@ -119,7 +119,7 @@ export async function POST(request: Request) {
     "HYROX Training <onboarding@resend.dev>";
 
   if (!apiKey || !recipient) {
-    console.error("Feedback email is not configured.");
+    console.error("Feedback email is not configured.", {\n      hasApiKey: Boolean(apiKey),\n      hasRecipient: Boolean(recipient),\n    });
     return jsonError("Odesílání zpráv zatím není nastavené.", 503);
   }
 
