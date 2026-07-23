@@ -29,6 +29,7 @@ Usnadnit první použití aplikace a soustředit účet, cloud, nápovědu a zp�
 - přihlášený i odhlášený uživatel se dostane k nápovědě a FAQ,
 - reset hesla odešle bezpečný Firebase e-mail a zobrazí srozumitelný stav,
 - zpětná vazba se odešle bez otevření e-mailového klienta,
+- Resend a cílový e-mail jsou nastavené pro Preview i Production a testovací podnět se úspěšně doručí,
 - příjemce a API klíč nejsou dostupné v klientském JavaScriptu,
 - předmět rozlišuje nápad, chybu, dotaz a jinou připomínku,
 - endpoint neumožňuje změnit příjemce, validuje délku a e-mail a omezuje opakované odesílání,
