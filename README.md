@@ -10,7 +10,8 @@ Mobilně orientovaná webová aplikace pro plánování HYROX tréninků, progra
 - časovač a mezičasy,
 - ukládání výsledků a RPE,
 - import screenshotu z hodinek nebo fitness aplikace,
-- volitelný účet a cloudová synchronizace přes Firebase.
+- volitelný účet a cloudová synchronizace přes Firebase,
+- úvod pro nové uživatele, FAQ, reset hesla a přímá e-mailová zpětná vazba.
 
 Screenshot se používá pouze jako dočasný vstup. Aplikace uloží až hodnoty, které uživatel zkontroluje; samotný obrázek se neukládá do aplikace ani do Firestore.
 
@@ -21,7 +22,8 @@ Screenshot se používá pouze jako dočasný vstup. Aplikace uloží až hodnot
 - Tailwind CSS 4,
 - lokální úložiště v prohlížeči,
 - Firebase Authentication a Firestore REST API,
-- OpenAI Responses API pro rozpoznání screenshotu,
+- lokální OCR a volitelné OpenAI Responses API pro rozpoznání screenshotu,
+- Resend API pro doručování zpětné vazby,
 - GitHub a Vercel.
 
 ## Lokální spuštění
@@ -46,12 +48,15 @@ Screenshot se používá pouze jako dočasný vstup. Aplikace uloží až hodnot
 
 | Proměnná | Kde se používá | Povinná |
 | --- | --- | --- |
-| `NEXT_PUBLIC_FIREBASE_API_KEY` | přihlášení, synchronizace a ověření importu | ano pro cloud a AI import |
+| `NEXT_PUBLIC_FIREBASE_API_KEY` | přihlášení, reset hesla, synchronizace a ověření importu | ano pro cloud a AI import |
 | `NEXT_PUBLIC_FIREBASE_PROJECT_ID` | Firestore synchronizace | ano pro cloud |
+| `RESEND_API_KEY` | serverové odesílání zpětné vazby přes Resend | ano pro zpětnou vazbu |
+| `FEEDBACK_RECIPIENT_EMAIL` | cílová adresa podnětů | ano pro zpětnou vazbu |
+| `FEEDBACK_FROM_EMAIL` | ověřený odesílatel; pro omezený test lze použít `onboarding@resend.dev` | ne |
 | `OPENAI_API_KEY` | serverové rozpoznání screenshotu | ano pro AI import |
 | `OPENAI_VISION_MODEL` | model pro rozpoznání; výchozí `gpt-5.6-luna` | ne |
 
-`OPENAI_API_KEY` nikdy nevkládej do proměnné začínající `NEXT_PUBLIC_` ani do repozitáře.
+Serverové klíče ani adresy zpětné vazby nikdy nevkládej do proměnných začínajících `NEXT_PUBLIC_` ani do repozitáře. Při použití vlastní odesílací adresy je potřeba ověřit její doménu v Resendu.
 
 ## Kontroly před odesláním
 
@@ -64,7 +69,7 @@ Po změně UI zkontroluj mobilní odsazení, jedinou hlavičku stránky a příp
 
 ## GitHub workflow
 
-Aktuální práce probíhá na větvi `feature/screenshot-result-import`.
+Aktuální práce probíhá na větvi `feature/onboarding-help-feedback`.
 
 1. Každý commit obsahuje jeden malý logický krok.
 2. Otevři draft pull request do `main`.
@@ -79,7 +84,8 @@ Pravidla projektu jsou v `AGENTS.md` a složce `docs`.
 2. Importuj GitHub repozitář `martinkuci/hyrox-trainingx`.
 3. Framework nech rozpoznat jako **Next.js** a ponech výchozí build command `npm run build`.
 4. V **Settings → Environment Variables** vlož proměnné z tabulky výše. Skutečné klíče vlož alespoň pro Production; pro plné testování také pro Preview.
-5. Spusť deployment.
-6. Každý pull request následně získá vlastní Preview deployment. Merge do `main` spustí produkční deployment.
+5. Pro zpětnou vazbu připoj ve Vercel Marketplace integraci Resend nebo vlož vlastní `RESEND_API_KEY`.
+6. Spusť deployment.
+7. Každý pull request následně získá vlastní Preview deployment. Merge do `main` spustí produkční deployment.
 
 Po změně environment variables spusť nový deployment; staré nasazení je automaticky nepřevezme.

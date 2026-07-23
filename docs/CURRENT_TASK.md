@@ -2,48 +2,45 @@
 
 ## Feature větev
 
-`feature/training-catalog-v1`
+`feature/onboarding-help-feedback`
 
 ## Cíl změny
 
-Naplnit aplikaci kompletním testovacím katalogem HYROX tréninků a upravit generátor tak, aby vytvářel smysluplné 4-, 8- a 12týdenní programy.
+Usnadnit první použití aplikace a soustředit účet, cloud, nápovědu a zpětnou vazbu do jednoho srozumitelného místa.
 
 ## Rozsah
 
-- doplnit nejméně 18 škálovatelných tréninkových šablon,
-- pokrýt všechny kategorie a úrovně obtížnosti používané aplikací,
-- přidat cíle, RPE, očekávaný čas, běžecké zaměření a sledované metriky,
-- zachovat stabilní identifikátory šablon pro kalendář, historii a cloudovou synchronizaci,
-- jednorázově doplnit nový vestavěný katalog i uživatelům se stávajícími lokálními daty,
-- zachovat uživatelské tréninky, výsledky, programy a naplánované jednotky,
-- zlepšit výběr tréninků podle fáze programu, cíle a úrovně,
-- omezit opakování stejné šablony v jednom týdnu,
-- zajistit odlehčení v deload týdnech a snížení objemu v taper týdnu.
+- zobrazit novému uživateli jednorázový mobilní úvod do aplikace,
+- stručně vysvětlit princip HYROX a hlavní možnosti aplikace,
+- umožnit průvodce kdykoli znovu otevřít ze sekce účtu,
+- rozšířit sekci Cloud na „Účet, cloud a pomoc“,
+- doplnit funkční obnovu hesla přes stávající Firebase Authentication,
+- odesílat kontaktní a zpětnovazební formulář přímo tvůrci aplikace,
+- označit předmět e-mailu podle typu podnětu,
+- doplnit přehledné FAQ,
+- zachovat existující přihlášení, synchronizaci a všechna tréninková data.
 
 ## Akceptační kritéria
 
-- nová instalace zobrazí kompletní katalog bez ručního importu,
-- stávající instalace katalog jednorázově doplní bez smazání uživatelských dat,
-- generátor vytvoří 4-, 8- i 12týdenní program pro 1 až 5 tréninků týdně,
-- všechny vygenerované jednotky mají existující šablonu,
-- úroveň 1 nepoužije trénink obtížnosti 2 nebo 3,
-- deload a taper mají nižší náročnost než hlavní specifická fáze,
-- v jednom týdnu se stejná šablona neopakuje, pokud existuje vhodná alternativa,
-- jednotlivé šablony lze otevřít a spustit v existujícím runneru,
-- lint, produkční build a Vercel preview projdou,
-- na mobilu nevzniknou duplicitní hlavičky ani kolize s pevnou navigací.
-
-## Výchozí testovací scénář
-
-- cíl: příprava na HYROX,
-- úroveň: pokročilý,
-- délka: 12 týdnů,
-- frekvence: 3 tréninky týdně,
-- dny: pondělí, středa a sobota.
+- první návštěva automaticky otevře průvodce a po dokončení jej znovu sama neotevře,
+- zavření průvodce se zapamatuje pouze v daném prohlížeči a nemaže žádná tréninková data,
+- průvodce lze z účtu kdykoli spustit znovu,
+- průvodce je čitelný na telefonu a respektuje safe-area,
+- přihlášený i odhlášený uživatel se dostane k nápovědě a FAQ,
+- reset hesla odešle bezpečný Firebase e-mail a zobrazí srozumitelný stav,
+- zpětná vazba se odešle bez otevření e-mailového klienta,
+- Resend a cílový e-mail jsou nastavené pro Preview i Production a testovací podnět se úspěšně doručí,
+- příjemce a API klíč nejsou dostupné v klientském JavaScriptu,
+- předmět rozlišuje nápad, chybu, dotaz a jinou připomínku,
+- endpoint neumožňuje změnit příjemce, validuje délku a e-mail a omezuje opakované odesílání,
+- formulářová pole mají nejméně 16px a na iPhonu se při psaní nezvětšují,
+- stránka nemá duplicitní hlavičku ani kolizi se spodní navigací,
+- lint, produkční build a Vercel Preview projdou.
 
 ## Mimo rozsah
 
-- zdravotní nebo rehabilitační doporučení,
-- automatické určování soutěžní váhy bez volby uživatele,
-- placené nebo trenérské funkce,
-- sloučení této feature větve do `main` bez uživatelského otestování.
+- ukládání zpětné vazby do databáze,
+- administrace podnětů přímo v aplikaci,
+- trenérská nebo zdravotní doporučení,
+- změny závodních pravidel či automatický výběr soutěžní kategorie,
+- sloučení do `main` bez uživatelského otestování.
