@@ -2,48 +2,47 @@
 
 ## Feature větev
 
-`feature/training-catalog-v1`
+`feature/professional-ux-phase-1`
 
 ## Cíl změny
 
-Naplnit aplikaci kompletním testovacím katalogem HYROX tréninků a upravit generátor tak, aby vytvářel smysluplné 4-, 8- a 12týdenní programy.
+Zahájit první produktovou fázi profesionálního UX novým dashboardem „Dnes“ a jasnou pěti-sekční mobilní navigací. Uživatel má během několika sekund poznat, co má dnes trénovat, jak probíhá jeho týden a jak se dostane k nejbližší další akci.
 
-## Rozsah
+## Rozsah prvního releasu
 
-- doplnit nejméně 18 škálovatelných tréninkových šablon,
-- pokrýt všechny kategorie a úrovně obtížnosti používané aplikací,
-- přidat cíle, RPE, očekávaný čas, běžecké zaměření a sledované metriky,
-- zachovat stabilní identifikátory šablon pro kalendář, historii a cloudovou synchronizaci,
-- jednorázově doplnit nový vestavěný katalog i uživatelům se stávajícími lokálními daty,
-- zachovat uživatelské tréninky, výsledky, programy a naplánované jednotky,
-- zlepšit výběr tréninků podle fáze programu, cíle a úrovně,
-- omezit opakování stejné šablony v jednom týdnu,
-- zajistit odlehčení v deload týdnech a snížení objemu v taper týdnu.
+- přepracovat domovskou obrazovku na mobilní dashboard „Dnes“,
+- zobrazit aktuální den, týdenní plán a stav jednotlivých dnů,
+- zvýraznit dnešní naplánovaný trénink jednou dominantní akcí,
+- zobrazit fázi a průběh aktivního programu, pokud existuje,
+- zobrazit stručné doporučení podle posledního RPE bez zdravotních tvrzení,
+- sjednotit hlavní navigaci na Dnes / Plán / Trénovat / Výsledky / Profil,
+- nahradit emoji navigaci konzistentními vektorovými ikonami a viditelnými popisky,
+- zavést základní vizuální tokeny pro plochy, linky, akcent a focus stav,
+- zachovat existující URL, runner, plánování, historii a lokální data.
 
 ## Akceptační kritéria
 
-- nová instalace zobrazí kompletní katalog bez ručního importu,
-- stávající instalace katalog jednorázově doplní bez smazání uživatelských dat,
-- generátor vytvoří 4-, 8- i 12týdenní program pro 1 až 5 tréninků týdně,
-- všechny vygenerované jednotky mají existující šablonu,
-- úroveň 1 nepoužije trénink obtížnosti 2 nebo 3,
-- deload a taper mají nižší náročnost než hlavní specifická fáze,
-- v jednom týdnu se stejná šablona neopakuje, pokud existuje vhodná alternativa,
-- jednotlivé šablony lze otevřít a spustit v existujícím runneru,
-- lint, produkční build a Vercel preview projdou,
-- na mobilu nevzniknou duplicitní hlavičky ani kolize s pevnou navigací.
+- domovská obrazovka má jednu jednoznačnou primární akci,
+- aktuální den je v týdenním přehledu rozpoznatelný i bez samotné barvy,
+- dokončený, naplánovaný, vynechaný a volný den mají odlišný textový nebo ikonový stav,
+- pokud dnes není trénink, dashboard nabídne nejbližší smysluplnou akci,
+- navigace má pět pojmenovaných položek a dotykové cíle alespoň 44 px,
+- na šířce 320 px nevzniká horizontální scroll ani překrytí navigací,
+- načítání, prázdný stav a stav s daty jsou čitelné,
+- uložené šablony, výsledky, programy a kalendář zůstanou beze změny,
+- lint a produkční build projdou.
 
-## Výchozí testovací scénář
+## Následující release v rámci fáze 1
 
-- cíl: příprava na HYROX,
-- úroveň: pokročilý,
-- délka: 12 týdnů,
-- frekvence: 3 tréninky týdně,
-- dny: pondělí, středa a sobota.
+- rychlé logování vah, kol, času a RPE během tréninku,
+- automatické obnovení rozpracovaného tréninku,
+- offline stav a srozumitelná synchronizační zpětná vazba,
+- rozšíření kalendáře o rychlé přesuny a zkrácené varianty tréninku.
 
-## Mimo rozsah
+## Mimo rozsah tohoto releasu
 
-- zdravotní nebo rehabilitační doporučení,
-- automatické určování soutěžní váhy bez volby uživatele,
-- placené nebo trenérské funkce,
-- sloučení této feature větve do `main` bez uživatelského otestování.
+- Apple Health, Health Connect, Garmin a Strava,
+- readiness z biometrických dat,
+- generování nového programu pomocí AI,
+- placené funkce a sociální feed,
+- sloučení do `main` bez uživatelského otestování.
