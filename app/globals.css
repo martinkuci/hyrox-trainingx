@@ -1,13 +1,22 @@
 @import "tailwindcss";
 
 :root {
-  --background: #09090b;
-  --foreground: #fafafa;
+  --background: #090a0c;
+  --foreground: #f7f8f4;
+  --surface: #141619;
+  --elevated: #1d2024;
+  --accent: #bef264;
+  --accent-soft: rgb(190 242 100 / 0.1);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-app: var(--background);
+  --color-surface: var(--surface);
+  --color-elevated: var(--elevated);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
   --font-sans: Arial, Helvetica, sans-serif;
   --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
 }
@@ -24,6 +33,22 @@ body {
   font-family: var(--font-sans);
   -webkit-tap-highlight-color: transparent;
   text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: rgb(190 242 100 / 0.28);
+  color: #fff;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.workout-hero {
+  background:
+    radial-gradient(circle at 100% 0%, rgb(190 242 100 / 0.18), transparent 46%),
+    linear-gradient(145deg, #181b1e 0%, #111315 100%);
 }
 
 button,
@@ -45,7 +70,7 @@ a {
 
 .app-content-safe {
   padding-top: 6rem;
-  padding-bottom: 7rem;
+  padding-bottom: 7.5rem;
 }
 
 .app-content-safe-with-action {
@@ -65,7 +90,7 @@ a {
 
   .app-content-safe {
     padding-top: calc(env(safe-area-inset-top) + 6rem);
-    padding-bottom: calc(env(safe-area-inset-bottom) + 7rem);
+    padding-bottom: calc(env(safe-area-inset-bottom) + 7.5rem);
   }
 
   .app-content-safe-with-action {
