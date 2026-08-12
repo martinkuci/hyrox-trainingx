@@ -15,7 +15,7 @@ function WorkoutPageContent() {
 
   if (!ready) {
     return (
-      <main className="grid min-h-dvh place-items-center bg-zinc-950 text-zinc-400">
+      <main className="runner-shell grid min-h-dvh place-items-center text-zinc-400">
         Načítám trénink…
       </main>
     );
@@ -23,8 +23,8 @@ function WorkoutPageContent() {
 
   if (!template) {
     return (
-      <main className="grid min-h-dvh place-items-center bg-zinc-950 p-5 text-white">
-        <section className="w-full max-w-sm rounded-3xl border border-zinc-800 bg-zinc-900 p-7 text-center">
+      <main className="runner-shell grid min-h-dvh place-items-center p-5 text-white">
+        <section className="w-full max-w-sm rounded-[1.75rem] border border-zinc-800 bg-zinc-900 p-7 text-center">
           <h1 className="text-2xl font-bold">Trénink nebyl nalezen</h1>
           <p className="mt-3 text-zinc-400">Možná byl mezitím smazán.</p>
           <Link
@@ -45,7 +45,7 @@ export default function WorkoutPage() {
   return (
     <Suspense
       fallback={
-        <main className="grid min-h-dvh place-items-center bg-zinc-950 text-zinc-400">
+        <main className="runner-shell grid min-h-dvh place-items-center text-zinc-400">
           Načítám trénink…
         </main>
       }

@@ -306,8 +306,8 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
   if (mode === "finished") return <WorkoutResultForm template={template} scheduledWorkoutId={scheduledWorkoutId} durationSeconds={Math.max(1, Math.round(totalElapsed / 1000))} splits={splits} />;
 
   if (mode === "overview") return (
-    <main className="safe-screen min-h-dvh bg-zinc-950 px-5 text-white">
-      <section className="mx-auto w-full max-w-md rounded-3xl border border-zinc-800 bg-zinc-900 p-6 sm:p-7">
+    <main className="runner-shell safe-screen min-h-dvh px-5 text-white">
+      <section className="workout-hero mx-auto w-full max-w-md rounded-[1.75rem] border border-accent/20 p-6 sm:p-7">
         <button onClick={() => workoutStarted ? setMode("block-preview") : router.back()} className="min-h-11 rounded-xl pr-4 text-base font-semibold text-zinc-300">← Zpět</button>
         <p className="mt-5 text-sm font-bold uppercase tracking-[0.22em] text-lime-400">Přehled tréninku</p>
         <h1 className="mt-2 text-4xl font-black">{template.title}</h1>
@@ -319,8 +319,8 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
   );
 
   if (mode === "block-preview" && currentStep && currentBlock) return (
-    <main className="safe-screen min-h-dvh bg-zinc-950 px-5 text-white">
-      <section className="mx-auto w-full max-w-md rounded-3xl border border-zinc-800 bg-zinc-900 p-6 sm:p-7">
+    <main className="runner-shell safe-screen min-h-dvh px-5 text-white">
+      <section className="mx-auto w-full max-w-md rounded-[1.75rem] border border-zinc-800 bg-zinc-900 p-6 sm:p-7">
         <button type="button" onClick={() => setMode("overview")} className="min-h-11 rounded-xl pr-4 text-base font-semibold text-zinc-300">← Celý trénink</button>
         <p className="mt-5 text-sm font-bold uppercase tracking-[0.22em] text-lime-400">Následuje blok</p>
         <h1 className="mt-2 text-4xl font-black">{currentBlock.title}</h1>
@@ -332,7 +332,7 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
   );
 
   if (mode === "countdown" && currentStep) return (
-    <main className="safe-screen flex min-h-dvh flex-col bg-zinc-950 px-5 text-center text-white">
+    <main className="runner-shell safe-screen flex min-h-dvh flex-col px-5 text-center text-white">
       <header className="mx-auto grid w-full max-w-md grid-cols-3 items-center gap-2">
         <button type="button" onClick={() => { setCountdownPaused(false); setCountdown(10); setMode("block-preview"); }} className="min-h-11 justify-self-start rounded-xl pr-3 text-left text-base font-semibold text-zinc-300">← Zpět</button>
         <button type="button" onClick={() => setCountdownPaused((value) => !value)} aria-pressed={countdownPaused} className="min-h-11 justify-self-center rounded-full bg-zinc-800 px-4 text-sm font-bold text-white">{countdownPaused ? "Pokračovat" : "Pozastavit"}</button>
@@ -351,7 +351,7 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
   if (!currentStep) return null;
   const shownTime = currentStep.durationSeconds ? currentStep.durationSeconds * 1000 - stepElapsed : stepElapsed;
   return (
-    <main className="safe-screen flex min-h-dvh flex-col bg-zinc-950 px-5 text-white">
+    <main className="runner-shell safe-screen flex min-h-dvh flex-col px-5 text-white">
       <div className="mx-auto flex w-full max-w-md flex-1 flex-col">
         <header className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
           <button type="button" onClick={openWorkoutOverview} className="min-h-11 justify-self-start rounded-xl pr-3 text-left text-base font-semibold text-zinc-300">← Přehled</button>
@@ -375,7 +375,7 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
       </div>
 
       {showOverview && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-zinc-950 text-left text-white" role="dialog" aria-modal="true" aria-labelledby="runner-overview-title">
+        <div className="runner-shell fixed inset-0 z-50 overflow-y-auto text-left text-white" role="dialog" aria-modal="true" aria-labelledby="runner-overview-title">
           <div className="safe-screen mx-auto min-h-dvh w-full max-w-md px-5">
             <div className="flex items-center justify-between gap-4">
               <div>
