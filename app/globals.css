@@ -453,6 +453,22 @@ a {
   bottom: calc(9.25rem + env(safe-area-inset-bottom));
 }
 
+@media (max-height: 680px) {
+  .runner-next-card {
+    display: none;
+  }
+
+  .runner-active-content {
+    padding-top: 0.25rem;
+    padding-bottom: 0.25rem;
+  }
+
+  .runner-step-detail {
+    font-size: 1rem;
+    line-height: 1.35;
+  }
+}
+
 @supports (padding: env(safe-area-inset-top)) {
   .safe-screen {
     padding-top: calc(env(safe-area-inset-top) + 1.25rem);

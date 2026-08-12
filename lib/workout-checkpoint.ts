@@ -1,10 +1,10 @@
-import type { StepPerformance, StepSplit } from "./types";
+import type { BlockFeedback, BlockFeedbackRating, StepSplit } from "./types";
 
 export const ACTIVE_WORKOUT_STORAGE_KEY = "hyrox-active-workout-v1";
 export const ACTIVE_WORKOUT_CHANGE_EVENT = "hyrox-active-workout-change";
 export const WORKOUT_CHECKPOINT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
-export type CheckpointRunnerMode = "block-preview" | "countdown" | "running";
+export type CheckpointRunnerMode = "block-preview" | "block-feedback" | "countdown" | "running";
 
 export type WorkoutCheckpoint = {
   version: 1;
@@ -18,7 +18,9 @@ export type WorkoutCheckpoint = {
   totalElapsedMilliseconds: number;
   stepElapsedMilliseconds: number;
   splits: StepSplit[];
-  stepPerformances: StepPerformance[];
+  blockFeedbacks: BlockFeedback[];
+  feedbackBlockId?: string;
+  feedbackFinishesWorkout: boolean;
   countdown: number;
   paused: boolean;
   countdownPaused: boolean;
@@ -66,62 +68,16 @@ function normalizeSplit(value: unknown): StepSplit | null {
   };
 }
 
-function optionalBoundedNumber(value: unknown, maximum: number) {
-  if (value === undefined) return undefined;
-  return isFiniteNonNegative(value) && value <= maximum ? value : null;
-}
-
-function optionalBoundedInteger(value: unknown, maximum: number) {
-  const normalized = optionalBoundedNumber(value, maximum);
-  return normalized === undefined || (normalized !== null && Number.isInteger(normalized))
-    ? normalized
-    : null;
-}
-
-function normalizeStepPerformance(value: unknown): StepPerformance | null {
+function normalizeBlockFeedback(value: unknown): BlockFeedback | null {
   if (!value || typeof value !== "object") return null;
-  const performance = value as Partial<StepPerformance>;
-  const weightKg = optionalBoundedNumber(performance.weightKg, 1_000);
-  const repetitions = optionalBoundedInteger(performance.repetitions, 100_000);
-  const completedRounds = optionalBoundedInteger(performance.completedRounds, 10_000);
-  const rpe = optionalBoundedInteger(performance.rpe, 10);
-  const note = performance.note === undefined
-    ? undefined
-    : typeof performance.note === "string" && performance.note.length <= 300
-      ? performance.note.trim() || undefined
-      : null;
-
+  const feedback = value as Partial<BlockFeedback>;
   if (
-    typeof performance.blockId !== "string" ||
-    typeof performance.stepId !== "string" ||
-    !Number.isInteger(performance.round) ||
-    (performance.round ?? 0) < 1 ||
-    weightKg === null ||
-    repetitions === null ||
-    completedRounds === null ||
-    rpe === null ||
-    (rpe !== undefined && rpe < 1) ||
-    note === null
+    typeof feedback.blockId !== "string" ||
+    !Number.isInteger(feedback.rating) ||
+    (feedback.rating ?? 0) < 1 ||
+    (feedback.rating ?? 6) > 5
   ) return null;
-
-  if (
-    weightKg === undefined &&
-    repetitions === undefined &&
-    completedRounds === undefined &&
-    rpe === undefined &&
-    note === undefined
-  ) return null;
-
-  return {
-    blockId: performance.blockId,
-    stepId: performance.stepId,
-    round: performance.round as number,
-    ...(weightKg === undefined ? {} : { weightKg }),
-    ...(repetitions === undefined ? {} : { repetitions }),
-    ...(completedRounds === undefined ? {} : { completedRounds }),
-    ...(rpe === undefined ? {} : { rpe }),
-    ...(note === undefined ? {} : { note }),
-  };
+  return { blockId: feedback.blockId, rating: feedback.rating as BlockFeedbackRating };
 }
 
 export function makeWorkoutKey(templateId: string, scheduledWorkoutId?: string) {
@@ -131,7 +87,7 @@ export function makeWorkoutKey(templateId: string, scheduledWorkoutId?: string) 
 export function normalizeWorkoutCheckpoint(value: unknown, now = Date.now()): WorkoutCheckpoint | null {
   if (!value || typeof value !== "object") return null;
   const checkpoint = value as Partial<WorkoutCheckpoint>;
-  const validMode = checkpoint.mode === "block-preview" || checkpoint.mode === "countdown" || checkpoint.mode === "running";
+  const validMode = checkpoint.mode === "block-preview" || checkpoint.mode === "block-feedback" || checkpoint.mode === "countdown" || checkpoint.mode === "running";
   const validWorkoutKey = typeof checkpoint.templateId === "string"
     && (checkpoint.scheduledWorkoutId === undefined || typeof checkpoint.scheduledWorkoutId === "string")
     && checkpoint.workoutKey === makeWorkoutKey(checkpoint.templateId, checkpoint.scheduledWorkoutId);
@@ -142,11 +98,13 @@ export function normalizeWorkoutCheckpoint(value: unknown, now = Date.now()): Wo
     && checkpoint.splits.length <= 10_000
     ? checkpoint.splits.map(normalizeSplit)
     : null;
-  const stepPerformances = checkpoint.stepPerformances === undefined
+  const blockFeedbacks = checkpoint.blockFeedbacks === undefined
     ? []
-    : Array.isArray(checkpoint.stepPerformances) && checkpoint.stepPerformances.length <= 10_000
-      ? checkpoint.stepPerformances.map(normalizeStepPerformance).filter((item): item is StepPerformance => item !== null)
+    : Array.isArray(checkpoint.blockFeedbacks) && checkpoint.blockFeedbacks.length <= 100
+      ? checkpoint.blockFeedbacks.map(normalizeBlockFeedback).filter((item): item is BlockFeedback => item !== null)
       : null;
+  const feedbackBlockId = checkpoint.feedbackBlockId === undefined ? undefined : checkpoint.feedbackBlockId;
+  const feedbackFinishesWorkout = checkpoint.feedbackFinishesWorkout ?? false;
 
   if (
     checkpoint.version !== 1 ||
@@ -167,10 +125,13 @@ export function normalizeWorkoutCheckpoint(value: unknown, now = Date.now()): Wo
     (checkpoint.countdown ?? 11) > 10 ||
     typeof checkpoint.paused !== "boolean" ||
     typeof checkpoint.countdownPaused !== "boolean" ||
+    typeof feedbackFinishesWorkout !== "boolean" ||
+    (checkpoint.mode === "block-feedback" && typeof feedbackBlockId !== "string") ||
+    (feedbackBlockId !== undefined && typeof feedbackBlockId !== "string") ||
     !validSavedAt ||
     !validSplits ||
     validSplits.some((split) => split === null) ||
-    !stepPerformances
+    !blockFeedbacks
   ) return null;
 
   return {
@@ -185,7 +146,9 @@ export function normalizeWorkoutCheckpoint(value: unknown, now = Date.now()): Wo
     totalElapsedMilliseconds: checkpoint.totalElapsedMilliseconds,
     stepElapsedMilliseconds: checkpoint.stepElapsedMilliseconds,
     splits: validSplits as StepSplit[],
-    stepPerformances,
+    blockFeedbacks,
+    feedbackBlockId,
+    feedbackFinishesWorkout,
     countdown: checkpoint.countdown as number,
     paused: checkpoint.paused,
     countdownPaused: checkpoint.countdownPaused,

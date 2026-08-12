@@ -5,7 +5,8 @@ import { useMemo, useState } from "react";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { PlanningShell } from "@/components/planning/PlanningShell";
 import { useHyroxData } from "@/hooks/useHyroxData";
-import type { StepPerformance, WorkoutResult } from "@/lib/types";
+import { blockFeedbackLabel } from "@/lib/block-feedback";
+import type { WorkoutResult } from "@/lib/types";
 
 function formatDuration(seconds: number) {
   const hours = Math.floor(seconds / 3600);
@@ -27,13 +28,6 @@ export default function HistoryPage() {
     const block = template?.blocks.find((item) => item.id === blockId);
     const step = block?.steps.find((item) => item.id === stepId);
     return { blockTitle: block?.title ?? "Neznámý blok", stepTitle: step?.name ?? "Neznámý cvik", detail: step?.detail ?? "", round, isEmom: block?.type === "emom" };
-  }
-
-  function describePerformance(result: WorkoutResult, performance: StepPerformance) {
-    const template = data.templates.find((item) => item.id === result.templateId);
-    const block = template?.blocks.find((item) => item.id === performance.blockId);
-    const step = block?.steps.find((item) => item.id === performance.stepId);
-    return { blockTitle: block?.title ?? "Neznámý blok", stepTitle: step?.name ?? "Neznámý cvik" };
   }
 
   return (
@@ -78,7 +72,7 @@ export default function HistoryPage() {
                 </div>
 
                 {expanded && <div className="border-t border-white/8 bg-zinc-950/50 px-6 py-5">
-                  {(result.stepPerformances?.length ?? 0) > 0 && <section className="mb-5"><h3 className="text-sm font-black uppercase tracking-wider text-zinc-400">Zapsaný výkon</h3><ol className="mt-3 space-y-2">{result.stepPerformances?.map((performance, index) => { const info = describePerformance(result, performance); const metrics = [performance.weightKg === undefined ? null : `${performance.weightKg} kg`, performance.repetitions === undefined ? null : `${performance.repetitions} opak.`, performance.completedRounds === undefined ? null : `${performance.completedRounds} kol`, performance.rpe === undefined ? null : `RPE ${performance.rpe}`].filter(Boolean); return <li key={`${performance.blockId}-${performance.stepId}-${performance.round}-${index}`} className="ui-inset p-4"><p className="text-xs font-bold uppercase tracking-wider text-accent">{info.blockTitle} · kolo {performance.round}</p><p className="mt-1 font-black text-zinc-100">{info.stepTitle}</p>{metrics.length > 0 && <p className="mt-2 text-sm font-semibold text-zinc-300">{metrics.join(" · ")}</p>}{performance.note && <p className="mt-2 text-sm text-zinc-400">{performance.note}</p>}</li>; })}</ol></section>}
+                  {(result.blockFeedbacks?.length ?? 0) > 0 && <section className="mb-5"><h3 className="text-sm font-black uppercase tracking-wider text-zinc-400">Hodnocení bloků</h3><ol className="mt-3 space-y-2">{result.blockFeedbacks?.map((feedback) => { const template = data.templates.find((item) => item.id === result.templateId); const block = template?.blocks.find((item) => item.id === feedback.blockId); return <li key={feedback.blockId} className="ui-inset flex items-center justify-between gap-3 px-4 py-3"><div><p className="font-black text-zinc-100">{block?.title ?? "Blok"}</p><p className="mt-1 text-sm text-zinc-500">{blockFeedbackLabel(feedback.rating)}</p></div><span className="grid size-9 shrink-0 place-items-center rounded-xl bg-accent-soft font-black text-accent">{feedback.rating}</span></li>; })}</ol></section>}
                   <div className="ui-segmented grid grid-cols-2"><button type="button" aria-pressed={mode === "chronological"} onClick={() => setViewMode((current) => ({ ...current, [result.id]: "chronological" }))} className="ui-choice px-3 py-2 text-sm">Chronologicky</button><button type="button" aria-pressed={mode === "exercise"} onClick={() => setViewMode((current) => ({ ...current, [result.id]: "exercise" }))} className="ui-choice px-3 py-2 text-sm">Podle cviků</button></div>
 
                   {result.splits.length === 0 ? <p className="mt-3 text-sm text-zinc-500">Bez zaznamenaných mezičasů.</p> : mode === "chronological" ? (
