@@ -124,7 +124,7 @@ export default function Home() {
     <>
       <StickyHeader title="Dnes" fallbackHref="/" />
 
-      <main className="app-content-safe min-h-screen bg-app px-4 text-white sm:px-6">
+      <main className="app-shell app-content-safe min-h-screen px-4 text-white sm:px-6">
         <div className="mx-auto w-full max-w-2xl">
           <header className="flex items-end justify-between gap-4">
             <div>

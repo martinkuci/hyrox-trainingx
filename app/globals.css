@@ -3,10 +3,16 @@
 :root {
   --background: #090a0c;
   --foreground: #f7f8f4;
-  --surface: #141619;
-  --elevated: #1d2024;
+  --surface: #14171a;
+  --surface-strong: #181c20;
+  --elevated: #202429;
+  --line: rgb(255 255 255 / 0.08);
+  --line-strong: rgb(255 255 255 / 0.14);
+  --muted: #9ca3af;
   --accent: #bef264;
   --accent-soft: rgb(190 242 100 / 0.1);
+  --accent-strong: #a3e635;
+  --danger: #f87171;
 }
 
 @theme inline {
@@ -14,10 +20,12 @@
   --color-foreground: var(--foreground);
   --color-app: var(--background);
   --color-surface: var(--surface);
+  --color-surface-strong: var(--surface-strong);
   --color-elevated: var(--elevated);
+  --color-line: var(--line);
   --color-accent: var(--accent);
   --color-accent-soft: var(--accent-soft);
-  --font-sans: Arial, Helvetica, sans-serif;
+  --font-sans: "Inter", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
 }
 
@@ -28,11 +36,18 @@
 body {
   min-height: 100%;
   margin: 0;
-  background: var(--background);
+  background:
+    radial-gradient(circle at 50% -15rem, rgb(190 242 100 / 0.08), transparent 30rem),
+    var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
   -webkit-tap-highlight-color: transparent;
   text-rendering: optimizeLegibility;
+}
+
+html {
+  min-height: 100%;
+  background: var(--background);
 }
 
 ::selection {
@@ -49,6 +64,80 @@ body {
   background:
     radial-gradient(circle at 100% 0%, rgb(190 242 100 / 0.18), transparent 46%),
     linear-gradient(145deg, #181b1e 0%, #111315 100%);
+}
+
+.app-shell,
+.runner-shell {
+  background:
+    radial-gradient(circle at 82% 3rem, rgb(190 242 100 / 0.055), transparent 18rem),
+    var(--background);
+}
+
+.app-shell .bg-zinc-900,
+.runner-shell .bg-zinc-900 {
+  background-color: var(--surface);
+}
+
+.app-shell .bg-zinc-800,
+.app-shell .bg-zinc-800\/70,
+.runner-shell .bg-zinc-800,
+.runner-shell .bg-zinc-800\/70 {
+  background-color: var(--elevated);
+}
+
+.app-shell .border-zinc-800,
+.runner-shell .border-zinc-800 {
+  border-color: var(--line);
+}
+
+.app-shell .border-zinc-700,
+.runner-shell .border-zinc-700 {
+  border-color: var(--line-strong);
+}
+
+.app-shell :is(input, select, textarea),
+.runner-shell :is(input, select, textarea) {
+  color-scheme: dark;
+  transition: border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
+}
+
+.app-shell :is(input, select, textarea):focus,
+.runner-shell :is(input, select, textarea):focus {
+  border-color: rgb(190 242 100 / 0.7);
+  box-shadow: 0 0 0 3px rgb(190 242 100 / 0.08);
+  outline: none;
+}
+
+.app-shell :is(button, a),
+.runner-shell :is(button, a) {
+  transition: color 160ms ease, background-color 160ms ease, border-color 160ms ease, transform 120ms ease;
+}
+
+.app-shell :is(button, a):active,
+.runner-shell :is(button, a):active {
+  transform: scale(0.99);
+}
+
+.app-shell :is(button, input, select, textarea):disabled,
+.runner-shell :is(button, input, select, textarea):disabled {
+  cursor: not-allowed;
+}
+
+.app-panel {
+  border: 1px solid var(--line);
+  border-radius: 1.5rem;
+  background: var(--surface);
+  box-shadow: 0 18px 48px rgb(0 0 0 / 0.12);
+}
+
+.app-empty-icon {
+  display: grid;
+  width: 3rem;
+  height: 3rem;
+  place-items: center;
+  border-radius: 1rem;
+  background: var(--accent-soft);
+  color: var(--accent);
 }
 
 button,
@@ -69,7 +158,7 @@ a {
 }
 
 .app-content-safe {
-  padding-top: 6rem;
+  padding-top: 6.25rem;
   padding-bottom: 7.5rem;
 }
 
@@ -89,7 +178,7 @@ a {
   }
 
   .app-content-safe {
-    padding-top: calc(env(safe-area-inset-top) + 6rem);
+    padding-top: calc(env(safe-area-inset-top) + 6.25rem);
     padding-bottom: calc(env(safe-area-inset-bottom) + 7.5rem);
   }
 
