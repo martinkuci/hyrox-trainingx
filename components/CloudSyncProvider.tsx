@@ -60,7 +60,8 @@ export default function CloudSyncProvider({ children }: { children: React.ReactN
       });
 
       try {
-        await uploadCloudData(loadHyroxData());
+        const uploaded = await uploadCloudData(loadHyroxData());
+        if (!uploaded) throw new Error("Cloud session expired before upload.");
         if (disposed) return;
         const hasNewerChanges = hasNewerLocalChanges(
           startedAtSequence,
@@ -77,11 +78,14 @@ export default function CloudSyncProvider({ children }: { children: React.ReactN
       } catch (error) {
         if (disposed) return;
         console.error("Cloud upload failed", error);
+        const stillSignedIn = Boolean(loadCloudUser());
         updateCloudSyncState({
-          phase: isOnline() ? "error" : "offline",
+          phase: stillSignedIn ? (isOnline() ? "error" : "offline") : "local",
           pending: true,
           pendingUserId: user.uid,
-          error: "Změny zůstaly v zařízení. Synchronizaci zkusíme znovu.",
+          error: stillSignedIn
+            ? "Změny zůstaly v zařízení. Synchronizaci zkusíme znovu."
+            : null,
         });
       } finally {
         syncingRef.current = false;
@@ -125,12 +129,14 @@ export default function CloudSyncProvider({ children }: { children: React.ReactN
       try {
         const cloud = await downloadCloudData();
         if (disposed) return;
+        if (!loadCloudUser()) throw new Error("Cloud session expired during initialization.");
         if (cloud) {
           applyingRemoteRef.current = true;
           saveHyroxData(cloud);
           applyingRemoteRef.current = false;
         } else {
-          await uploadCloudData(loadHyroxData());
+          const uploaded = await uploadCloudData(loadHyroxData());
+          if (!uploaded) throw new Error("Cloud session expired before initial upload.");
         }
         updateCloudSyncState({
           phase: "synced",
@@ -143,9 +149,12 @@ export default function CloudSyncProvider({ children }: { children: React.ReactN
         applyingRemoteRef.current = false;
         if (disposed) return;
         console.error("Cloud initialization failed", error);
+        const stillSignedIn = Boolean(loadCloudUser());
         updateCloudSyncState({
-          phase: isOnline() ? "error" : "offline",
-          error: "Cloud teď není dostupný. Lokální data zůstávají v bezpečí.",
+          phase: stillSignedIn ? (isOnline() ? "error" : "offline") : "local",
+          error: stillSignedIn
+            ? "Cloud teď není dostupný. Lokální data zůstávají v bezpečí."
+            : null,
         });
       } finally {
         syncingRef.current = false;
