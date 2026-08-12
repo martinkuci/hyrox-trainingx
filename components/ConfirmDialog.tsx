@@ -27,19 +27,24 @@ export default function ConfirmDialog({
 
   useEffect(() => {
     if (!open) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     initialFocusRef.current?.focus();
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") onCancel();
     };
     window.addEventListener("keydown", closeOnEscape);
-    return () => window.removeEventListener("keydown", closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", closeOnEscape);
+    };
   }, [onCancel, open]);
 
   if (!open) return null;
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/75 p-4 backdrop-blur-sm sm:items-center"
+      className="fixed inset-0 z-[70] flex items-center justify-center overflow-y-auto bg-black/75 px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-[calc(1rem+env(safe-area-inset-top))] backdrop-blur-sm"
       role="presentation"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onCancel();
@@ -49,7 +54,7 @@ export default function ConfirmDialog({
         aria-describedby="confirm-dialog-description"
         aria-labelledby="confirm-dialog-title"
         aria-modal="true"
-        className="ui-card w-full max-w-sm p-6 text-white shadow-[0_28px_90px_rgba(0,0,0,0.5)]"
+        className="ui-card my-auto w-full max-w-sm p-5 text-white shadow-[0_28px_90px_rgba(0,0,0,0.5)] sm:p-6"
         role="dialog"
       >
         <div className={`mb-5 grid size-11 place-items-center rounded-2xl ${destructive ? "bg-red-400/10 text-red-300" : "bg-accent-soft text-accent"}`} aria-hidden="true">
