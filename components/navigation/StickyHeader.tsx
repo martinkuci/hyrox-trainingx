@@ -29,7 +29,7 @@ export function StickyHeader({ title, fallbackHref = "/" }: Props) {
       <div className="mx-auto grid h-[4.25rem] w-full max-w-2xl grid-cols-3 items-center px-4 sm:px-6">
         {pathname === "/" ? (
           <Link href="/" className="grid size-10 place-items-center rounded-xl bg-accent font-black text-zinc-950" aria-label="Dnes">
-            T
+            H
           </Link>
         ) : (
           <button
@@ -47,10 +47,10 @@ export function StickyHeader({ title, fallbackHref = "/" }: Props) {
         <Link
           href="/"
           className="flex min-h-11 items-center justify-self-center rounded-xl px-3 text-xs font-black uppercase tracking-[0.22em] text-white"
-          aria-label="HYROX – domů"
+          aria-label="HYROX Training – domů"
         >
           <span className="mr-2 h-4 w-1 rounded-full bg-accent" aria-hidden="true" />
-          Training
+          HYROX
         </Link>
 
         <Link
