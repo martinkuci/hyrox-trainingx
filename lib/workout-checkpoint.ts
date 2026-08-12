@@ -1,6 +1,7 @@
 import type { StepSplit } from "./types";
 
 export const ACTIVE_WORKOUT_STORAGE_KEY = "hyrox-active-workout-v1";
+export const ACTIVE_WORKOUT_CHANGE_EVENT = "hyrox-active-workout-change";
 export const WORKOUT_CHECKPOINT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
 export type CheckpointRunnerMode = "block-preview" | "countdown" | "running";
@@ -32,6 +33,12 @@ function getStorage(): Storage | null {
     return typeof window === "undefined" ? null : window.localStorage;
   } catch {
     return null;
+  }
+}
+
+function announceWorkoutCheckpointChange() {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event(ACTIVE_WORKOUT_CHANGE_EVENT));
   }
 }
 
@@ -179,6 +186,7 @@ export function saveWorkoutCheckpoint(checkpoint: WorkoutCheckpoint) {
   if (!storage) return false;
   try {
     storage.setItem(ACTIVE_WORKOUT_STORAGE_KEY, JSON.stringify(checkpoint));
+    announceWorkoutCheckpointChange();
     return true;
   } catch {
     return false;
@@ -194,6 +202,7 @@ export function clearWorkoutCheckpoint(expectedWorkoutKey?: string) {
       if (checkpoint && checkpoint.workoutKey !== expectedWorkoutKey) return false;
     }
     storage.removeItem(ACTIVE_WORKOUT_STORAGE_KEY);
+    announceWorkoutCheckpointChange();
     return true;
   } catch {
     return false;

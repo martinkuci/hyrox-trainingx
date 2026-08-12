@@ -215,6 +215,51 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
     else pauseRunning();
   }
 
+  function minimizeWorkout() {
+    if (!isCheckpointMode(mode)) return;
+
+    const now = Date.now();
+    let savedTotalElapsed = elapsedMilliseconds(totalAccumulatedRef.current, totalStartedAtRef.current, now);
+    let savedStepElapsed = elapsedMilliseconds(stepAccumulatedRef.current, stepStartedAtRef.current, now);
+    const savedPaused = mode === "running" ? true : paused;
+    const savedCountdownPaused = mode === "countdown" ? true : countdownPaused;
+
+    if (mode === "running") {
+      totalAccumulatedRef.current = savedTotalElapsed;
+      stepAccumulatedRef.current = savedStepElapsed;
+      totalStartedAtRef.current = null;
+      stepStartedAtRef.current = null;
+      setTotalElapsed(savedTotalElapsed);
+      setStepElapsed(savedStepElapsed);
+      setPaused(true);
+    } else {
+      savedTotalElapsed = totalAccumulatedRef.current;
+      savedStepElapsed = stepAccumulatedRef.current;
+    }
+
+    if (mode === "countdown") setCountdownPaused(true);
+
+    const saved = saveWorkoutCheckpoint({
+      version: 1,
+      workoutKey,
+      templateId: template.id,
+      templateTitle: template.title,
+      templateUpdatedAt: template.updatedAt,
+      scheduledWorkoutId,
+      mode,
+      currentIndex: currentIndexRef.current,
+      totalElapsedMilliseconds: savedTotalElapsed,
+      stepElapsedMilliseconds: savedStepElapsed,
+      splits: splitsRef.current,
+      countdown,
+      paused: savedPaused,
+      countdownPaused: savedCountdownPaused,
+      savedAt: now,
+    });
+    setCheckpointFailed(!saved);
+    if (saved) router.push("/");
+  }
+
   function openWorkoutOverview() {
     const shouldResume = mode === "running" && !paused;
     if (shouldResume) pauseRunning();
@@ -467,6 +512,7 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
         <p className="mt-2 text-lg text-zinc-400">{currentBlock.type === "emom" ? `${currentBlock.minutes} minut` : `${currentBlock.repeat} kol`}</p>
         <ol className="mt-6 space-y-3">{currentBlock.steps.map((step, index) => <li key={step.id} className="ui-inset flex gap-3 p-4"><span className="text-lg font-black text-accent">{index + 1}.</span><div><p className="text-xl font-bold">{step.name}</p>{step.detail && <p className="mt-1 text-base leading-6 text-zinc-300">{step.detail}</p>}</div></li>)}</ol>
         <div className="mt-6 grid gap-3"><button type="button" onClick={beginCountdown} className="ui-button ui-button-primary ui-button-lg w-full text-xl">Odpočet 10 s</button><button type="button" onClick={beginRunning} className="ui-button ui-button-outline w-full text-lg">Začít hned</button></div>
+        <button type="button" onClick={minimizeWorkout} className="ui-button ui-button-ghost mt-3 w-full">Minimalizovat trénink</button>
         <LocalSaveStatus failed={checkpointFailed} notice={recoveryNotice} />
       </section>
     </main>
@@ -485,6 +531,7 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
         <h1 className="mt-8 text-5xl font-black leading-tight">{currentStep.name}</h1>
         {currentStep.detail && <p className="mt-3 text-2xl font-semibold leading-8 text-zinc-300">{currentStep.detail}</p>}
         <button type="button" onClick={beginRunning} className="ui-button ui-button-outline mt-10 w-full text-lg">Přeskočit odpočet</button>
+        <button type="button" onClick={minimizeWorkout} className="ui-button ui-button-ghost mt-3 w-full">Minimalizovat trénink</button>
         <LocalSaveStatus failed={checkpointFailed} notice={recoveryNotice} />
       </section>
     </main>
@@ -514,6 +561,7 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
           <div className="mt-6 h-1.5 overflow-hidden rounded-full bg-elevated"><div className="h-full rounded-full bg-accent transition-[width] duration-200" style={{ width: `${((currentIndex + 1) / steps.length) * 100}%` }} /></div>
         </section>
         <button type="button" onClick={advanceManual} disabled={paused} className="ui-button ui-button-primary ui-button-lg w-full text-xl">{currentIndex === steps.length - 1 ? "Dokončit trénink" : currentStep.durationSeconds ? "Přeskočit minutu →" : "Hotovo →"}</button>
+        <button type="button" onClick={minimizeWorkout} className="ui-button ui-button-ghost mt-3 w-full">Minimalizovat trénink</button>
         <LocalSaveStatus failed={checkpointFailed} notice={recoveryNotice} />
       </div>
 
@@ -531,6 +579,7 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
             <div className="mt-6"><WorkoutOutline template={template} activeBlockId={currentStep.blockId} /></div>
             <div className="mt-6 grid gap-3">
               <button type="button" onClick={closeWorkoutOverview} className="ui-button ui-button-primary ui-button-lg w-full text-xl">{resumeAfterOverview ? "Zpět a pokračovat" : "Zpět do tréninku"}</button>
+              <button type="button" onClick={minimizeWorkout} className="ui-button ui-button-outline w-full">Minimalizovat trénink</button>
               <button type="button" onClick={() => setShowQuit(true)} className="ui-button ui-button-danger w-full">Ukončit trénink</button>
             </div>
           </div>

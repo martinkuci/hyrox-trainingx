@@ -17,6 +17,9 @@ Zabránit ztrátě rozpracovaného tréninku při obnovení stránky, zavření 
 - při dokončení nebo výslovném opuštění checkpoint odstranit,
 - zabránit přepsání checkpointu jiným tréninkem bez jasného rozhodnutí uživatele,
 - zobrazit srozumitelnou informaci o automatickém lokálním uložení,
+- umožnit rozpracovaný trénink bezpečně minimalizovat; časovač se přitom vědomě pozastaví a checkpoint se uloží ještě před odchodem,
+- na běžných obrazovkách zobrazit kompaktní návratovou lištu s názvem, uloženým časem a akcí „Pokračovat“,
+- zachovat nerušený workout runner bez hlavní spodní navigace,
 - zachovat současné ukládání výsledků, plánování, cloudovou synchronizaci a existující lokální data.
 
 ## Akceptační kritéria
@@ -27,6 +30,8 @@ Zabránit ztrátě rozpracovaného tréninku při obnovení stránky, zavření 
 - neplatný, zastaralý nebo nekompatibilní checkpoint aplikaci nerozbije a lze jej bezpečně zahodit,
 - dokončený nebo uživatelem zrušený trénink nezanechá aktivní checkpoint,
 - v zařízení existuje nejvýše jeden aktivní checkpoint,
+- minimalizace z countdownu, náhledu bloku i aktivního kroku otevře hlavní obrazovku a uchová pozastavený stav,
+- návratová lišta se po minimalizaci objeví nad hlavní navigací, nepřekrývá fixní akce a vrátí uživatele ke správnému tréninku,
 - rozhraní zůstane použitelné na šířce 320 px a ovladatelné klávesnicí,
 - lint, TypeScript, produkční build a cílené scénáře obnovy projdou.
 
