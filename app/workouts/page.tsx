@@ -49,20 +49,20 @@ export default function WorkoutsPage() {
   return (
     <PlanningShell
       eyebrow="Knihovna"
-      title="Tréninky"
-      description="Procházej, filtruj, vytvářej a spouštěj jednotlivé HYROX tréninky. Plánování programu je samostatně v sekci Plán."
+      title="Trénovat"
+      description="Vyber hotový trénink, uprav si vlastní nebo rovnou začni dnešní jednotku."
       action={
-        <div className="flex shrink-0 gap-2">
-          <Link href="/import" className="rounded-2xl border border-lime-400/40 px-4 py-3 text-sm font-black text-lime-300">
+        <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto">
+          <Link href="/import" className="flex min-h-12 items-center justify-center rounded-2xl border border-white/12 px-4 py-3 text-sm font-black text-zinc-200">
             Import
           </Link>
-          <Link href="/workouts/editor" className="rounded-2xl bg-lime-400 px-4 py-3 text-sm font-black text-zinc-950">
+          <Link href="/workouts/editor" className="flex min-h-12 items-center justify-center rounded-2xl bg-accent px-4 py-3 text-sm font-black text-zinc-950">
             + Nový
           </Link>
         </div>
       }
     >
-      <section className="mb-5 rounded-3xl border border-zinc-800 bg-zinc-900 p-4">
+      <section className="mb-5 rounded-3xl border border-zinc-800 bg-zinc-900 p-4 shadow-[0_18px_50px_rgba(0,0,0,0.1)]">
         <input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
@@ -95,7 +95,7 @@ export default function WorkoutsPage() {
         {templates.map((template) => {
           const metadata = template.metadata;
           return (
-            <article key={template.id} className="rounded-3xl border border-zinc-800 bg-zinc-900 p-5 sm:p-6">
+            <article key={template.id} className="rounded-[1.75rem] border border-zinc-800 bg-zinc-900 p-5 sm:p-6">
               <div className="flex flex-wrap items-center gap-2">
                 {metadata?.workoutCode && (
                   <span className="rounded-full bg-lime-400 px-3 py-1 text-xs font-black text-zinc-950">

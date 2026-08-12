@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
+import { PlanningShell } from "@/components/planning/PlanningShell";
 import {
   AUTH_EVENT,
   createEmailAccount,
@@ -42,22 +43,26 @@ export default function AccountPage() {
   }
 
   return (
-    <main className="min-h-dvh bg-zinc-950 px-5 py-8 text-white">
+    <PlanningShell
+      eyebrow="Profil"
+      title="Účet a cloud"
+      description="Spravuj přihlášení a bezpečnou synchronizaci tréninkových dat mezi zařízeními."
+      backHref="/"
+    >
       <div className="mx-auto max-w-md">
-        <p className="text-sm font-black uppercase tracking-[0.22em] text-lime-400">Cloud</p>
-        <h1 className="mt-2 text-4xl font-black">Účet a synchronizace</h1>
-
         {user ? (
-          <section className="mt-8 rounded-3xl border border-zinc-800 bg-zinc-900 p-6">
+          <section className="rounded-3xl border border-zinc-800 bg-zinc-900 p-6">
             <div className="flex items-center gap-3">
-              <div className="grid size-12 place-items-center rounded-full bg-lime-400 font-black text-zinc-950">✓</div>
+              <div className="grid size-12 place-items-center rounded-2xl bg-accent-soft text-accent">
+                <svg viewBox="0 0 24 24" className="size-6" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="m7 12 3 3 7-7" strokeLinecap="round" strokeLinejoin="round" /></svg>
+              </div>
               <div>
-                <p className="font-bold">Přihlášeno</p>
+                <p className="font-black">Přihlášeno</p>
                 <p className="text-sm text-zinc-400">{user.email}</p>
               </div>
             </div>
-            <div className="mt-6 rounded-2xl bg-zinc-800 p-4">
-              <p className="font-bold text-lime-400">Cloudová synchronizace je aktivní</p>
+            <div className="mt-6 rounded-2xl border border-accent/15 bg-accent-soft p-4">
+              <p className="font-black text-accent">Synchronizace je aktivní</p>
               <p className="mt-2 text-sm leading-6 text-zinc-400">
                 Tréninky, kalendář, výsledky a týdenní plány se ukládají do tvého účtu. Po přihlášení stejným e-mailem na telefonu a počítači uvidíš stejná data.
               </p>
@@ -71,10 +76,10 @@ export default function AccountPage() {
             </button>
           </section>
         ) : (
-          <section className="mt-8 rounded-3xl border border-zinc-800 bg-zinc-900 p-6">
+          <section className="rounded-3xl border border-zinc-800 bg-zinc-900 p-6">
             <div className="grid grid-cols-2 rounded-2xl bg-zinc-800 p-1">
-              <button type="button" onClick={() => setMode("login")} className={`rounded-xl px-3 py-3 font-bold ${mode === "login" ? "bg-zinc-700 text-white" : "text-zinc-400"}`}>Přihlášení</button>
-              <button type="button" onClick={() => setMode("register")} className={`rounded-xl px-3 py-3 font-bold ${mode === "register" ? "bg-zinc-700 text-white" : "text-zinc-400"}`}>Nový účet</button>
+              <button type="button" onClick={() => setMode("login")} className={`min-h-11 rounded-xl px-3 py-3 font-bold ${mode === "login" ? "bg-accent text-zinc-950" : "text-zinc-400"}`}>Přihlášení</button>
+              <button type="button" onClick={() => setMode("register")} className={`min-h-11 rounded-xl px-3 py-3 font-bold ${mode === "register" ? "bg-accent text-zinc-950" : "text-zinc-400"}`}>Nový účet</button>
             </div>
 
             <form onSubmit={submit} className="mt-6">
@@ -97,6 +102,6 @@ export default function AccountPage() {
           </section>
         )}
       </div>
-    </main>
+    </PlanningShell>
   );
 }

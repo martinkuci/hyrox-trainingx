@@ -116,8 +116,8 @@ export default function LiveProgramCalendarPage() {
 
   return (
     <PlanningShell
-      eyebrow="Fáze 3B.5A"
-      title="Živý kalendář programu"
+      eyebrow="Plán"
+      title="Kalendář programu"
       description="Klikni na naplánovaný trénink a přesuň ho na jiný den. Můžeš změnit jen jednu jednotku, nebo posunout i celý zbytek programu."
       backHref="/plan"
     >

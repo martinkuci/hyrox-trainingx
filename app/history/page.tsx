@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import { PlanningShell } from "@/components/planning/PlanningShell";
 import { useHyroxData } from "@/hooks/useHyroxData";
 import type { WorkoutResult } from "@/lib/types";
 
@@ -29,19 +30,23 @@ export default function HistoryPage() {
   }
 
   return (
-    <main className="min-h-dvh bg-zinc-950 px-5 py-8 text-white">
-      <div className="mx-auto max-w-lg">
-        <p className="text-sm font-black uppercase tracking-[0.22em] text-lime-400">HYROX Training</p>
-        <h1 className="mt-2 text-4xl font-black">Historie</h1>
-        <p className="mt-2 text-zinc-400">Výsledky a mezičasy tvých tréninků.</p>
-        <Link href="/results/import" className="mt-5 block rounded-2xl bg-lime-400 px-5 py-4 text-center font-black text-zinc-950">
-          Načíst výsledek ze screenshotu
+    <PlanningShell
+      eyebrow="Výsledky"
+      title="Historie výkonů"
+      description="Výsledky, mezičasy a vývoj výkonu na jednom místě."
+      backHref="/"
+      action={
+        <Link href="/results/import" className="flex min-h-12 w-full items-center justify-center rounded-2xl bg-accent px-4 py-3 text-center text-sm font-black text-zinc-950 sm:w-auto">
+          Načíst screenshot
         </Link>
+      }
+    >
+      <div className="mx-auto max-w-lg">
 
-        {!ready && <p className="mt-10 text-zinc-400">Načítám výsledky…</p>}
-        {ready && results.length === 0 && <section className="mt-8 rounded-3xl border border-zinc-800 bg-zinc-900 p-8 text-center"><div className="text-4xl">◷</div><h2 className="mt-4 text-xl font-bold">Zatím žádné výsledky</h2><p className="mt-2 text-zinc-400">Dokončený trénink se zobrazí tady.</p><Link href="/" className="mt-7 block rounded-2xl bg-lime-400 px-5 py-4 font-bold text-zinc-950">Vybrat trénink</Link></section>}
+        {!ready && <div className="h-48 animate-pulse rounded-3xl bg-zinc-900" aria-label="Načítám výsledky" />}
+        {ready && results.length === 0 && <section className="rounded-3xl border border-dashed border-zinc-700 bg-zinc-900 p-8 text-center"><div className="app-empty-icon mx-auto"><ResultsIcon /></div><h2 className="mt-5 text-xl font-black">Zatím žádné výsledky</h2><p className="mt-2 text-zinc-400">Dokončený trénink se zobrazí tady včetně času, RPE a mezičasů.</p><Link href="/workouts" className="mt-7 flex min-h-12 items-center justify-center rounded-2xl bg-accent px-5 py-3 font-black text-zinc-950">Vybrat trénink</Link></section>}
 
-        <div className="mt-8 space-y-4">
+        <div className={`${results.length > 0 ? "space-y-4" : ""}`}>
           {results.map((result) => {
             const expanded = expandedId === result.id;
             const mode = viewMode[result.id] ?? "chronological";
@@ -87,8 +92,12 @@ export default function HistoryPage() {
         </div>
       </div>
       <ConfirmDialog open={pendingDelete !== null} title="Smazat výsledek?" description="Tento záznam už nepůjde obnovit." confirmLabel="Smazat" destructive onCancel={() => setPendingDelete(null)} onConfirm={() => { if (pendingDelete) deleteResult(pendingDelete.id); setPendingDelete(null); }} />
-    </main>
+    </PlanningShell>
   );
+}
+
+function ResultsIcon() {
+  return <svg viewBox="0 0 24 24" className="size-6" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2" strokeLinecap="round" /></svg>;
 }
 
 function Stat({ label, value }: { label: string; value: string }) {

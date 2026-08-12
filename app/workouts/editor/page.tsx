@@ -35,7 +35,7 @@ function EditorContent() {
   const metadata = draft.metadata ?? emptyMetadata();
   const setMetadata = (updates: Partial<WorkoutMetadata>) => setDraft({ ...draft, metadata: { ...metadata, ...updates } });
 
-  if (!ready) return <PlanningShell eyebrow="Editor" title="Načítám…" backHref="/workouts"><div className="h-64 animate-pulse rounded-3xl bg-zinc-900" /></PlanningShell>;
+  if (!ready) return <PlanningShell eyebrow="Trénovat" title="Načítám…" backHref="/workouts"><div className="h-64 animate-pulse rounded-3xl bg-zinc-900" /></PlanningShell>;
 
   function replaceBlock(index: number, block: WorkoutBlock) { setDraft({ ...draft, blocks: draft.blocks.map((item, i) => i === index ? block : item) }); }
   function updateStep(blockIndex: number, stepIndex: number, updates: Partial<WorkoutStep>) {
@@ -58,7 +58,7 @@ function EditorContent() {
     router.push("/workouts");
   }
 
-  return <PlanningShell eyebrow="Editor WOD" title={editId ? "Upravit trénink" : "Nový trénink"} description="Jednotná struktura tréninku umožní sledovat progres, rekordy a později adaptivní doporučení." backHref="/workouts">
+  return <PlanningShell eyebrow="Trénovat" title={editId ? "Upravit trénink" : "Nový trénink"} description="Jednotná struktura tréninku umožní sledovat progres, rekordy a později adaptivní doporučení." backHref="/workouts">
     <section className="rounded-3xl border border-zinc-800 bg-zinc-900 p-5 sm:p-6">
       <label className="font-bold" htmlFor="title">Název</label><input id="title" value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} placeholder="Např. Base Engine" className={inputClass} />
       <label className="mt-5 block font-bold" htmlFor="description">Popis</label><textarea id="description" value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} rows={3} className={`${inputClass} resize-none`} />
