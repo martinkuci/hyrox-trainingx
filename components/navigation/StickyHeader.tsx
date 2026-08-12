@@ -35,7 +35,7 @@ export function StickyHeader({ title, fallbackHref = "/" }: Props) {
           <button
             type="button"
             onClick={goBack}
-            className="flex min-h-11 min-w-11 items-center justify-start rounded-xl text-zinc-400 active:bg-white/5 active:text-white"
+            className="ui-button ui-button-ghost ui-button-icon justify-start text-zinc-400"
             aria-label="Zpět"
           >
             <svg viewBox="0 0 24 24" className="size-6" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
@@ -55,7 +55,7 @@ export function StickyHeader({ title, fallbackHref = "/" }: Props) {
 
         <Link
           href="/account"
-          className="flex min-h-11 min-w-11 items-center justify-end justify-self-end rounded-xl text-zinc-400 active:bg-white/5 active:text-white"
+          className="ui-button ui-button-ghost ui-button-icon justify-end justify-self-end text-zinc-400"
           aria-label="Účet a cloud"
         >
           <svg viewBox="0 0 24 24" className="size-6" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">

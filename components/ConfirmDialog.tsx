@@ -49,7 +49,7 @@ export default function ConfirmDialog({
         aria-describedby="confirm-dialog-description"
         aria-labelledby="confirm-dialog-title"
         aria-modal="true"
-        className="w-full max-w-sm rounded-[1.75rem] border border-white/10 bg-[#15181b] p-6 text-white shadow-[0_28px_90px_rgba(0,0,0,0.5)]"
+        className="ui-card w-full max-w-sm p-6 text-white shadow-[0_28px_90px_rgba(0,0,0,0.5)]"
         role="dialog"
       >
         <div className={`mb-5 grid size-11 place-items-center rounded-2xl ${destructive ? "bg-red-400/10 text-red-300" : "bg-accent-soft text-accent"}`} aria-hidden="true">
@@ -70,18 +70,14 @@ export default function ConfirmDialog({
             ref={initialFocusRef}
             type="button"
             onClick={onCancel}
-            className="min-h-12 rounded-2xl border border-white/12 px-4 py-3.5 font-bold text-zinc-200 hover:bg-white/5"
+            className="ui-button ui-button-outline"
           >
             {cancelLabel}
           </button>
           <button
             type="button"
             onClick={onConfirm}
-            className={`min-h-12 rounded-2xl px-4 py-3.5 font-black ${
-              destructive
-                ? "bg-red-500 text-white hover:bg-red-400"
-                : "bg-lime-400 text-zinc-950 hover:bg-lime-300"
-            }`}
+            className={`ui-button ${destructive ? "ui-button-danger-solid" : "ui-button-primary"}`}
           >
             {confirmLabel}
           </button>

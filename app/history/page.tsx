@@ -36,15 +36,15 @@ export default function HistoryPage() {
       description="Výsledky, mezičasy a vývoj výkonu na jednom místě."
       backHref="/"
       action={
-        <Link href="/results/import" className="flex min-h-12 w-full items-center justify-center rounded-2xl bg-accent px-4 py-3 text-center text-sm font-black text-zinc-950 sm:w-auto">
+        <Link href="/results/import" className="ui-button ui-button-primary ui-button-sm w-full sm:w-auto">
           Načíst screenshot
         </Link>
       }
     >
       <div className="mx-auto max-w-lg">
 
-        {!ready && <div className="h-48 animate-pulse rounded-3xl bg-zinc-900" aria-label="Načítám výsledky" />}
-        {ready && results.length === 0 && <section className="rounded-3xl border border-dashed border-zinc-700 bg-zinc-900 p-8 text-center"><div className="app-empty-icon mx-auto"><ResultsIcon /></div><h2 className="mt-5 text-xl font-black">Zatím žádné výsledky</h2><p className="mt-2 text-zinc-400">Dokončený trénink se zobrazí tady včetně času, RPE a mezičasů.</p><Link href="/workouts" className="mt-7 flex min-h-12 items-center justify-center rounded-2xl bg-accent px-5 py-3 font-black text-zinc-950">Vybrat trénink</Link></section>}
+        {!ready && <div className="ui-card h-48 animate-pulse" aria-label="Načítám výsledky" />}
+        {ready && results.length === 0 && <section className="ui-card border-dashed p-8 text-center"><div className="app-empty-icon mx-auto"><ResultsIcon /></div><h2 className="mt-5 text-xl font-black">Zatím žádné výsledky</h2><p className="mt-2 text-zinc-400">Dokončený trénink se zobrazí tady včetně času, RPE a mezičasů.</p><Link href="/workouts" className="ui-button ui-button-accent mt-7 w-full">Vybrat trénink</Link></section>}
 
         <div className={`${results.length > 0 ? "space-y-4" : ""}`}>
           {results.map((result) => {
@@ -60,21 +60,21 @@ export default function HistoryPage() {
             }, new Map<string, { key: string; title: string; detail: string; blockTitle: string; isEmom: boolean; items: typeof described }>()).values());
 
             return (
-              <article key={result.id} className="overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-900">
+              <article key={result.id} className="ui-card overflow-hidden">
                 <div className="p-6">
-                  <div className="flex items-start justify-between gap-4"><div><p className="text-sm font-bold text-lime-400">{new Intl.DateTimeFormat("cs-CZ", { dateStyle: "medium", timeStyle: "short" }).format(new Date(result.completedAt))}</p><h2 className="mt-1 text-2xl font-black">{result.workoutTitle}</h2></div><div className="flex shrink-0 flex-col items-end gap-2">{result.source === "screenshot" ? <span className="rounded-full bg-lime-400/15 px-3 py-1 text-xs font-black text-lime-300">Screenshot</span> : result.sourceImageName ? <span className="rounded-full bg-sky-400/15 px-3 py-1 text-xs font-black text-sky-300">Data doplněna</span> : null}<span className="rounded-full bg-zinc-800 px-3 py-1.5 text-sm font-semibold">RPE {result.rpe}</span></div></div>
-                  <div className="mt-5 flex items-end justify-between rounded-2xl bg-zinc-800 p-4"><div><p className="text-sm text-zinc-400">Celkový čas</p><p className="mt-1 font-mono text-3xl font-black">{formatDuration(result.durationSeconds)}</p></div><span className="text-sm text-zinc-500">{result.splits.length} úseků</span></div>
+                  <div className="flex items-start justify-between gap-4"><div><p className="text-sm font-bold text-accent">{new Intl.DateTimeFormat("cs-CZ", { dateStyle: "medium", timeStyle: "short" }).format(new Date(result.completedAt))}</p><h2 className="mt-1 text-2xl font-black">{result.workoutTitle}</h2></div><div className="flex shrink-0 flex-col items-end gap-2">{result.source === "screenshot" ? <span className="ui-chip ui-chip-accent">Screenshot</span> : result.sourceImageName ? <span className="ui-chip border-sky-400/20 bg-sky-400/10 text-sky-300">Data doplněna</span> : null}<span className="ui-chip text-sm">RPE {result.rpe}</span></div></div>
+                  <div className="ui-inset mt-5 flex items-end justify-between p-4"><div><p className="text-sm text-zinc-400">Celkový čas</p><p className="mt-1 font-mono text-3xl font-black">{formatDuration(result.durationSeconds)}</p></div><span className="text-sm text-zinc-500">{result.splits.length} úseků</span></div>
                   {result.metrics && Object.values(result.metrics).some((value) => value !== undefined) && <div className="mt-4 grid grid-cols-2 gap-2">{result.metrics.averageHeartRate !== undefined && <ResultMetric label="Průměrný tep" value={result.metrics.averageHeartRate + " bpm"} />}{result.metrics.maxHeartRate !== undefined && <ResultMetric label="Maximální tep" value={result.metrics.maxHeartRate + " bpm"} />}{result.metrics.calories !== undefined && <ResultMetric label="Kalorie" value={result.metrics.calories + " kcal"} />}{result.metrics.distanceKm !== undefined && <ResultMetric label="Vzdálenost" value={result.metrics.distanceKm.toLocaleString("cs-CZ", { maximumFractionDigits: 2 }) + " km"} />}{result.metrics.watchDurationSeconds !== undefined && <ResultMetric label="Čas podle hodinek" value={formatDuration(result.metrics.watchDurationSeconds)} />}</div>}
                   {result.weights && <div className="mt-4"><p className="text-xs font-bold uppercase tracking-wider text-zinc-500">Váhy</p><p className="mt-1 text-zinc-200">{result.weights}</p></div>}
                   {result.notes && <div className="mt-4"><p className="text-xs font-bold uppercase tracking-wider text-zinc-500">Poznámka</p><p className="mt-1 whitespace-pre-wrap text-zinc-300">{result.notes}</p></div>}
-                  <div className="mt-5 space-y-3"><Link href={`/results/import?resultId=${encodeURIComponent(result.id)}`} className="block rounded-xl border border-lime-400/40 px-4 py-3 text-center text-sm font-black text-lime-300">Doplnit data ze screenshotu</Link><div className="grid grid-cols-[1fr_auto] gap-3"><button type="button" onClick={() => setExpandedId(expanded ? null : result.id)} className="rounded-xl bg-zinc-800 px-4 py-3 text-sm font-semibold text-zinc-200">{expanded ? "Skrýt mezičasy" : "Zobrazit mezičasy"}</button><button type="button" onClick={() => setPendingDelete(result)} className="rounded-xl border border-red-500/30 px-4 py-3 text-sm font-semibold text-red-300">Smazat</button></div></div>
+                  <div className="mt-5 space-y-3"><Link href={`/results/import?resultId=${encodeURIComponent(result.id)}`} className="ui-button ui-button-outline ui-button-sm w-full">Doplnit data ze screenshotu</Link><div className="grid grid-cols-[1fr_auto] gap-3"><button type="button" onClick={() => setExpandedId(expanded ? null : result.id)} className="ui-button ui-button-secondary ui-button-sm">{expanded ? "Skrýt mezičasy" : "Zobrazit mezičasy"}</button><button type="button" onClick={() => setPendingDelete(result)} className="ui-button ui-button-danger ui-button-sm">Smazat</button></div></div>
                 </div>
 
-                {expanded && <div className="border-t border-zinc-800 bg-zinc-950/50 px-6 py-5">
-                  <div className="grid grid-cols-2 gap-2 rounded-2xl bg-zinc-900 p-1"><button type="button" onClick={() => setViewMode((current) => ({ ...current, [result.id]: "chronological" }))} className={`rounded-xl px-3 py-2 text-sm font-bold ${mode === "chronological" ? "bg-lime-400 text-zinc-950" : "text-zinc-400"}`}>Chronologicky</button><button type="button" onClick={() => setViewMode((current) => ({ ...current, [result.id]: "exercise" }))} className={`rounded-xl px-3 py-2 text-sm font-bold ${mode === "exercise" ? "bg-lime-400 text-zinc-950" : "text-zinc-400"}`}>Podle cviků</button></div>
+                {expanded && <div className="border-t border-white/8 bg-zinc-950/50 px-6 py-5">
+                  <div className="ui-segmented grid grid-cols-2"><button type="button" aria-pressed={mode === "chronological"} onClick={() => setViewMode((current) => ({ ...current, [result.id]: "chronological" }))} className="ui-choice px-3 py-2 text-sm">Chronologicky</button><button type="button" aria-pressed={mode === "exercise"} onClick={() => setViewMode((current) => ({ ...current, [result.id]: "exercise" }))} className="ui-choice px-3 py-2 text-sm">Podle cviků</button></div>
 
                   {result.splits.length === 0 ? <p className="mt-3 text-sm text-zinc-500">Bez zaznamenaných mezičasů.</p> : mode === "chronological" ? (
-                    <ol className="mt-4 space-y-2">{described.map(({ split, index, info }) => <li key={`${split.blockId}-${split.stepId}-${split.round}-${index}`} className="rounded-xl bg-zinc-900 px-4 py-3 text-sm"><div className="flex items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-wider text-lime-400">{info.blockTitle}</p><p className="mt-1 font-bold text-zinc-100">{info.stepTitle}</p><p className="mt-1 text-xs text-zinc-500">{info.isEmom ? `Minuta ${info.round}` : `Kolo ${info.round}`}{info.detail ? ` · ${info.detail}` : ""}</p></div><span className="font-mono font-bold">{formatDuration(split.durationSeconds)}</span></div></li>)}</ol>
+                    <ol className="mt-4 space-y-2">{described.map(({ split, index, info }) => <li key={`${split.blockId}-${split.stepId}-${split.round}-${index}`} className="ui-inset px-4 py-3 text-sm"><div className="flex items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-wider text-accent">{info.blockTitle}</p><p className="mt-1 font-bold text-zinc-100">{info.stepTitle}</p><p className="mt-1 text-xs text-zinc-500">{info.isEmom ? `Minuta ${info.round}` : `Kolo ${info.round}`}{info.detail ? ` · ${info.detail}` : ""}</p></div><span className="font-mono font-bold">{formatDuration(split.durationSeconds)}</span></div></li>)}</ol>
                   ) : (
                     <div className="mt-4 space-y-4">{groups.map((group) => {
                       const times = group.items.map((item) => item.split.durationSeconds);
@@ -82,7 +82,7 @@ export default function HistoryPage() {
                       const average = Math.round(times.reduce((sum, value) => sum + value, 0) / times.length);
                       const last = times[times.length - 1];
                       const drop = best > 0 ? Math.round(((last - best) / best) * 100) : 0;
-                      return <section key={group.key} className="rounded-2xl bg-zinc-900 p-4"><p className="text-xs font-bold uppercase tracking-wider text-lime-400">{group.blockTitle}</p><h3 className="mt-1 text-lg font-black">{group.title}</h3>{group.detail && <p className="mt-1 text-sm text-zinc-500">{group.detail}</p>}<div className="mt-4 grid grid-cols-4 gap-2 text-center"><Stat label="Nejlepší" value={formatDuration(best)} /><Stat label="Průměr" value={formatDuration(average)} /><Stat label="Poslední" value={formatDuration(last)} /><Stat label="Propad" value={`${drop > 0 ? "+" : ""}${drop}%`} /></div><ol className="mt-4 space-y-2">{group.items.map(({ split, index, info }) => <li key={`${group.key}-${index}`} className="flex items-center justify-between rounded-xl bg-zinc-800 px-3 py-2 text-sm"><span className="text-zinc-400">{info.isEmom ? `Minuta ${info.round}` : `Kolo ${info.round}`}</span><span className="font-mono font-bold">{formatDuration(split.durationSeconds)}</span></li>)}</ol></section>;
+                      return <section key={group.key} className="ui-inset p-4"><p className="text-xs font-bold uppercase tracking-wider text-accent">{group.blockTitle}</p><h3 className="mt-1 text-lg font-black">{group.title}</h3>{group.detail && <p className="mt-1 text-sm text-zinc-500">{group.detail}</p>}<div className="mt-4 grid grid-cols-4 gap-2 text-center"><Stat label="Nejlepší" value={formatDuration(best)} /><Stat label="Průměr" value={formatDuration(average)} /><Stat label="Poslední" value={formatDuration(last)} /><Stat label="Propad" value={`${drop > 0 ? "+" : ""}${drop}%`} /></div><ol className="mt-4 space-y-2">{group.items.map(({ split, index, info }) => <li key={`${group.key}-${index}`} className="flex items-center justify-between rounded-xl bg-surface px-3 py-2 text-sm"><span className="text-zinc-400">{info.isEmom ? `Minuta ${info.round}` : `Kolo ${info.round}`}</span><span className="font-mono font-bold">{formatDuration(split.durationSeconds)}</span></li>)}</ol></section>;
                     })}</div>
                   )}
                 </div>}
@@ -101,9 +101,9 @@ function ResultsIcon() {
 }
 
 function Stat({ label, value }: { label: string; value: string }) {
-  return <div className="rounded-xl bg-zinc-800 px-2 py-3"><p className="font-mono text-sm font-black text-zinc-100">{value}</p><p className="mt-1 text-[10px] uppercase tracking-wide text-zinc-500">{label}</p></div>;
+  return <div className="ui-inset px-2 py-3"><p className="font-mono text-sm font-black text-zinc-100">{value}</p><p className="mt-1 text-[10px] uppercase tracking-wide text-zinc-500">{label}</p></div>;
 }
 
 function ResultMetric({ label, value }: { label: string; value: string }) {
-  return <div className="rounded-xl bg-zinc-800 px-3 py-3"><p className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">{label}</p><p className="mt-1 font-black text-zinc-100">{value}</p></div>;
+  return <div className="ui-inset px-3 py-3"><p className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">{label}</p><p className="mt-1 font-black text-zinc-100">{value}</p></div>;
 }

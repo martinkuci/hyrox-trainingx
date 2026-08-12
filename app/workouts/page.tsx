@@ -13,6 +13,7 @@ export default function WorkoutsPage() {
   const [pendingDelete, setPendingDelete] = useState<WorkoutTemplate | null>(null);
   const [query, setQuery] = useState("");
   const [tag, setTag] = useState("all");
+  const [showAllTags, setShowAllTags] = useState(false);
 
   const tags = useMemo(
     () => Array.from(new Set(data.templates.flatMap((template) => template.tags ?? []))).sort(),
@@ -28,6 +29,9 @@ export default function WorkoutsPage() {
       }),
     [data.templates, query, tag],
   );
+  const visibleTags = showAllTags
+    ? tags
+    : Array.from(new Set([...tags.slice(0, 7), ...(tag !== "all" ? [tag] : [])]));
 
   function duplicate(template: WorkoutTemplate) {
     createTemplate({
@@ -53,39 +57,51 @@ export default function WorkoutsPage() {
       description="Vyber hotový trénink, uprav si vlastní nebo rovnou začni dnešní jednotku."
       action={
         <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto">
-          <Link href="/import" className="flex min-h-12 items-center justify-center rounded-2xl border border-white/12 px-4 py-3 text-sm font-black text-zinc-200">
+          <Link href="/import" className="ui-button ui-button-outline ui-button-sm">
             Import
           </Link>
-          <Link href="/workouts/editor" className="flex min-h-12 items-center justify-center rounded-2xl bg-accent px-4 py-3 text-sm font-black text-zinc-950">
+          <Link href="/workouts/editor" className="ui-button ui-button-primary ui-button-sm">
             + Nový
           </Link>
         </div>
       }
     >
-      <section className="mb-5 rounded-3xl border border-zinc-800 bg-zinc-900 p-4 shadow-[0_18px_50px_rgba(0,0,0,0.1)]">
+      <section className="ui-card mb-5 p-4">
         <input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Hledat název, HYX kód, cíl…"
-          className="w-full rounded-2xl border border-zinc-700 bg-zinc-800 px-4 py-3 outline-none focus:border-lime-400"
+          className="ui-field"
         />
-        <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
-          {["all", ...tags].map((item) => (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {["all", ...visibleTags].map((item) => (
             <button
               key={item}
+              type="button"
+              aria-pressed={tag === item}
               onClick={() => setTag(item)}
-              className={`shrink-0 rounded-full px-3 py-2 text-sm font-bold ${tag === item ? "bg-lime-400 text-zinc-950" : "bg-zinc-800 text-zinc-300"}`}
+              className="ui-choice min-h-10 shrink-0 rounded-full px-3 py-2 text-sm"
             >
               {item === "all" ? "Vše" : item}
             </button>
           ))}
+          {tags.length > 7 && (
+            <button
+              type="button"
+              aria-expanded={showAllTags}
+              onClick={() => setShowAllTags((value) => !value)}
+              className="ui-button ui-button-ghost ui-button-sm rounded-full text-xs"
+            >
+              {showAllTags ? "Méně filtrů" : `+ ${tags.length - 7} dalších`}
+            </button>
+          )}
         </div>
       </section>
 
-      {!ready && <div className="h-48 animate-pulse rounded-3xl bg-zinc-900" />}
+      {!ready && <div className="ui-card h-48 animate-pulse" />}
 
       {ready && templates.length === 0 && (
-        <section className="rounded-3xl border border-dashed border-zinc-700 bg-zinc-900 p-8 text-center">
+        <section className="ui-card border-dashed p-8 text-center">
           <h2 className="text-xl font-black">Žádný odpovídající trénink</h2>
           <p className="mt-2 text-zinc-400">Změň filtr nebo vytvoř nový WOD.</p>
         </section>
@@ -95,18 +111,18 @@ export default function WorkoutsPage() {
         {templates.map((template) => {
           const metadata = template.metadata;
           return (
-            <article key={template.id} className="rounded-[1.75rem] border border-zinc-800 bg-zinc-900 p-5 sm:p-6">
+            <article key={template.id} className="ui-card p-5 sm:p-6">
               <div className="flex flex-wrap items-center gap-2">
                 {metadata?.workoutCode && (
-                  <span className="rounded-full bg-lime-400 px-3 py-1 text-xs font-black text-zinc-950">
+                  <span className="ui-chip ui-chip-accent">
                     {metadata.workoutCode}-V{metadata.templateVersion}
                   </span>
                 )}
-                <span className="rounded-full bg-zinc-800 px-3 py-1 text-xs font-bold text-zinc-300">
+                <span className="ui-chip">
                   {categoryLabel(metadata?.category)}
                 </span>
                 {metadata && (
-                  <span className="rounded-full bg-zinc-800 px-3 py-1 text-xs font-bold text-zinc-300">
+                  <span className="ui-chip">
                     Level {metadata.difficultyLevel}
                   </span>
                 )}
@@ -117,13 +133,13 @@ export default function WorkoutsPage() {
                   <h2 className="text-2xl font-black">{template.title}</h2>
                   <p className="mt-2 leading-6 text-zinc-400">{template.description}</p>
                 </div>
-                <span className="shrink-0 rounded-full bg-zinc-800 px-3 py-1.5 text-sm font-semibold">
+                <span className="ui-chip shrink-0 text-sm">
                   {template.durationMinutes} min
                 </span>
               </div>
 
               {metadata && (
-                <div className="mt-5 rounded-2xl border border-lime-400/15 bg-zinc-800/70 p-4">
+                <div className="ui-inset mt-5 p-4">
                   <p className="font-bold text-zinc-100">{metadata.goal || "Cíl zatím není vyplněný."}</p>
                   <div className="mt-3 grid grid-cols-2 gap-3 text-sm text-zinc-400">
                     <p>Cílové RPE <b className="text-white">{metadata.targetRpeMin}–{metadata.targetRpeMax}</b></p>
@@ -136,23 +152,23 @@ export default function WorkoutsPage() {
 
               <div className="mt-4 flex flex-wrap gap-2">
                 {template.tags.map((item) => (
-                  <span key={item} className="rounded-full bg-lime-400/10 px-3 py-1 text-xs font-bold text-lime-300">
+                  <span key={item} className="ui-chip ui-chip-accent">
                     {item}
                   </span>
                 ))}
               </div>
 
               <div className="mt-6 grid grid-cols-2 gap-3">
-                <Link href={`/workout/${template.id}`} className="rounded-2xl bg-lime-400 px-4 py-3.5 text-center font-black text-zinc-950">
+                <Link href={`/workout/${template.id}`} className="ui-button ui-button-accent">
                   Spustit
                 </Link>
-                <Link href={`/workouts/editor?id=${template.id}`} className="rounded-2xl bg-zinc-800 px-4 py-3.5 text-center font-bold">
+                <Link href={`/workouts/editor?id=${template.id}`} className="ui-button ui-button-secondary">
                   Upravit
                 </Link>
-                <button onClick={() => duplicate(template)} className="rounded-2xl border border-zinc-700 px-4 py-3 text-sm font-semibold text-zinc-300">
+                <button type="button" onClick={() => duplicate(template)} className="ui-button ui-button-outline text-sm">
                   Duplikovat
                 </button>
-                <button onClick={() => setPendingDelete(template)} className="rounded-2xl border border-red-500/30 px-4 py-3 text-sm font-semibold text-red-300">
+                <button type="button" onClick={() => setPendingDelete(template)} className="ui-button ui-button-danger text-sm">
                   Smazat
                 </button>
               </div>

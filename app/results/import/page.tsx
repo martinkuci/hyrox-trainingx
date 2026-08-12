@@ -411,20 +411,20 @@ function ScreenshotResultImportContent() {
       description="Nahraj souhrn z hodinek nebo fitness aplikace. Rozpoznané hodnoty vždy nejdřív zkontroluješ."
       backHref="/history"
     >
-      <section className="rounded-3xl border border-zinc-800 bg-zinc-900 p-5 sm:p-6">
+      <section className="ui-card p-5 sm:p-6">
         <h2 className="text-xl font-black">1. Vyber screenshot</h2>
         <p className="mt-2 text-sm leading-6 text-zinc-400">
           PNG, JPEG nebo WebP do 6 MB. Obrázek se zmenší v tomto zařízení a aplikace jej neuloží.
         </p>
         {targetResult && (
-          <div className="mt-4 rounded-2xl border border-lime-400/30 bg-lime-400/10 p-4">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-lime-400">Doplňuješ existující výsledek</p>
+          <div className="ui-feedback ui-feedback-success mt-4">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-300">Doplňuješ existující výsledek</p>
             <p className="mt-2 font-black text-white">{targetResult.workoutTitle}</p>
             <p className="mt-1 text-sm text-zinc-300">{formatResultOption(targetResult.completedAt, "", targetResult.rpe).replace(" ·  ·", " ·")}</p>
             <p className="mt-2 text-sm leading-5 text-zinc-400">Čas aplikace, RPE, váhy, poznámka a mezičasy zůstanou zachované.</p>
           </div>
         )}
-        <label className="mt-5 block cursor-pointer rounded-2xl border border-dashed border-lime-400/50 bg-lime-400/5 px-5 py-6 text-center font-black text-lime-300">
+        <label className="ui-button ui-button-primary mt-5 flex cursor-pointer px-5 py-6 text-center">
           {preparing ? "Připravuji obrázek…" : imageDataUrl ? "Vybrat jiný screenshot" : "Vybrat screenshot"}
           <input
             type="file"
@@ -452,7 +452,7 @@ function ScreenshotResultImportContent() {
                   type="button"
                   onClick={readWithLocalOcr}
                   disabled={readingLocally || analyzing}
-                  className="w-full rounded-2xl bg-lime-400 px-5 py-4 font-black text-zinc-950 disabled:cursor-wait disabled:opacity-60"
+                  className="ui-button ui-button-primary w-full"
                 >
                   {readingLocally
                     ? ocrProgress > 0
@@ -465,7 +465,7 @@ function ScreenshotResultImportContent() {
                     type="button"
                     onClick={analyzeScreenshot}
                     disabled={readingLocally || analyzing}
-                    className="rounded-2xl bg-zinc-800 px-5 py-4 font-bold text-zinc-200 disabled:cursor-wait disabled:opacity-60"
+                    className="ui-button ui-button-secondary"
                   >
                     {analyzing ? "Čtu přes OpenAI…" : "Načíst přes OpenAI"}
                   </button>
@@ -473,7 +473,7 @@ function ScreenshotResultImportContent() {
                     type="button"
                     onClick={startManualReview}
                     disabled={readingLocally || analyzing}
-                    className="rounded-2xl border border-zinc-700 px-5 py-4 font-bold text-zinc-300 disabled:opacity-60"
+                    className="ui-button ui-button-outline"
                   >
                     Vyplnit ručně
                   </button>
@@ -488,27 +488,27 @@ function ScreenshotResultImportContent() {
       </section>
 
       {error && (
-        <p role="alert" className="mt-5 rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm font-semibold text-red-300">
+        <p role="alert" className="ui-feedback ui-feedback-danger mt-5 text-sm font-semibold">
           {error}
         </p>
       )}
 
       {reviewReady && (
-        <section className="mt-6 rounded-3xl border border-lime-400/30 bg-zinc-900 p-5 sm:p-6">
+        <section className="ui-card ui-card-accent mt-6 p-5 sm:p-6">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.2em] text-lime-400">2. Kontrola</p>
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-accent">2. Kontrola</p>
               <h2 className="mt-2 text-2xl font-black">Potvrď rozpoznané údaje</h2>
             </div>
             {confidence !== null && (
-              <span className="shrink-0 rounded-full bg-zinc-800 px-3 py-2 text-xs font-bold text-zinc-300">
+              <span className="ui-chip shrink-0">
                 Jistota {Math.round(confidence * 100)} %
               </span>
             )}
           </div>
 
           {warnings.length > 0 && (
-            <div className="mt-4 rounded-2xl bg-amber-400/10 p-4 text-sm text-amber-200">
+            <div className="ui-feedback ui-feedback-warning mt-4 text-sm">
               <p className="font-black">Zkontroluj hlavně:</p>
               <ul className="mt-2 list-disc space-y-1 pl-5">
                 {warnings.map((warning) => <li key={warning}>{warning}</li>)}
@@ -522,7 +522,7 @@ function ScreenshotResultImportContent() {
               value={targetResult?.id ?? ""}
               onChange={(event) => selectTargetResult(event.target.value)}
               disabled={!ready}
-              className="mt-2 w-full rounded-2xl border border-zinc-700 bg-zinc-800 px-4 py-3.5 text-base"
+              className="ui-field mt-2 text-base"
             >
               <option value="">Vytvořit nový záznam</option>
               {targetResults.map((result) => (
@@ -543,7 +543,7 @@ function ScreenshotResultImportContent() {
                 value={templateId}
                 onChange={(event) => selectTemplate(event.target.value)}
                 disabled={!ready}
-                className="mt-2 w-full rounded-2xl border border-zinc-700 bg-zinc-800 px-4 py-3.5 text-base"
+                className="ui-field mt-2 text-base"
               >
                 <option value="">Bez přiřazení</option>
                 {templates.map((template) => (
@@ -562,7 +562,7 @@ function ScreenshotResultImportContent() {
                   type="datetime-local"
                   value={completedAt}
                   onChange={(event) => setCompletedAt(event.target.value)}
-                  className="mt-2 w-full rounded-2xl border border-zinc-700 bg-zinc-800 px-4 py-3.5 text-base"
+                  className="ui-field mt-2 text-base"
                 />
               </label>
             </>
@@ -590,14 +590,14 @@ function ScreenshotResultImportContent() {
               value={notes}
               onChange={(event) => setNotes(event.target.value)}
               rows={4}
-              className="mt-2 w-full resize-none rounded-2xl border border-zinc-700 bg-zinc-800 px-4 py-3.5 text-base outline-none focus:border-lime-400"
+              className="ui-field mt-2 w-full resize-none text-base"
             />
           </label>
 
           <button
             type="button"
             onClick={saveResult}
-            className="mt-7 w-full rounded-2xl bg-lime-400 px-5 py-4 text-lg font-black text-zinc-950"
+            className="ui-button ui-button-primary ui-button-lg mt-7 w-full"
           >
             {targetResult ? "Doplnit data do výsledku" : "Uložit nový výsledek"}
           </button>
@@ -617,7 +617,7 @@ export default function ScreenshotResultImportPage() {
           description="Připravuji propojení s vybraným výsledkem…"
           backHref="/history"
         >
-          <div className="h-48 animate-pulse rounded-3xl bg-zinc-900" />
+          <div className="ui-card h-48 animate-pulse" />
         </PlanningShell>
       }
     >
@@ -647,7 +647,7 @@ function TextField({
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
         inputMode={inputMode}
-        className="mt-2 w-full rounded-2xl border border-zinc-700 bg-zinc-800 px-4 py-3.5 text-base outline-none focus:border-lime-400"
+        className="ui-field mt-2 text-base"
       />
     </label>
   );
@@ -679,7 +679,7 @@ function NumberField({
         max={max}
         step={step}
         inputMode="decimal"
-        className="mt-2 w-full rounded-2xl border border-zinc-700 bg-zinc-800 px-3 py-3.5 text-base text-white outline-none focus:border-lime-400"
+        className="ui-field mt-2 px-3 text-base"
       />
     </label>
   );

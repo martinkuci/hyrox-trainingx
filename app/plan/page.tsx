@@ -25,7 +25,7 @@ export default function PlanPage() {
       <section className="grid gap-4 sm:grid-cols-2">
         <Link
           href="/programs"
-          className="workout-hero group overflow-hidden rounded-[1.75rem] border border-accent/25 p-6 active:scale-[0.99]"
+          className="workout-hero ui-card ui-card-accent group overflow-hidden p-6 active:scale-[0.99]"
         >
           <div className="flex items-center justify-between"><div className="grid size-11 place-items-center rounded-2xl bg-accent-soft text-accent"><ProgramIcon /></div><span className="text-accent" aria-hidden="true">→</span></div>
           <p className="mt-5 text-xs font-black uppercase tracking-[0.2em] text-accent">Program</p>
@@ -33,7 +33,7 @@ export default function PlanPage() {
           <p className="mt-2 text-sm leading-6 text-zinc-400">
             Vyber cíl, délku, frekvenci a dostupné dny. Aplikace sestaví program automaticky.
           </p>
-          <div className="mt-5 rounded-2xl border border-white/8 bg-black/20 p-4">
+          <div className="ui-inset mt-5 bg-black/20 p-4">
             <p className="text-2xl font-black text-accent">{programs}</p>
             <p className="text-xs uppercase tracking-wide text-zinc-500">uložených programů</p>
           </div>
@@ -41,7 +41,7 @@ export default function PlanPage() {
 
         <Link
           href="/calendar/program"
-          className="group rounded-[1.75rem] border border-zinc-800 bg-zinc-900 p-6 active:scale-[0.99]"
+          className="ui-card group p-6 active:scale-[0.99]"
         >
           <div className="flex items-center justify-between"><div className="grid size-11 place-items-center rounded-2xl bg-zinc-800 text-zinc-200"><CalendarIcon /></div><span className="text-zinc-500" aria-hidden="true">→</span></div>
           <p className="mt-5 text-xs font-black uppercase tracking-[0.2em] text-accent">Kalendář</p>
@@ -49,16 +49,16 @@ export default function PlanPage() {
           <p className="mt-2 text-sm leading-6 text-zinc-400">
             Zobraz program po dnech a přesuň jednu jednotku nebo celý zbytek programu.
           </p>
-          <div className="mt-5 rounded-2xl bg-zinc-800 p-4">
-            <p className="text-2xl font-black text-lime-400">{planned}</p>
+          <div className="ui-inset mt-5 p-4">
+            <p className="text-2xl font-black text-accent">{planned}</p>
             <p className="text-xs uppercase tracking-wide text-zinc-500">čeká v kalendáři</p>
           </div>
         </Link>
       </section>
 
       {ready && next && (
-        <section className="mt-6 rounded-3xl border border-zinc-800 bg-zinc-900 p-5 sm:p-6">
-          <p className="text-xs font-black uppercase tracking-[0.2em] text-lime-400">
+        <section className="ui-card mt-6 p-5 sm:p-6">
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-accent">
             Nejbližší trénink
           </p>
           <div className="mt-3 flex items-start justify-between gap-4">
@@ -77,12 +77,12 @@ export default function PlanPage() {
               </p>
             </div>
             {next.programWeek && (
-              <span className="rounded-full bg-zinc-800 px-3 py-1.5 text-xs font-black text-zinc-300">
+              <span className="ui-chip">
                 Týden {next.programWeek}
               </span>
             )}
           </div>
-          {nextTemplate && <Link href={`/workout/${nextTemplate.id}?scheduleId=${next.id}`} className="mt-5 flex min-h-12 items-center justify-center rounded-2xl bg-accent px-5 py-3 font-black text-zinc-950">Spustit nejbližší trénink</Link>}
+          {nextTemplate && <Link href={`/workout/${nextTemplate.id}?scheduleId=${next.id}`} className="ui-button ui-button-primary mt-5 w-full">Spustit nejbližší trénink</Link>}
         </section>
       )}
     </PlanningShell>
