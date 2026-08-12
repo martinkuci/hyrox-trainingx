@@ -56,7 +56,7 @@ export function StickyBottomNavigation() {
             >
               {active && <span className="absolute top-0 h-0.5 w-5 rounded-full bg-accent" aria-hidden="true" />}
               <NavigationIcon name={item.icon} />
-              <span className="max-w-full truncate text-[9px] font-bold leading-none">{item.label}</span>
+              <span className="whitespace-nowrap text-[9px] font-bold leading-none">{item.label}</span>
             </Link>
           );
         })}

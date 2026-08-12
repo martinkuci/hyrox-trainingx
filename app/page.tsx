@@ -124,7 +124,7 @@ export default function Home() {
     <>
       <StickyHeader title="Dnes" fallbackHref="/" />
 
-      <main className="app-content-safe min-h-screen bg-app px-4 text-white sm:px-6">
+      <main className="app-shell app-content-safe min-h-screen px-4 text-white sm:px-6">
         <div className="mx-auto w-full max-w-2xl">
           <header className="flex items-end justify-between gap-4">
             <div>
@@ -133,7 +133,7 @@ export default function Home() {
               <p className="mt-1 capitalize text-zinc-400">{todayLabel}</p>
             </div>
             {activeWeek && (
-              <div className="rounded-2xl border border-white/8 bg-surface px-3 py-2 text-right">
+              <div className="ui-inset px-3 py-2 text-right">
                 <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">Fáze</p>
                 <p className="mt-0.5 text-xs font-black text-zinc-200">{phaseLabels[activeWeek.phase]}</p>
               </div>
@@ -143,7 +143,7 @@ export default function Home() {
           <section className="mt-6" aria-labelledby="week-heading">
             <div className="mb-3 flex items-center justify-between">
               <h2 id="week-heading" className="text-sm font-black">Tento týden</h2>
-              <Link href="/calendar/program" className="rounded-lg px-2 py-1 text-xs font-bold text-zinc-400 hover:text-white">
+              <Link href="/calendar/program" className="ui-button ui-button-ghost ui-button-sm -mr-3 text-xs">
                 Otevřít kalendář
               </Link>
             </div>
@@ -160,13 +160,13 @@ export default function Home() {
           </section>
 
           {!ready ? (
-            <section className="mt-6 h-80 animate-pulse rounded-[1.75rem] border border-white/8 bg-surface" aria-label="Načítám dnešní trénink" />
+            <section className="ui-card mt-6 h-80 animate-pulse" aria-label="Načítám dnešní trénink" />
           ) : todayTemplate && todaySchedule ? (
-            <section className="workout-hero mt-6 overflow-hidden rounded-[1.75rem] border border-accent/30 p-5 sm:p-7">
+            <section className="workout-hero ui-card ui-card-accent mt-6 overflow-hidden p-5 sm:p-7">
               <div className="flex items-center justify-between gap-3">
                 <p className="text-xs font-black uppercase tracking-[0.2em] text-accent">Dnešní jednotka · {todaySchedule.time}</p>
                 {todaySchedule.status === "completed" && (
-                  <span className="rounded-full bg-emerald-400/15 px-3 py-1 text-xs font-black text-emerald-300">Dokončeno</span>
+                  <span className="ui-chip ui-chip-success">Dokončeno</span>
                 )}
               </div>
               <h2 className="mt-4 max-w-lg text-3xl font-black leading-[1.02] tracking-tight sm:text-4xl">{todayTemplate.title}</h2>
@@ -188,7 +188,7 @@ export default function Home() {
 
               <Link
                 href={`/workout/${todayTemplate.id}?scheduleId=${todaySchedule.id}`}
-                className="mt-6 flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-accent px-5 py-4 text-lg font-black text-zinc-950 shadow-[0_14px_40px_rgba(190,242,100,0.16)] transition active:scale-[0.99]"
+                className="ui-button ui-button-primary ui-button-lg mt-6 w-full"
               >
                 <PlayIcon />
                 {todaySchedule.status === "completed" ? "Spustit znovu" : "Spustit trénink"}
@@ -200,7 +200,7 @@ export default function Home() {
               )}
             </section>
           ) : (
-            <section className="mt-6 rounded-[1.75rem] border border-white/8 bg-surface p-6 sm:p-7">
+            <section className="ui-card mt-6 p-6 sm:p-7">
               <div className="grid size-12 place-items-center rounded-2xl bg-accent-soft text-accent" aria-hidden="true">
                 <RecoveryIcon />
               </div>
@@ -211,21 +211,21 @@ export default function Home() {
                   <p className="mt-2 leading-6 text-zinc-400">
                     Další trénink tě čeká {new Intl.DateTimeFormat("cs-CZ", { weekday: "long", day: "numeric", month: "numeric" }).format(parseDate(upcomingSchedule.date))} v {upcomingSchedule.time}.
                   </p>
-                  <div className="mt-5 flex items-center justify-between gap-4 rounded-2xl bg-elevated p-4">
+                  <div className="ui-inset mt-5 flex items-center justify-between gap-4 p-4">
                     <div className="min-w-0">
                       <p className="truncate font-black">{upcomingTemplate.title}</p>
                       <p className="mt-1 text-xs text-zinc-500">{upcomingTemplate.durationMinutes} min</p>
                     </div>
                     <span className="shrink-0 text-accent" aria-hidden="true">→</span>
                   </div>
-                  <Link href="/calendar/program" className="mt-5 flex min-h-12 items-center justify-center rounded-2xl bg-accent px-5 py-3 font-black text-zinc-950">
+                  <Link href="/calendar/program" className="ui-button ui-button-primary mt-5 w-full">
                     Zobrazit plán
                   </Link>
                 </>
               ) : (
                 <>
                   <p className="mt-2 leading-6 text-zinc-400">V kalendáři zatím nemáš další trénink.</p>
-                  <Link href="/programs" className="mt-5 flex min-h-12 items-center justify-center rounded-2xl bg-accent px-5 py-3 font-black text-zinc-950">
+                  <Link href="/programs" className="ui-button ui-button-primary mt-5 w-full">
                     Vytvořit program
                   </Link>
                 </>
@@ -235,7 +235,7 @@ export default function Home() {
 
           {ready && (
             <section className="mt-5 grid gap-4 sm:grid-cols-2">
-              <article className="rounded-3xl border border-white/8 bg-surface p-5">
+              <article className="ui-card p-5">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-xs font-black uppercase tracking-[0.18em] text-zinc-500">Plnění týdne</p>
@@ -252,7 +252,7 @@ export default function Home() {
                 </div>
               </article>
 
-              <article className="rounded-3xl border border-white/8 bg-surface p-5">
+              <article className="ui-card p-5">
                 <p className="text-xs font-black uppercase tracking-[0.18em] text-zinc-500">Doporučení</p>
                 <p className="mt-3 text-sm leading-6 text-zinc-300">{recommendation}</p>
               </article>
@@ -260,7 +260,7 @@ export default function Home() {
           )}
 
           {ready && activeProgram && (
-            <section className="mt-5 rounded-3xl border border-white/8 bg-surface p-5">
+            <section className="ui-card mt-5 p-5">
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
                   <p className="text-xs font-black uppercase tracking-[0.18em] text-accent">Aktivní program</p>
@@ -274,14 +274,14 @@ export default function Home() {
               <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-elevated">
                 <div className="h-full rounded-full bg-accent" style={{ width: `${activeProgramRate}%` }} />
               </div>
-              <Link href="/calendar/program" className="mt-4 inline-flex min-h-11 items-center rounded-xl pr-3 text-sm font-black text-zinc-200">
+              <Link href="/calendar/program" className="ui-button ui-button-ghost ui-button-sm -ml-3 mt-3 text-sm">
                 Otevřít celý program <span className="ml-2 text-accent" aria-hidden="true">→</span>
               </Link>
             </section>
           )}
 
           {ready && latestResult && (
-            <section className="mt-5 flex items-center justify-between gap-4 rounded-3xl border border-white/8 bg-surface p-5">
+            <section className="ui-card mt-5 flex items-center justify-between gap-4 p-5">
               <div className="min-w-0">
                 <p className="text-xs font-black uppercase tracking-[0.18em] text-zinc-500">Poslední výkon</p>
                 <h2 className="mt-2 truncate font-black">{latestTemplate?.title || latestResult.workoutTitle}</h2>
@@ -289,7 +289,7 @@ export default function Home() {
               </div>
               <div className="shrink-0 text-right">
                 <p className="font-mono text-2xl font-black text-accent">{formatDuration(latestResult.durationSeconds)}</p>
-                <Link href="/history" className="mt-1 inline-block rounded-lg py-1 pl-2 text-xs font-bold text-zinc-400">Detail výsledku</Link>
+                <Link href="/history" className="ui-button ui-button-ghost ui-button-sm -mr-3 mt-1 text-xs">Detail výsledku</Link>
               </div>
             </section>
           )}
@@ -318,16 +318,16 @@ function WeekDay({ date, status, isToday }: { date: Date; status?: ScheduledWork
       aria-label={`${new Intl.DateTimeFormat("cs-CZ", { weekday: "long", day: "numeric", month: "long" }).format(date)}, ${statusLabel}`}
       className={`flex min-w-0 flex-col items-center rounded-2xl border px-1 py-2.5 transition active:scale-95 ${
         isToday
-          ? "border-accent bg-accent text-zinc-950"
+          ? "border-accent/50 bg-accent-soft text-accent"
           : "border-white/8 bg-surface text-zinc-300"
       }`}
     >
-      <span className={`text-[9px] font-black uppercase ${isToday ? "text-zinc-800" : "text-zinc-500"}`}>
+      <span className={`text-[9px] font-black uppercase ${isToday ? "text-accent" : "text-zinc-500"}`}>
         {new Intl.DateTimeFormat("cs-CZ", { weekday: "short" }).format(date).replace(".", "")}
       </span>
       <span className="mt-1 text-sm font-black">{date.getDate()}</span>
       <span className={`mt-1 grid h-3 place-items-center text-[10px] font-black ${
-        isToday ? "text-zinc-900" : status === "completed" ? "text-emerald-300" : status === "planned" ? "text-accent" : "text-zinc-600"
+        isToday ? "text-accent" : status === "completed" ? "text-emerald-300" : status === "planned" ? "text-accent" : "text-zinc-600"
       }`} aria-hidden="true">
         {marker}
       </span>
@@ -337,7 +337,7 @@ function WeekDay({ date, status, isToday }: { date: Date; status?: ScheduledWork
 
 function HeroMetric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="min-w-0 rounded-2xl border border-white/8 bg-black/20 px-2 py-3 text-center backdrop-blur-sm">
+    <div className="ui-inset min-w-0 bg-black/20 px-2 py-3 text-center backdrop-blur-sm">
       <p className="text-[9px] font-bold uppercase tracking-wide text-zinc-500">{label}</p>
       <p className="mt-1 truncate text-sm font-black text-zinc-100">{value}</p>
     </div>

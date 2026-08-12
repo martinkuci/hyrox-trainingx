@@ -23,38 +23,38 @@ export function PlanningShell({
   children,
 }: Props) {
   return (
-    <>
+    <div className="app-shell min-h-screen text-white">
       <StickyHeader title={title} fallbackHref={backHref} />
 
       <main
-        className={`app-content-safe min-h-screen bg-zinc-950 px-4 text-white sm:px-6 ${
+        className={`app-content-safe min-h-screen px-4 sm:px-6 ${
           bottomAction ? "app-content-safe-with-action" : ""
         }`}
       >
         <div className="mx-auto w-full max-w-2xl">
-          <header className="flex items-end justify-between gap-5">
+          <header className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
             <div className="min-w-0">
-              <p className="text-xs font-bold uppercase tracking-[0.24em] text-lime-400">
+              <p className="text-xs font-black uppercase tracking-[0.22em] text-accent">
                 {eyebrow}
               </p>
-              <h1 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">
+              <h1 className="mt-1 text-3xl font-black tracking-[-0.035em] sm:text-4xl">
                 {title}
               </h1>
               {description && (
-                <p className="mt-2 max-w-xl text-sm leading-6 text-zinc-400">
+                <p className="mt-2 max-w-xl text-sm leading-6 text-zinc-400 sm:text-base">
                   {description}
                 </p>
               )}
             </div>
-            {action}
+            {action && <div className="w-full sm:w-auto">{action}</div>}
           </header>
 
-          <div className="mt-8">{children}</div>
+          <div className="mt-7">{children}</div>
         </div>
       </main>
 
       {bottomAction && <StickyActionBar>{bottomAction}</StickyActionBar>}
       <StickyBottomNavigation />
-    </>
+    </div>
   );
 }

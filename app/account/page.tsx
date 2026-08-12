@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
+import { PlanningShell } from "@/components/planning/PlanningShell";
 import {
   AUTH_EVENT,
   createEmailAccount,
@@ -42,22 +43,26 @@ export default function AccountPage() {
   }
 
   return (
-    <main className="min-h-dvh bg-zinc-950 px-5 py-8 text-white">
+    <PlanningShell
+      eyebrow="Profil"
+      title="Účet a cloud"
+      description="Spravuj přihlášení a bezpečnou synchronizaci tréninkových dat mezi zařízeními."
+      backHref="/"
+    >
       <div className="mx-auto max-w-md">
-        <p className="text-sm font-black uppercase tracking-[0.22em] text-lime-400">Cloud</p>
-        <h1 className="mt-2 text-4xl font-black">Účet a synchronizace</h1>
-
         {user ? (
-          <section className="mt-8 rounded-3xl border border-zinc-800 bg-zinc-900 p-6">
+          <section className="ui-card p-6">
             <div className="flex items-center gap-3">
-              <div className="grid size-12 place-items-center rounded-full bg-lime-400 font-black text-zinc-950">✓</div>
+              <div className="grid size-12 place-items-center rounded-2xl bg-accent-soft text-accent">
+                <svg viewBox="0 0 24 24" className="size-6" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="m7 12 3 3 7-7" strokeLinecap="round" strokeLinejoin="round" /></svg>
+              </div>
               <div>
-                <p className="font-bold">Přihlášeno</p>
+                <p className="font-black">Přihlášeno</p>
                 <p className="text-sm text-zinc-400">{user.email}</p>
               </div>
             </div>
-            <div className="mt-6 rounded-2xl bg-zinc-800 p-4">
-              <p className="font-bold text-lime-400">Cloudová synchronizace je aktivní</p>
+            <div className="ui-feedback ui-feedback-success mt-6">
+              <p className="font-black text-accent">Synchronizace je aktivní</p>
               <p className="mt-2 text-sm leading-6 text-zinc-400">
                 Tréninky, kalendář, výsledky a týdenní plány se ukládají do tvého účtu. Po přihlášení stejným e-mailem na telefonu a počítači uvidíš stejná data.
               </p>
@@ -65,28 +70,28 @@ export default function AccountPage() {
             <button
               type="button"
               onClick={() => { signOutCloud(); setUser(null); }}
-              className="mt-6 w-full rounded-2xl border border-zinc-700 px-5 py-4 font-bold text-zinc-200"
+              className="ui-button ui-button-outline mt-6 w-full"
             >
               Odhlásit se
             </button>
           </section>
         ) : (
-          <section className="mt-8 rounded-3xl border border-zinc-800 bg-zinc-900 p-6">
-            <div className="grid grid-cols-2 rounded-2xl bg-zinc-800 p-1">
-              <button type="button" onClick={() => setMode("login")} className={`rounded-xl px-3 py-3 font-bold ${mode === "login" ? "bg-zinc-700 text-white" : "text-zinc-400"}`}>Přihlášení</button>
-              <button type="button" onClick={() => setMode("register")} className={`rounded-xl px-3 py-3 font-bold ${mode === "register" ? "bg-zinc-700 text-white" : "text-zinc-400"}`}>Nový účet</button>
+          <section className="ui-card p-6">
+            <div className="ui-segmented grid grid-cols-2">
+              <button type="button" aria-pressed={mode === "login"} onClick={() => setMode("login")} className="ui-choice px-3 py-3">Přihlášení</button>
+              <button type="button" aria-pressed={mode === "register"} onClick={() => setMode("register")} className="ui-choice px-3 py-3">Nový účet</button>
             </div>
 
             <form onSubmit={submit} className="mt-6">
               <label className="block text-sm font-bold" htmlFor="email">E-mail</label>
-              <input id="email" type="email" required value={email} onChange={(event) => setEmail(event.target.value)} className="mt-2 w-full rounded-2xl border border-zinc-700 bg-zinc-800 px-4 py-4 outline-none focus:border-lime-400" />
+              <input id="email" type="email" required value={email} onChange={(event) => setEmail(event.target.value)} className="ui-field mt-2" />
 
               <label className="mt-5 block text-sm font-bold" htmlFor="password">Heslo</label>
-              <input id="password" type="password" minLength={6} required value={password} onChange={(event) => setPassword(event.target.value)} className="mt-2 w-full rounded-2xl border border-zinc-700 bg-zinc-800 px-4 py-4 outline-none focus:border-lime-400" />
+              <input id="password" type="password" minLength={6} required value={password} onChange={(event) => setPassword(event.target.value)} className="ui-field mt-2" />
 
-              {error && <p className="mt-4 rounded-2xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">{error}</p>}
+              {error && <p role="alert" className="ui-feedback ui-feedback-danger mt-4 text-sm">{error}</p>}
 
-              <button disabled={busy} className="mt-6 w-full rounded-2xl bg-lime-400 px-5 py-4 text-lg font-black text-zinc-950 disabled:opacity-50">
+              <button disabled={busy} className="ui-button ui-button-primary ui-button-lg mt-6 w-full">
                 {busy ? "Pracuji…" : mode === "login" ? "Přihlásit se" : "Vytvořit účet"}
               </button>
             </form>
@@ -97,6 +102,6 @@ export default function AccountPage() {
           </section>
         )}
       </div>
-    </main>
+    </PlanningShell>
   );
 }
