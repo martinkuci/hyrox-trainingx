@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { ActiveWorkoutBar } from "@/components/navigation/ActiveWorkoutBar";
 
 const navigationItems = [
   { href: "/", icon: "today", label: "Dnes" },
@@ -33,35 +34,38 @@ export function StickyBottomNavigation() {
   const pathname = usePathname();
 
   return (
-    <nav
-      className="fixed inset-x-0 bottom-0 z-50 border-t border-white/8 bg-[#0a0b0d]/94 pb-[env(safe-area-inset-bottom)] text-white shadow-[0_-12px_30px_rgba(0,0,0,0.22)] backdrop-blur-xl"
-      aria-label="Hlavní navigace"
-    >
-      <div className="mx-auto grid h-[4.5rem] w-full max-w-2xl grid-cols-5 items-stretch gap-1 px-2 pt-1">
-        {navigationItems.map((item) => {
-          const active = isActiveRoute(pathname, item.href);
+    <>
+      <ActiveWorkoutBar />
+      <nav
+        className="fixed inset-x-0 bottom-0 z-50 border-t border-white/8 bg-[#0a0b0d]/94 pb-[env(safe-area-inset-bottom)] text-white shadow-[0_-12px_30px_rgba(0,0,0,0.22)] backdrop-blur-xl"
+        aria-label="Hlavní navigace"
+      >
+        <div className="mx-auto grid h-[4.5rem] w-full max-w-2xl grid-cols-5 items-stretch gap-1 px-2 pt-1">
+          {navigationItems.map((item) => {
+            const active = isActiveRoute(pathname, item.href);
 
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`relative flex min-h-11 min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1 transition ${
-                active
-                  ? "text-accent"
-                  : "text-zinc-500 active:bg-white/5 active:text-zinc-200"
-              }`}
-              aria-label={item.label}
-              aria-current={active ? "page" : undefined}
-              title={item.label}
-            >
-              {active && <span className="absolute top-0 h-0.5 w-5 rounded-full bg-accent" aria-hidden="true" />}
-              <NavigationIcon name={item.icon} />
-              <span className="whitespace-nowrap text-[9px] font-bold leading-none">{item.label}</span>
-            </Link>
-          );
-        })}
-      </div>
-    </nav>
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`relative flex min-h-11 min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1 transition ${
+                  active
+                    ? "text-accent"
+                    : "text-zinc-500 active:bg-white/5 active:text-zinc-200"
+                }`}
+                aria-label={item.label}
+                aria-current={active ? "page" : undefined}
+                title={item.label}
+              >
+                {active && <span className="absolute top-0 h-0.5 w-5 rounded-full bg-accent" aria-hidden="true" />}
+                <NavigationIcon name={item.icon} />
+                <span className="whitespace-nowrap text-[9px] font-bold leading-none">{item.label}</span>
+              </Link>
+            );
+          })}
+        </div>
+      </nav>
+    </>
   );
 }
 

@@ -433,6 +433,26 @@ a {
   padding-bottom: 6rem;
 }
 
+.sticky-action-bar {
+  bottom: calc(4.5rem + env(safe-area-inset-bottom));
+}
+
+.has-active-workout .app-content-safe {
+  padding-bottom: 12.25rem;
+}
+
+.has-active-workout .app-content-safe-with-action {
+  padding-bottom: 17.75rem;
+}
+
+.has-active-workout .route-layout-safe {
+  padding-bottom: 10.75rem;
+}
+
+.has-active-workout .sticky-action-bar {
+  bottom: calc(9.25rem + env(safe-area-inset-bottom));
+}
+
 @supports (padding: env(safe-area-inset-top)) {
   .safe-screen {
     padding-top: calc(env(safe-area-inset-top) + 1.25rem);
@@ -451,5 +471,17 @@ a {
   .route-layout-safe {
     padding-top: calc(env(safe-area-inset-top) + 5rem);
     padding-bottom: calc(env(safe-area-inset-bottom) + 6rem);
+  }
+
+  .has-active-workout .app-content-safe {
+    padding-bottom: calc(env(safe-area-inset-bottom) + 12.25rem);
+  }
+
+  .has-active-workout .app-content-safe-with-action {
+    padding-bottom: calc(env(safe-area-inset-bottom) + 17.75rem);
+  }
+
+  .has-active-workout .route-layout-safe {
+    padding-bottom: calc(env(safe-area-inset-bottom) + 10.75rem);
   }
 }

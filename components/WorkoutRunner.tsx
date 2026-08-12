@@ -4,7 +4,17 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { StepSplit, WorkoutBlock, WorkoutTemplate } from "@/lib/types";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import WorkoutRecoveryDialog from "@/components/WorkoutRecoveryDialog";
 import WorkoutResultForm from "@/components/WorkoutResultForm";
+import {
+  clearWorkoutCheckpoint,
+  loadWorkoutCheckpoint,
+  makeWorkoutKey,
+  restoreCheckpointRuntime,
+  saveWorkoutCheckpoint,
+  type CheckpointRunnerMode,
+  type WorkoutCheckpoint,
+} from "@/lib/workout-checkpoint";
 
 type RunnableStep = {
   blockId: string;
@@ -43,6 +53,22 @@ function formatClock(milliseconds: number) {
   const seconds = totalSeconds % 60;
   const parts = hours > 0 ? [hours, minutes, seconds] : [minutes, seconds];
   return parts.map((value) => String(value).padStart(2, "0")).join(":");
+}
+
+function elapsedMilliseconds(accumulated: number, startedAt: number | null, now: number) {
+  return accumulated + (startedAt === null ? 0 : now - startedAt);
+}
+
+function isCheckpointMode(mode: RunnerMode): mode is CheckpointRunnerMode {
+  return mode === "block-preview" || mode === "countdown" || mode === "running";
+}
+
+function LocalSaveStatus({ failed, notice }: { failed: boolean; notice?: string }) {
+  return (
+    <p className={`mt-4 text-center text-sm ${failed ? "text-amber-300" : "text-zinc-500"}`} role="status">
+      {failed ? "Průběh se nepodařilo uložit. Nezavírej aplikaci." : notice ?? "Průběh se automaticky ukládá do tohoto zařízení."}
+    </p>
+  );
 }
 
 function blockSummary(block: WorkoutBlock) {
@@ -86,6 +112,7 @@ function WorkoutOutline({ template, activeBlockId }: { template: WorkoutTemplate
 export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutRunnerProps) {
   const router = useRouter();
   const steps = useMemo(() => flattenTemplate(template), [template]);
+  const workoutKey = useMemo(() => makeWorkoutKey(template.id, scheduledWorkoutId), [scheduledWorkoutId, template.id]);
   const [mode, setMode] = useState<RunnerMode>("overview");
   const [paused, setPaused] = useState(false);
   const [countdownPaused, setCountdownPaused] = useState(false);
@@ -97,6 +124,10 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
   const [stepElapsed, setStepElapsed] = useState(0);
   const [splits, setSplits] = useState<StepSplit[]>([]);
   const [countdown, setCountdown] = useState(10);
+  const [recoveryCheckpoint, setRecoveryCheckpoint] = useState<WorkoutCheckpoint | null>(null);
+  const [recoveryReady, setRecoveryReady] = useState(false);
+  const [recoveryNotice, setRecoveryNotice] = useState<string>();
+  const [checkpointFailed, setCheckpointFailed] = useState(false);
 
   const currentIndexRef = useRef(0);
   const totalAccumulatedRef = useRef(0);
@@ -105,6 +136,7 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
   const stepStartedAtRef = useRef<number | null>(null);
   const splitsRef = useRef<StepSplit[]>([]);
   const audioContextRef = useRef<AudioContext | null>(null);
+  const checkpointClosedRef = useRef(false);
 
   const currentStep = steps[currentIndex];
   const nextStep = steps[currentIndex + 1];
@@ -129,10 +161,6 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
     gain.connect(context.destination);
     oscillator.start();
     oscillator.stop(context.currentTime + duration + 0.02);
-  }
-
-  function elapsed(accumulated: number, startedAt: number | null, now: number) {
-    return accumulated + (startedAt === null ? 0 : now - startedAt);
   }
 
   function recordSplit(step: RunnableStep, durationMilliseconds: number) {
@@ -165,8 +193,8 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
 
   function pauseRunning() {
     const now = Date.now();
-    totalAccumulatedRef.current = elapsed(totalAccumulatedRef.current, totalStartedAtRef.current, now);
-    stepAccumulatedRef.current = elapsed(stepAccumulatedRef.current, stepStartedAtRef.current, now);
+    totalAccumulatedRef.current = elapsedMilliseconds(totalAccumulatedRef.current, totalStartedAtRef.current, now);
+    stepAccumulatedRef.current = elapsedMilliseconds(stepAccumulatedRef.current, stepStartedAtRef.current, now);
     totalStartedAtRef.current = null;
     stepStartedAtRef.current = null;
     setTotalElapsed(totalAccumulatedRef.current);
@@ -187,6 +215,51 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
     else pauseRunning();
   }
 
+  function minimizeWorkout() {
+    if (!isCheckpointMode(mode)) return;
+
+    const now = Date.now();
+    let savedTotalElapsed = elapsedMilliseconds(totalAccumulatedRef.current, totalStartedAtRef.current, now);
+    let savedStepElapsed = elapsedMilliseconds(stepAccumulatedRef.current, stepStartedAtRef.current, now);
+    const savedPaused = mode === "running" ? true : paused;
+    const savedCountdownPaused = mode === "countdown" ? true : countdownPaused;
+
+    if (mode === "running") {
+      totalAccumulatedRef.current = savedTotalElapsed;
+      stepAccumulatedRef.current = savedStepElapsed;
+      totalStartedAtRef.current = null;
+      stepStartedAtRef.current = null;
+      setTotalElapsed(savedTotalElapsed);
+      setStepElapsed(savedStepElapsed);
+      setPaused(true);
+    } else {
+      savedTotalElapsed = totalAccumulatedRef.current;
+      savedStepElapsed = stepAccumulatedRef.current;
+    }
+
+    if (mode === "countdown") setCountdownPaused(true);
+
+    const saved = saveWorkoutCheckpoint({
+      version: 1,
+      workoutKey,
+      templateId: template.id,
+      templateTitle: template.title,
+      templateUpdatedAt: template.updatedAt,
+      scheduledWorkoutId,
+      mode,
+      currentIndex: currentIndexRef.current,
+      totalElapsedMilliseconds: savedTotalElapsed,
+      stepElapsedMilliseconds: savedStepElapsed,
+      splits: splitsRef.current,
+      countdown,
+      paused: savedPaused,
+      countdownPaused: savedCountdownPaused,
+      savedAt: now,
+    });
+    setCheckpointFailed(!saved);
+    if (saved) router.push("/");
+  }
+
   function openWorkoutOverview() {
     const shouldResume = mode === "running" && !paused;
     if (shouldResume) pauseRunning();
@@ -201,12 +274,14 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
   }
 
   function completeWorkout(now: number) {
-    const finalDuration = elapsed(totalAccumulatedRef.current, totalStartedAtRef.current, now);
+    const finalDuration = elapsedMilliseconds(totalAccumulatedRef.current, totalStartedAtRef.current, now);
     totalAccumulatedRef.current = finalDuration;
     totalStartedAtRef.current = null;
     stepStartedAtRef.current = null;
     setTotalElapsed(finalDuration);
     setPaused(false);
+    checkpointClosedRef.current = true;
+    clearWorkoutCheckpoint(workoutKey);
     setMode("finished");
     tone(1040, 0.6, 0.22);
   }
@@ -222,7 +297,7 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
     stepStartedAtRef.current = null;
     setStepElapsed(0);
     if (previous.blockId !== next.blockId) {
-      totalAccumulatedRef.current = elapsed(totalAccumulatedRef.current, totalStartedAtRef.current, now);
+      totalAccumulatedRef.current = elapsedMilliseconds(totalAccumulatedRef.current, totalStartedAtRef.current, now);
       totalStartedAtRef.current = null;
       setTotalElapsed(totalAccumulatedRef.current);
       setMode("block-preview");
@@ -236,9 +311,107 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
     ensureAudio();
     const now = Date.now();
     const step = steps[currentIndexRef.current];
-    recordSplit(step, elapsed(stepAccumulatedRef.current, stepStartedAtRef.current, now));
+    recordSplit(step, elapsedMilliseconds(stepAccumulatedRef.current, stepStartedAtRef.current, now));
     moveToNextStep(now);
   }
+
+  function resumeCheckpoint(checkpoint: WorkoutCheckpoint) {
+    if (checkpoint.workoutKey !== workoutKey) {
+      const scheduleQuery = checkpoint.scheduledWorkoutId
+        ? `?scheduleId=${encodeURIComponent(checkpoint.scheduledWorkoutId)}`
+        : "";
+      router.push(`/workout/${encodeURIComponent(checkpoint.templateId)}${scheduleQuery}`);
+      return;
+    }
+
+    const restored = restoreCheckpointRuntime(checkpoint);
+    const now = restored.restoredAt;
+    currentIndexRef.current = restored.currentIndex;
+    totalAccumulatedRef.current = restored.totalElapsedMilliseconds;
+    stepAccumulatedRef.current = restored.stepElapsedMilliseconds;
+    splitsRef.current = restored.splits;
+    totalStartedAtRef.current = restored.mode === "running" && !restored.paused ? now : null;
+    stepStartedAtRef.current = restored.mode === "running" && !restored.paused ? now : null;
+    setCurrentIndex(restored.currentIndex);
+    setTotalElapsed(restored.totalElapsedMilliseconds);
+    setStepElapsed(restored.stepElapsedMilliseconds);
+    setSplits(restored.splits);
+    setCountdown(restored.countdown);
+    setPaused(restored.paused);
+    setCountdownPaused(restored.countdownPaused);
+    setMode(restored.mode);
+    setRecoveryNotice("Trénink byl obnoven z posledního automatického uložení.");
+    setRecoveryCheckpoint(null);
+    setRecoveryReady(true);
+  }
+
+  function startFreshWorkout() {
+    clearWorkoutCheckpoint();
+    setRecoveryCheckpoint(null);
+    setRecoveryReady(true);
+    setRecoveryNotice(undefined);
+  }
+
+  useEffect(() => {
+    const recoveryTimer = window.setTimeout(() => {
+      const checkpoint = loadWorkoutCheckpoint();
+      if (!checkpoint) {
+        setRecoveryReady(true);
+        return;
+      }
+
+      const isCurrentWorkout = checkpoint.workoutKey === workoutKey;
+      const isCompatible = checkpoint.templateUpdatedAt === template.updatedAt
+        && checkpoint.currentIndex < steps.length;
+      if (isCurrentWorkout && !isCompatible) {
+        clearWorkoutCheckpoint(workoutKey);
+        setRecoveryNotice("Starší uložený postup nebyl kompatibilní s aktuální verzí tréninku a byl bezpečně odstraněn.");
+        setRecoveryReady(true);
+        return;
+      }
+
+      setRecoveryCheckpoint(checkpoint);
+    }, 0);
+    return () => window.clearTimeout(recoveryTimer);
+  }, [steps.length, template.updatedAt, workoutKey]);
+
+  useEffect(() => {
+    if (!recoveryReady || !isCheckpointMode(mode)) return;
+
+    const persist = () => {
+      if (checkpointClosedRef.current) return;
+      const now = Date.now();
+      const saved = saveWorkoutCheckpoint({
+        version: 1,
+        workoutKey,
+        templateId: template.id,
+        templateTitle: template.title,
+        templateUpdatedAt: template.updatedAt,
+        scheduledWorkoutId,
+        mode,
+        currentIndex: currentIndexRef.current,
+        totalElapsedMilliseconds: elapsedMilliseconds(totalAccumulatedRef.current, totalStartedAtRef.current, now),
+        stepElapsedMilliseconds: elapsedMilliseconds(stepAccumulatedRef.current, stepStartedAtRef.current, now),
+        splits: splitsRef.current,
+        countdown,
+        paused,
+        countdownPaused,
+        savedAt: now,
+      });
+      setCheckpointFailed(!saved);
+    };
+
+    const persistWhenHidden = () => {
+      if (document.visibilityState === "hidden") persist();
+    };
+    persist();
+    const timer = window.setInterval(persist, 1000);
+    document.addEventListener("visibilitychange", persistWhenHidden);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", persistWhenHidden);
+    };
+  }, [countdown, countdownPaused, mode, paused, recoveryReady, scheduledWorkoutId, template.id, template.title, template.updatedAt, workoutKey]);
 
   useEffect(() => {
     if (mode !== "countdown" || countdownPaused) return;
@@ -256,8 +429,8 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
     if (mode !== "running" || paused) return;
     const tick = () => {
       const now = Date.now();
-      const total = elapsed(totalAccumulatedRef.current, totalStartedAtRef.current, now);
-      let stepTime = elapsed(stepAccumulatedRef.current, stepStartedAtRef.current, now);
+      const total = elapsedMilliseconds(totalAccumulatedRef.current, totalStartedAtRef.current, now);
+      let stepTime = elapsedMilliseconds(stepAccumulatedRef.current, stepStartedAtRef.current, now);
       let index = currentIndexRef.current;
       let step = steps[index];
       while (step?.durationSeconds && stepTime >= step.durationSeconds * 1000) {
@@ -294,14 +467,25 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, paused, steps]);
 
-  useEffect(() => {
-    if (!["running", "countdown", "block-preview"].includes(mode)) return;
-    const preventClose = (event: BeforeUnloadEvent) => event.preventDefault();
-    window.addEventListener("beforeunload", preventClose);
-    return () => window.removeEventListener("beforeunload", preventClose);
-  }, [mode]);
-
   useEffect(() => () => { void audioContextRef.current?.close(); }, []);
+
+  if (recoveryCheckpoint) return (
+    <main className="runner-shell grid min-h-dvh place-items-center px-5 text-white">
+      <WorkoutRecoveryDialog
+        currentWorkoutTitle={template.title}
+        savedWorkoutTitle={recoveryCheckpoint.templateTitle}
+        sameWorkout={recoveryCheckpoint.workoutKey === workoutKey}
+        onResume={() => resumeCheckpoint(recoveryCheckpoint)}
+        onStartFresh={startFreshWorkout}
+      />
+    </main>
+  );
+
+  if (!recoveryReady) return (
+    <main className="runner-shell grid min-h-dvh place-items-center text-zinc-400">
+      Kontroluji uložený trénink…
+    </main>
+  );
 
   if (mode === "finished") return <WorkoutResultForm template={template} scheduledWorkoutId={scheduledWorkoutId} durationSeconds={Math.max(1, Math.round(totalElapsed / 1000))} splits={splits} />;
 
@@ -314,6 +498,7 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
         <p className="mt-3 leading-6 text-zinc-400">{template.description}</p>
         <div className="mt-6"><WorkoutOutline template={template} activeBlockId={workoutStarted ? currentStep?.blockId : undefined} /></div>
         <button type="button" onClick={() => setMode("block-preview")} disabled={steps.length === 0} className="ui-button ui-button-primary ui-button-lg mt-8 w-full text-xl">{workoutStarted ? "Zpět na aktuální blok" : "Připravit první blok"}</button>
+        {recoveryNotice && <LocalSaveStatus failed={checkpointFailed} notice={recoveryNotice} />}
       </section>
     </main>
   );
@@ -327,6 +512,8 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
         <p className="mt-2 text-lg text-zinc-400">{currentBlock.type === "emom" ? `${currentBlock.minutes} minut` : `${currentBlock.repeat} kol`}</p>
         <ol className="mt-6 space-y-3">{currentBlock.steps.map((step, index) => <li key={step.id} className="ui-inset flex gap-3 p-4"><span className="text-lg font-black text-accent">{index + 1}.</span><div><p className="text-xl font-bold">{step.name}</p>{step.detail && <p className="mt-1 text-base leading-6 text-zinc-300">{step.detail}</p>}</div></li>)}</ol>
         <div className="mt-6 grid gap-3"><button type="button" onClick={beginCountdown} className="ui-button ui-button-primary ui-button-lg w-full text-xl">Odpočet 10 s</button><button type="button" onClick={beginRunning} className="ui-button ui-button-outline w-full text-lg">Začít hned</button></div>
+        <button type="button" onClick={minimizeWorkout} className="ui-button ui-button-ghost mt-3 w-full">Minimalizovat trénink</button>
+        <LocalSaveStatus failed={checkpointFailed} notice={recoveryNotice} />
       </section>
     </main>
   );
@@ -344,6 +531,8 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
         <h1 className="mt-8 text-5xl font-black leading-tight">{currentStep.name}</h1>
         {currentStep.detail && <p className="mt-3 text-2xl font-semibold leading-8 text-zinc-300">{currentStep.detail}</p>}
         <button type="button" onClick={beginRunning} className="ui-button ui-button-outline mt-10 w-full text-lg">Přeskočit odpočet</button>
+        <button type="button" onClick={minimizeWorkout} className="ui-button ui-button-ghost mt-3 w-full">Minimalizovat trénink</button>
+        <LocalSaveStatus failed={checkpointFailed} notice={recoveryNotice} />
       </section>
     </main>
   );
@@ -372,6 +561,8 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
           <div className="mt-6 h-1.5 overflow-hidden rounded-full bg-elevated"><div className="h-full rounded-full bg-accent transition-[width] duration-200" style={{ width: `${((currentIndex + 1) / steps.length) * 100}%` }} /></div>
         </section>
         <button type="button" onClick={advanceManual} disabled={paused} className="ui-button ui-button-primary ui-button-lg w-full text-xl">{currentIndex === steps.length - 1 ? "Dokončit trénink" : currentStep.durationSeconds ? "Přeskočit minutu →" : "Hotovo →"}</button>
+        <button type="button" onClick={minimizeWorkout} className="ui-button ui-button-ghost mt-3 w-full">Minimalizovat trénink</button>
+        <LocalSaveStatus failed={checkpointFailed} notice={recoveryNotice} />
       </div>
 
       {showOverview && (
@@ -388,13 +579,14 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
             <div className="mt-6"><WorkoutOutline template={template} activeBlockId={currentStep.blockId} /></div>
             <div className="mt-6 grid gap-3">
               <button type="button" onClick={closeWorkoutOverview} className="ui-button ui-button-primary ui-button-lg w-full text-xl">{resumeAfterOverview ? "Zpět a pokračovat" : "Zpět do tréninku"}</button>
+              <button type="button" onClick={minimizeWorkout} className="ui-button ui-button-outline w-full">Minimalizovat trénink</button>
               <button type="button" onClick={() => setShowQuit(true)} className="ui-button ui-button-danger w-full">Ukončit trénink</button>
             </div>
           </div>
         </div>
       )}
 
-      <ConfirmDialog open={showQuit} title="Ukončit trénink?" description="Aktuální čas a mezičasy se neuloží." confirmLabel="Ukončit" destructive onCancel={() => setShowQuit(false)} onConfirm={() => router.push("/")} />
+      <ConfirmDialog open={showQuit} title="Ukončit trénink?" description="Lokálně uložený postup, aktuální čas a mezičasy se odstraní." confirmLabel="Ukončit" destructive onCancel={() => setShowQuit(false)} onConfirm={() => { checkpointClosedRef.current = true; clearWorkoutCheckpoint(workoutKey); router.push("/"); }} />
     </main>
   );
 }

@@ -2,46 +2,50 @@
 
 ## Feature větev
 
-`agent/professional-ux-all-screens`
+`agent/workout-recovery-1a`
 
 ## Cíl změny
 
-Rozšířit vizuální jazyk schváleného dashboardu „Dnes“ do všech hlavních obrazovek aplikace. Uživatel má v celé aplikaci vnímat stejnou hierarchii, navigaci, povrchy, typografii, akce a stavové vzory, aniž by se změnilo chování nebo formát uložených dat.
+Zabránit ztrátě rozpracovaného tréninku při obnovení stránky, zavření aplikace nebo nečekaném pádu. Workout runner musí průběžně ukládat svůj stav do samostatného lokálního checkpointu a nabídnout bezpečné pokračování přesně od posledního potvrzeného kroku.
 
-## Rozsah releasu
+## Rozsah releasu 1A
 
-- zavést sdílený mobilní shell, hlavičku, karty, sekční nadpisy, prázdné stavy a tlačítkové styly,
-- sjednotit obrazovky Plán, Trénovat, Výsledky a Profil s dashboardem Dnes,
-- sjednotit návazné obrazovky kalendáře, programů, editoru, importu a detailu tréninku,
-- zachovat pěti-sekční dolní navigaci a správně zvýraznit aktivní sekci i na podstránkách,
-- odstranit nekonzistentní emoji navigaci a nahodile použité barvy tam, kde vyjadřují pouze dekoraci,
-- sjednotit formuláře, prázdné stavy, potvrzovací dialogy a pevné akční lišty,
-- zachovat existující URL, runner, plánování, historii, synchronizaci a lokální data,
-- upravit rozvržení mobile-first a zabránit překrytí obsahu sticky prvky.
+- zavést verzovaný a validovaný checkpoint rozpracovaného tréninku mimo hlavní datový model,
+- průběžně ukládat fázi runneru, aktuální krok, dokončené kroky, mezičasy, uplynulý čas a stav pauzy,
+- po návratu ke stejnému tréninku nabídnout pokračování nebo zahájení od začátku,
+- při pokračování správně dopočítat čas podle okamžiku uložení a zachovat vědomou pauzu,
+- při dokončení nebo výslovném opuštění checkpoint odstranit,
+- zabránit přepsání checkpointu jiným tréninkem bez jasného rozhodnutí uživatele,
+- zobrazit srozumitelnou informaci o automatickém lokálním uložení,
+- umožnit rozpracovaný trénink bezpečně minimalizovat; časovač se přitom vědomě pozastaví a checkpoint se uloží ještě před odchodem,
+- na běžných obrazovkách zobrazit kompaktní návratovou lištu s názvem, uloženým časem a akcí „Pokračovat“,
+- zachovat nerušený workout runner bez hlavní spodní navigace,
+- zachovat současné ukládání výsledků, plánování, cloudovou synchronizaci a existující lokální data.
 
 ## Akceptační kritéria
 
-- všechny hlavní trasy používají stejný grafitový povrch, akcent, typografickou hierarchii a rozteče,
-- každá obrazovka má jeden jasný název, stručný kontext a nejvýše jednu dominantní primární akci,
-- spodní navigace správně mapuje podstránky na Dnes / Plán / Trénovat / Výsledky / Profil,
-- karty, formuláře, štítky, prázdné stavy a dialogy mají jednotné interakční stavy,
-- na šířce 320 px nevzniká horizontální scroll ani překrytí navigací,
-- stav načítání, chyba, prázdný stav a úspěch jsou čitelné a nejsou rozlišeny pouze barvou,
-- dotykové cíle hlavních akcí mají alespoň 44 px,
-- existující uložená data a funkční toky zůstanou zpětně kompatibilní,
-- lint, TypeScript a produkční build projdou.
+- reload během countdownu, aktivního kroku i pauzy nevede ke ztrátě postupu,
+- pokračování obnoví správný krok, dokončené kroky, mezičasy a celkový čas,
+- čas během aktivního tréninku pokračuje i po zavření stránky; během vědomé pauzy neběží,
+- neplatný, zastaralý nebo nekompatibilní checkpoint aplikaci nerozbije a lze jej bezpečně zahodit,
+- dokončený nebo uživatelem zrušený trénink nezanechá aktivní checkpoint,
+- v zařízení existuje nejvýše jeden aktivní checkpoint,
+- minimalizace z countdownu, náhledu bloku i aktivního kroku otevře hlavní obrazovku a uchová pozastavený stav,
+- návratová lišta se po minimalizaci objeví nad hlavní navigací, nepřekrývá fixní akce a vrátí uživatele ke správnému tréninku,
+- rozhraní zůstane použitelné na šířce 320 px a ovladatelné klávesnicí,
+- lint, TypeScript, produkční build a cílené scénáře obnovy projdou.
 
-## Mimo rozsah tohoto releasu
+## Mimo rozsah 1A
 
-- změny datového modelu tréninku nebo výsledků,
-- Apple Health, Health Connect, Garmin a Strava,
-- biometrická připravenost a adaptivní plán,
-- nové placené funkce, sociální feed nebo AI coach,
-- automatické počítání opakování.
+- zadávání vah, opakování, kol, RPE a poznámek během jednotlivých kroků,
+- změny schématu uložených výsledků,
+- rychlé přesouvání nebo zkracování tréninků v kalendáři,
+- vzdálená synchronizace aktivního checkpointu mezi zařízeními,
+- Apple Health, Health Connect, Garmin a Strava.
 
-## Následující release v rámci fáze 1
+## Následující release 1B
 
-- rychlé logování vah, kol, času a RPE během tréninku,
-- automatické obnovení rozpracovaného tréninku,
-- offline stav a srozumitelná synchronizační zpětná vazba,
-- rozšíření kalendáře o rychlé přesuny a zkrácené varianty tréninku.
+- rychlé logování vah, kol, času, RPE a poznámek během tréninku,
+- výsledné porovnání plánu proti skutečnosti,
+- rychlé přesuny tréninků v kalendáři,
+- zkrácené varianty naplánovaného tréninku.
