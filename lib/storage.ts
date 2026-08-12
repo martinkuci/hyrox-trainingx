@@ -12,6 +12,7 @@ import type {
   WorkoutResult,
   WorkoutTemplate,
 } from "./types";
+import type { ScheduledWorkoutUpdate } from "./calendar-planning";
 
 export const HYROX_STORAGE_KEY = "hyrox-data-v1";
 export const LEGACY_RESULTS_KEY = "hyrox-results";
@@ -190,6 +191,21 @@ export function updateScheduledWorkout(id: string, updates: Partial<NewScheduled
     ),
   }));
   return found;
+}
+
+export function updateScheduledWorkouts(updates: ScheduledWorkoutUpdate[]) {
+  const updatesById = new Map(updates.map((item) => [item.id, item.updates]));
+  let updatedCount = 0;
+  updateData((data) => ({
+    ...data,
+    scheduledWorkouts: data.scheduledWorkouts.map((scheduled) => {
+      const patch = updatesById.get(scheduled.id);
+      if (!patch) return scheduled;
+      updatedCount += 1;
+      return { ...scheduled, ...patch, id: scheduled.id };
+    }),
+  }));
+  return updatedCount;
 }
 
 export function deleteScheduledWorkout(id: string) {
