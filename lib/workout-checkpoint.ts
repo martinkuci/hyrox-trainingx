@@ -1,10 +1,10 @@
-import type { StepSplit } from "./types";
+import type { BlockFeedback, BlockFeedbackRating, StepSplit } from "./types";
 
 export const ACTIVE_WORKOUT_STORAGE_KEY = "hyrox-active-workout-v1";
 export const ACTIVE_WORKOUT_CHANGE_EVENT = "hyrox-active-workout-change";
 export const WORKOUT_CHECKPOINT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
-export type CheckpointRunnerMode = "block-preview" | "countdown" | "running";
+export type CheckpointRunnerMode = "block-preview" | "block-feedback" | "countdown" | "running";
 
 export type WorkoutCheckpoint = {
   version: 1;
@@ -18,6 +18,9 @@ export type WorkoutCheckpoint = {
   totalElapsedMilliseconds: number;
   stepElapsedMilliseconds: number;
   splits: StepSplit[];
+  blockFeedbacks: BlockFeedback[];
+  feedbackBlockId?: string;
+  feedbackFinishesWorkout: boolean;
   countdown: number;
   paused: boolean;
   countdownPaused: boolean;
@@ -65,6 +68,18 @@ function normalizeSplit(value: unknown): StepSplit | null {
   };
 }
 
+function normalizeBlockFeedback(value: unknown): BlockFeedback | null {
+  if (!value || typeof value !== "object") return null;
+  const feedback = value as Partial<BlockFeedback>;
+  if (
+    typeof feedback.blockId !== "string" ||
+    !Number.isInteger(feedback.rating) ||
+    (feedback.rating ?? 0) < 1 ||
+    (feedback.rating ?? 6) > 5
+  ) return null;
+  return { blockId: feedback.blockId, rating: feedback.rating as BlockFeedbackRating };
+}
+
 export function makeWorkoutKey(templateId: string, scheduledWorkoutId?: string) {
   return `${templateId}:${scheduledWorkoutId ?? "free"}`;
 }
@@ -72,7 +87,7 @@ export function makeWorkoutKey(templateId: string, scheduledWorkoutId?: string) 
 export function normalizeWorkoutCheckpoint(value: unknown, now = Date.now()): WorkoutCheckpoint | null {
   if (!value || typeof value !== "object") return null;
   const checkpoint = value as Partial<WorkoutCheckpoint>;
-  const validMode = checkpoint.mode === "block-preview" || checkpoint.mode === "countdown" || checkpoint.mode === "running";
+  const validMode = checkpoint.mode === "block-preview" || checkpoint.mode === "block-feedback" || checkpoint.mode === "countdown" || checkpoint.mode === "running";
   const validWorkoutKey = typeof checkpoint.templateId === "string"
     && (checkpoint.scheduledWorkoutId === undefined || typeof checkpoint.scheduledWorkoutId === "string")
     && checkpoint.workoutKey === makeWorkoutKey(checkpoint.templateId, checkpoint.scheduledWorkoutId);
@@ -83,6 +98,13 @@ export function normalizeWorkoutCheckpoint(value: unknown, now = Date.now()): Wo
     && checkpoint.splits.length <= 10_000
     ? checkpoint.splits.map(normalizeSplit)
     : null;
+  const blockFeedbacks = checkpoint.blockFeedbacks === undefined
+    ? []
+    : Array.isArray(checkpoint.blockFeedbacks) && checkpoint.blockFeedbacks.length <= 100
+      ? checkpoint.blockFeedbacks.map(normalizeBlockFeedback).filter((item): item is BlockFeedback => item !== null)
+      : null;
+  const feedbackBlockId = checkpoint.feedbackBlockId === undefined ? undefined : checkpoint.feedbackBlockId;
+  const feedbackFinishesWorkout = checkpoint.feedbackFinishesWorkout ?? false;
 
   if (
     checkpoint.version !== 1 ||
@@ -103,9 +125,13 @@ export function normalizeWorkoutCheckpoint(value: unknown, now = Date.now()): Wo
     (checkpoint.countdown ?? 11) > 10 ||
     typeof checkpoint.paused !== "boolean" ||
     typeof checkpoint.countdownPaused !== "boolean" ||
+    typeof feedbackFinishesWorkout !== "boolean" ||
+    (checkpoint.mode === "block-feedback" && typeof feedbackBlockId !== "string") ||
+    (feedbackBlockId !== undefined && typeof feedbackBlockId !== "string") ||
     !validSavedAt ||
     !validSplits ||
-    validSplits.some((split) => split === null)
+    validSplits.some((split) => split === null) ||
+    !blockFeedbacks
   ) return null;
 
   return {
@@ -120,6 +146,9 @@ export function normalizeWorkoutCheckpoint(value: unknown, now = Date.now()): Wo
     totalElapsedMilliseconds: checkpoint.totalElapsedMilliseconds,
     stepElapsedMilliseconds: checkpoint.stepElapsedMilliseconds,
     splits: validSplits as StepSplit[],
+    blockFeedbacks,
+    feedbackBlockId,
+    feedbackFinishesWorkout,
     countdown: checkpoint.countdown as number,
     paused: checkpoint.paused,
     countdownPaused: checkpoint.countdownPaused,

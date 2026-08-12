@@ -2,8 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { StepSplit, WorkoutBlock, WorkoutTemplate } from "@/lib/types";
+import type { BlockFeedback, BlockFeedbackRating, StepSplit, WorkoutBlock, WorkoutTemplate } from "@/lib/types";
+import BlockFeedbackPrompt from "@/components/BlockFeedbackPrompt";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import RunnerBrandButton from "@/components/RunnerBrandButton";
 import WorkoutRecoveryDialog from "@/components/WorkoutRecoveryDialog";
 import WorkoutResultForm from "@/components/WorkoutResultForm";
 import {
@@ -29,7 +31,7 @@ type RunnableStep = {
   emomMinutes?: number;
 };
 
-type RunnerMode = "overview" | "block-preview" | "countdown" | "running" | "finished";
+type RunnerMode = "overview" | "block-preview" | "block-feedback" | "countdown" | "running" | "finished";
 
 type WorkoutRunnerProps = { template: WorkoutTemplate; scheduledWorkoutId?: string };
 
@@ -60,7 +62,7 @@ function elapsedMilliseconds(accumulated: number, startedAt: number | null, now:
 }
 
 function isCheckpointMode(mode: RunnerMode): mode is CheckpointRunnerMode {
-  return mode === "block-preview" || mode === "countdown" || mode === "running";
+  return mode === "block-preview" || mode === "block-feedback" || mode === "countdown" || mode === "running";
 }
 
 function LocalSaveStatus({ failed, notice }: { failed: boolean; notice?: string }) {
@@ -77,28 +79,28 @@ function blockSummary(block: WorkoutBlock) {
 
 function WorkoutOutline({ template, activeBlockId }: { template: WorkoutTemplate; activeBlockId?: string }) {
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       {template.blocks.map((block, index) => (
         <details
           key={block.id}
           open={block.id === activeBlockId || undefined}
           className={`group overflow-hidden rounded-2xl border ${block.id === activeBlockId ? "border-accent/40 bg-accent-soft" : "border-white/8 bg-elevated"}`}
         >
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-4 p-4 [&::-webkit-details-marker]:hidden">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-4 py-3 [&::-webkit-details-marker]:hidden">
             <div className="min-w-0">
               <p className="text-xs font-black uppercase tracking-wider text-accent">Blok {index + 1}</p>
-              <h2 className="mt-1 text-xl font-black">{block.title}</h2>
-              <p className="mt-1 text-sm text-zinc-400">{blockSummary(block)}</p>
+              <h2 className="mt-0.5 text-lg font-black">{block.title}</h2>
+              <p className="mt-0.5 text-xs text-zinc-400">{blockSummary(block)}</p>
             </div>
             <span className="shrink-0 text-2xl text-zinc-400 transition group-open:rotate-180" aria-hidden="true">⌄</span>
           </summary>
-          <ol className="space-y-2 border-t border-white/8 px-4 py-4">
+          <ol className="space-y-2 border-t border-white/8 px-3 py-3">
             {block.steps.map((step, stepIndex) => (
-              <li key={step.id} className="flex gap-3 rounded-xl bg-surface p-3">
+              <li key={step.id} className="flex gap-3 rounded-xl bg-surface px-3 py-2.5">
                 <span className="font-black text-accent">{stepIndex + 1}.</span>
                 <div>
-                  <p className="text-lg font-black text-white">{step.name}</p>
-                  {step.detail && <p className="mt-1 text-base leading-6 text-zinc-300">{step.detail}</p>}
+                  <p className="font-black text-white">{step.name}</p>
+                  {step.detail && <p className="mt-0.5 text-sm leading-5 text-zinc-400">{step.detail}</p>}
                 </div>
               </li>
             ))}
@@ -117,12 +119,16 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
   const [paused, setPaused] = useState(false);
   const [countdownPaused, setCountdownPaused] = useState(false);
   const [showQuit, setShowQuit] = useState(false);
+  const [showFinish, setShowFinish] = useState(false);
   const [showOverview, setShowOverview] = useState(false);
   const [resumeAfterOverview, setResumeAfterOverview] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [totalElapsed, setTotalElapsed] = useState(0);
   const [stepElapsed, setStepElapsed] = useState(0);
   const [splits, setSplits] = useState<StepSplit[]>([]);
+  const [blockFeedbacks, setBlockFeedbacks] = useState<BlockFeedback[]>([]);
+  const [feedbackBlockId, setFeedbackBlockId] = useState<string>();
+  const [feedbackFinishesWorkout, setFeedbackFinishesWorkout] = useState(false);
   const [countdown, setCountdown] = useState(10);
   const [recoveryCheckpoint, setRecoveryCheckpoint] = useState<WorkoutCheckpoint | null>(null);
   const [recoveryReady, setRecoveryReady] = useState(false);
@@ -135,6 +141,7 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
   const stepAccumulatedRef = useRef(0);
   const stepStartedAtRef = useRef<number | null>(null);
   const splitsRef = useRef<StepSplit[]>([]);
+  const blockFeedbacksRef = useRef<BlockFeedback[]>([]);
   const audioContextRef = useRef<AudioContext | null>(null);
   const checkpointClosedRef = useRef(false);
 
@@ -221,7 +228,7 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
     const now = Date.now();
     let savedTotalElapsed = elapsedMilliseconds(totalAccumulatedRef.current, totalStartedAtRef.current, now);
     let savedStepElapsed = elapsedMilliseconds(stepAccumulatedRef.current, stepStartedAtRef.current, now);
-    const savedPaused = mode === "running" ? true : paused;
+    const savedPaused = mode === "running" || mode === "block-feedback" ? true : paused;
     const savedCountdownPaused = mode === "countdown" ? true : countdownPaused;
 
     if (mode === "running") {
@@ -251,6 +258,9 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
       totalElapsedMilliseconds: savedTotalElapsed,
       stepElapsedMilliseconds: savedStepElapsed,
       splits: splitsRef.current,
+      blockFeedbacks: blockFeedbacksRef.current,
+      feedbackBlockId,
+      feedbackFinishesWorkout,
       countdown,
       paused: savedPaused,
       countdownPaused: savedCountdownPaused,
@@ -286,9 +296,51 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
     tone(1040, 0.6, 0.22);
   }
 
+  function openBlockFeedback(blockId: string, finishesWorkout: boolean, now: number) {
+    totalAccumulatedRef.current = elapsedMilliseconds(totalAccumulatedRef.current, totalStartedAtRef.current, now);
+    totalStartedAtRef.current = null;
+    stepAccumulatedRef.current = 0;
+    stepStartedAtRef.current = null;
+    setTotalElapsed(totalAccumulatedRef.current);
+    setStepElapsed(0);
+    setPaused(true);
+    setFeedbackBlockId(blockId);
+    setFeedbackFinishesWorkout(finishesWorkout);
+    setMode("block-feedback");
+  }
+
+  function leaveBlockFeedback() {
+    const finishesWorkout = feedbackFinishesWorkout;
+    setFeedbackBlockId(undefined);
+    setFeedbackFinishesWorkout(false);
+    if (finishesWorkout) completeWorkout(Date.now());
+    else setMode("block-preview");
+  }
+
+  function rateBlock(rating: BlockFeedbackRating) {
+    if (!feedbackBlockId) return;
+    const next = [
+      ...blockFeedbacksRef.current.filter((feedback) => feedback.blockId !== feedbackBlockId),
+      { blockId: feedbackBlockId, rating },
+    ];
+    blockFeedbacksRef.current = next;
+    setBlockFeedbacks(next);
+    leaveBlockFeedback();
+  }
+
+  function finishWorkoutNow() {
+    const now = Date.now();
+    const step = steps[currentIndexRef.current];
+    const currentStepTime = elapsedMilliseconds(stepAccumulatedRef.current, stepStartedAtRef.current, now);
+    if (step && currentStepTime > 0) recordSplit(step, currentStepTime);
+    setShowFinish(false);
+    setShowOverview(false);
+    completeWorkout(now);
+  }
+
   function moveToNextStep(now: number, leftoverMilliseconds = 0) {
-    if (currentIndexRef.current >= steps.length - 1) return completeWorkout(now);
     const previous = steps[currentIndexRef.current];
+    if (currentIndexRef.current >= steps.length - 1) return openBlockFeedback(previous.blockId, true, now);
     const nextIndex = currentIndexRef.current + 1;
     const next = steps[nextIndex];
     currentIndexRef.current = nextIndex;
@@ -297,10 +349,7 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
     stepStartedAtRef.current = null;
     setStepElapsed(0);
     if (previous.blockId !== next.blockId) {
-      totalAccumulatedRef.current = elapsedMilliseconds(totalAccumulatedRef.current, totalStartedAtRef.current, now);
-      totalStartedAtRef.current = null;
-      setTotalElapsed(totalAccumulatedRef.current);
-      setMode("block-preview");
+      openBlockFeedback(previous.blockId, false, now);
       return;
     }
     stepStartedAtRef.current = now - leftoverMilliseconds;
@@ -330,12 +379,16 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
     totalAccumulatedRef.current = restored.totalElapsedMilliseconds;
     stepAccumulatedRef.current = restored.stepElapsedMilliseconds;
     splitsRef.current = restored.splits;
+    blockFeedbacksRef.current = restored.blockFeedbacks;
     totalStartedAtRef.current = restored.mode === "running" && !restored.paused ? now : null;
     stepStartedAtRef.current = restored.mode === "running" && !restored.paused ? now : null;
     setCurrentIndex(restored.currentIndex);
     setTotalElapsed(restored.totalElapsedMilliseconds);
     setStepElapsed(restored.stepElapsedMilliseconds);
     setSplits(restored.splits);
+    setBlockFeedbacks(restored.blockFeedbacks);
+    setFeedbackBlockId(restored.feedbackBlockId);
+    setFeedbackFinishesWorkout(restored.feedbackFinishesWorkout);
     setCountdown(restored.countdown);
     setPaused(restored.paused);
     setCountdownPaused(restored.countdownPaused);
@@ -393,6 +446,9 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
         totalElapsedMilliseconds: elapsedMilliseconds(totalAccumulatedRef.current, totalStartedAtRef.current, now),
         stepElapsedMilliseconds: elapsedMilliseconds(stepAccumulatedRef.current, stepStartedAtRef.current, now),
         splits: splitsRef.current,
+        blockFeedbacks: blockFeedbacksRef.current,
+        feedbackBlockId,
+        feedbackFinishesWorkout,
         countdown,
         paused,
         countdownPaused,
@@ -411,7 +467,7 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", persistWhenHidden);
     };
-  }, [countdown, countdownPaused, mode, paused, recoveryReady, scheduledWorkoutId, template.id, template.title, template.updatedAt, workoutKey]);
+  }, [countdown, countdownPaused, feedbackBlockId, feedbackFinishesWorkout, mode, paused, recoveryReady, scheduledWorkoutId, template.id, template.title, template.updatedAt, workoutKey]);
 
   useEffect(() => {
     if (mode !== "countdown" || countdownPaused) return;
@@ -437,7 +493,7 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
         recordSplit(step, step.durationSeconds * 1000);
         stepTime -= step.durationSeconds * 1000;
         tone(900, 0.15, 0.14);
-        if (index >= steps.length - 1) return completeWorkout(now);
+        if (index >= steps.length - 1) return openBlockFeedback(step.blockId, true, now);
         const next = steps[index + 1];
         if (next.blockId !== step.blockId) {
           currentIndexRef.current = index + 1;
@@ -446,9 +502,7 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
           stepStartedAtRef.current = null;
           totalAccumulatedRef.current = total;
           totalStartedAtRef.current = null;
-          setTotalElapsed(total);
-          setStepElapsed(0);
-          setMode("block-preview");
+          openBlockFeedback(step.blockId, false, now);
           return;
         }
         index += 1;
@@ -464,7 +518,6 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
     tick();
     const timer = window.setInterval(tick, 200);
     return () => window.clearInterval(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, paused, steps]);
 
   useEffect(() => () => { void audioContextRef.current?.close(); }, []);
@@ -487,42 +540,51 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
     </main>
   );
 
-  if (mode === "finished") return <WorkoutResultForm template={template} scheduledWorkoutId={scheduledWorkoutId} durationSeconds={Math.max(1, Math.round(totalElapsed / 1000))} splits={splits} />;
+  if (mode === "finished") return <WorkoutResultForm template={template} scheduledWorkoutId={scheduledWorkoutId} durationSeconds={Math.max(1, Math.round(totalElapsed / 1000))} splits={splits} blockFeedbacks={blockFeedbacks} />;
+
+  if (mode === "block-feedback" && feedbackBlockId) {
+    const feedbackBlock = template.blocks.find((block) => block.id === feedbackBlockId);
+    if (feedbackBlock) return <BlockFeedbackPrompt blockTitle={feedbackBlock.title} finishesWorkout={feedbackFinishesWorkout} totalTime={formatClock(totalElapsed)} onMinimize={minimizeWorkout} onRate={rateBlock} onSkip={leaveBlockFeedback} />;
+  }
 
   if (mode === "overview") return (
-    <main className="runner-shell safe-screen min-h-dvh px-5 text-white">
-      <section className="workout-hero ui-card ui-card-accent mx-auto w-full max-w-md p-6 sm:p-7">
-        <button type="button" onClick={() => workoutStarted ? setMode("block-preview") : router.back()} className="ui-button ui-button-ghost ui-button-sm -ml-3">← Zpět</button>
-        <p className="mt-5 text-sm font-bold uppercase tracking-[0.22em] text-accent">Přehled tréninku</p>
-        <h1 className="mt-2 text-4xl font-black">{template.title}</h1>
-        <p className="mt-3 leading-6 text-zinc-400">{template.description}</p>
-        <div className="mt-6"><WorkoutOutline template={template} activeBlockId={workoutStarted ? currentStep?.blockId : undefined} /></div>
-        <button type="button" onClick={() => setMode("block-preview")} disabled={steps.length === 0} className="ui-button ui-button-primary ui-button-lg mt-8 w-full text-xl">{workoutStarted ? "Zpět na aktuální blok" : "Připravit první blok"}</button>
+    <main className="runner-shell safe-screen min-h-dvh px-4 text-white">
+      <section className="mx-auto w-full max-w-md">
+        <header className="grid grid-cols-[1fr_auto_1fr] items-center"><button type="button" onClick={() => workoutStarted ? setMode("block-preview") : router.back()} className="ui-button ui-button-ghost ui-button-sm -ml-3 justify-self-start">← Zpět</button><span className="text-xs font-black tracking-[0.2em] text-accent">HYROX</span><span /></header>
+        <p className="mt-4 text-xs font-bold uppercase tracking-[0.22em] text-accent">Přehled tréninku</p>
+        <h1 className="mt-1 text-3xl font-black leading-tight">{template.title}</h1>
+        <p className="mt-2 text-sm leading-5 text-zinc-400">{template.description}</p>
+        <div className="mt-4"><WorkoutOutline template={template} activeBlockId={workoutStarted ? currentStep?.blockId : undefined} /></div>
+        <button type="button" onClick={() => setMode("block-preview")} disabled={steps.length === 0} className="ui-button ui-button-primary mt-5 w-full">{workoutStarted ? "Zpět na aktuální blok" : "Připravit první blok"}</button>
+        {workoutStarted && <button type="button" onClick={() => setShowFinish(true)} className="ui-button ui-button-ghost mt-2 w-full">Dokončit trénink nyní</button>}
         {recoveryNotice && <LocalSaveStatus failed={checkpointFailed} notice={recoveryNotice} />}
+        <ConfirmDialog open={showFinish} title="Dokončit trénink nyní?" description="Uloží se dosavadní čas a hotové úseky. Zbývající části se přeskočí." confirmLabel="Dokončit" onCancel={() => setShowFinish(false)} onConfirm={finishWorkoutNow} />
       </section>
     </main>
   );
 
   if (mode === "block-preview" && currentStep && currentBlock) return (
-    <main className="runner-shell safe-screen min-h-dvh px-5 text-white">
-      <section className="ui-card mx-auto w-full max-w-md p-6 sm:p-7">
-        <button type="button" onClick={() => setMode("overview")} className="ui-button ui-button-ghost ui-button-sm -ml-3">← Celý trénink</button>
-        <p className="mt-5 text-sm font-bold uppercase tracking-[0.22em] text-accent">Následuje blok</p>
-        <h1 className="mt-2 text-4xl font-black">{currentBlock.title}</h1>
-        <p className="mt-2 text-lg text-zinc-400">{currentBlock.type === "emom" ? `${currentBlock.minutes} minut` : `${currentBlock.repeat} kol`}</p>
-        <ol className="mt-6 space-y-3">{currentBlock.steps.map((step, index) => <li key={step.id} className="ui-inset flex gap-3 p-4"><span className="text-lg font-black text-accent">{index + 1}.</span><div><p className="text-xl font-bold">{step.name}</p>{step.detail && <p className="mt-1 text-base leading-6 text-zinc-300">{step.detail}</p>}</div></li>)}</ol>
-        <div className="mt-6 grid gap-3"><button type="button" onClick={beginCountdown} className="ui-button ui-button-primary ui-button-lg w-full text-xl">Odpočet 10 s</button><button type="button" onClick={beginRunning} className="ui-button ui-button-outline w-full text-lg">Začít hned</button></div>
-        <button type="button" onClick={minimizeWorkout} className="ui-button ui-button-ghost mt-3 w-full">Minimalizovat trénink</button>
-        <LocalSaveStatus failed={checkpointFailed} notice={recoveryNotice} />
+    <main className="runner-shell safe-screen min-h-dvh px-4 text-white">
+      <section className="mx-auto w-full max-w-md">
+        <header className="grid grid-cols-[1fr_auto_1fr] items-center">
+          <button type="button" onClick={() => setMode("overview")} className="ui-button ui-button-ghost ui-button-sm -ml-3 justify-self-start">← Přehled</button>
+          <RunnerBrandButton onClick={minimizeWorkout} />
+          <span className="justify-self-end font-mono text-sm text-zinc-400">{formatClock(totalElapsed)}</span>
+        </header>
+        <p className="mt-4 text-xs font-black uppercase tracking-[0.22em] text-accent">Následuje blok</p>
+        <div className="mt-1 flex items-end justify-between gap-3"><h1 className="text-3xl font-black">{currentBlock.title}</h1><p className="shrink-0 text-sm text-zinc-500">{currentBlock.type === "emom" ? `${currentBlock.minutes} min` : `${currentBlock.repeat} kol`}</p></div>
+        <ol className="mt-4 space-y-2">{currentBlock.steps.map((step, index) => <li key={step.id} className="ui-inset flex gap-3 px-4 py-3"><span className="font-black text-accent">{index + 1}.</span><div><p className="font-bold">{step.name}</p>{step.detail && <p className="mt-0.5 text-sm leading-5 text-zinc-400">{step.detail}</p>}</div></li>)}</ol>
+        <div className="mt-4 grid gap-2"><button type="button" onClick={beginCountdown} className="ui-button ui-button-primary w-full">Odpočet 10 s</button><button type="button" onClick={beginRunning} className="ui-button ui-button-outline w-full">Začít hned</button></div>
+        {(checkpointFailed || recoveryNotice) && <LocalSaveStatus failed={checkpointFailed} notice={recoveryNotice} />}
       </section>
     </main>
   );
 
   if (mode === "countdown" && currentStep) return (
     <main className="runner-shell safe-screen flex min-h-dvh flex-col px-5 text-center text-white">
-      <header className="mx-auto grid w-full max-w-md grid-cols-3 items-center gap-2">
+      <header className="mx-auto grid w-full max-w-md grid-cols-[1fr_auto_1fr] items-center gap-2">
         <button type="button" onClick={() => { setCountdownPaused(false); setCountdown(10); setMode("block-preview"); }} className="ui-button ui-button-ghost ui-button-sm -ml-3 justify-self-start">← Zpět</button>
-        <button type="button" onClick={() => setCountdownPaused((value) => !value)} aria-pressed={countdownPaused} className="ui-choice min-h-11 justify-self-center rounded-full px-4 text-sm">{countdownPaused ? "Pokračovat" : "Pozastavit"}</button>
+        <RunnerBrandButton onClick={minimizeWorkout} />
         <span className="justify-self-end text-sm font-semibold text-zinc-500">10 s</span>
       </header>
       <section className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center py-8">
@@ -530,9 +592,9 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
         <p className="mt-4 text-8xl font-black tabular-nums">{countdown}</p>
         <h1 className="mt-8 text-5xl font-black leading-tight">{currentStep.name}</h1>
         {currentStep.detail && <p className="mt-3 text-2xl font-semibold leading-8 text-zinc-300">{currentStep.detail}</p>}
-        <button type="button" onClick={beginRunning} className="ui-button ui-button-outline mt-10 w-full text-lg">Přeskočit odpočet</button>
-        <button type="button" onClick={minimizeWorkout} className="ui-button ui-button-ghost mt-3 w-full">Minimalizovat trénink</button>
-        <LocalSaveStatus failed={checkpointFailed} notice={recoveryNotice} />
+        <button type="button" onClick={() => setCountdownPaused((value) => !value)} aria-pressed={countdownPaused} className="ui-choice mx-auto mt-7 min-h-11 rounded-full px-5 text-sm">{countdownPaused ? "Pokračovat" : "Pozastavit"}</button>
+        <button type="button" onClick={beginRunning} className="ui-button ui-button-outline mt-4 w-full text-lg">Přeskočit odpočet</button>
+        {(checkpointFailed || recoveryNotice) && <LocalSaveStatus failed={checkpointFailed} notice={recoveryNotice} />}
       </section>
     </main>
   );
@@ -540,29 +602,29 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
   if (!currentStep) return null;
   const shownTime = currentStep.durationSeconds ? currentStep.durationSeconds * 1000 - stepElapsed : stepElapsed;
   return (
-    <main className="runner-shell safe-screen flex min-h-dvh flex-col px-5 text-white">
-      <div className="mx-auto flex w-full max-w-md flex-1 flex-col">
+    <main className="runner-shell safe-screen flex h-dvh max-h-dvh flex-col overflow-hidden px-4 text-white">
+      <div className="mx-auto flex min-h-0 w-full max-w-md flex-1 flex-col">
         <header className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
           <button type="button" onClick={openWorkoutOverview} className="ui-button ui-button-ghost ui-button-sm -ml-3 justify-self-start">← Přehled</button>
-          <button type="button" onClick={togglePause} aria-pressed={paused} className="ui-choice min-h-11 justify-self-center rounded-full px-4 text-sm">{paused ? "Pokračovat" : "Pauza"}</button>
-          <span className="justify-self-end font-mono text-base text-zinc-300">{formatClock(totalElapsed)}</span>
+          <RunnerBrandButton onClick={minimizeWorkout} />
+          <span className="justify-self-end font-mono text-sm text-zinc-300">{formatClock(totalElapsed)}</span>
         </header>
-        <section className="flex flex-1 flex-col justify-center py-6 text-center">
-          <p className="text-sm font-black uppercase tracking-[0.22em] text-accent">{currentStep.blockTitle}</p>
-          <p className="mt-2 text-base text-zinc-500">{currentStep.emomMinute ? `Minuta ${currentStep.emomMinute} z ${currentStep.emomMinutes}` : currentStep.roundCount > 1 ? `Kolo ${currentStep.round} z ${currentStep.roundCount}` : `Úsek ${currentIndex + 1} z ${steps.length}`}</p>
-          <h1 className="mt-6 text-5xl font-black leading-none sm:text-6xl">{currentStep.name}</h1>
-          {currentStep.detail && <p className="mt-4 text-2xl font-semibold leading-8 text-zinc-300">{currentStep.detail}</p>}
-          <div className="mt-9 font-mono text-6xl font-black tracking-tight">{formatClock(shownTime)}</div>
-          <p className="mt-3 text-base text-zinc-500">{paused ? "Časovač je pozastavený" : currentStep.durationSeconds ? "Zbývá v minutě" : "Čas aktuálního úseku"}</p>
-          <div className="ui-card mt-8 p-5 text-left">
-            <p className="text-sm font-black uppercase tracking-[0.18em] text-zinc-500">Následuje</p>
-            {nextStep ? <><p className="mt-2 text-2xl font-black leading-tight">{nextStep.blockId === currentStep.blockId ? nextStep.name : `Pauza před blokem ${nextStep.blockTitle}`}</p>{nextStep.blockId === currentStep.blockId && nextStep.detail && <p className="mt-2 text-lg leading-7 text-zinc-300">{nextStep.detail}</p>}</> : <p className="mt-2 text-2xl font-black">Dokončení tréninku</p>}
+        <section className="runner-active-content flex min-h-0 flex-1 flex-col justify-center py-2 text-center">
+          <p className="text-xs font-black uppercase tracking-[0.22em] text-accent">{currentStep.blockTitle}</p>
+          <p className="mt-1 text-sm text-zinc-500">{currentStep.emomMinute ? `Minuta ${currentStep.emomMinute} z ${currentStep.emomMinutes}` : currentStep.roundCount > 1 ? `Kolo ${currentStep.round} z ${currentStep.roundCount}` : `Úsek ${currentIndex + 1} z ${steps.length}`}</p>
+          <h1 className="runner-main-title mt-3 text-[clamp(2.25rem,10vw,3.75rem)] font-black leading-[0.95]">{currentStep.name}</h1>
+          {currentStep.detail && <p className="runner-step-detail mx-auto mt-2 max-w-sm text-lg font-semibold leading-6 text-zinc-300">{currentStep.detail}</p>}
+          <div className="mt-4 font-mono text-5xl font-black tracking-tight">{formatClock(shownTime)}</div>
+          <p className="mt-1 text-sm text-zinc-500">{paused ? "Časovač je pozastavený" : currentStep.durationSeconds ? "Zbývá v minutě" : "Čas aktuálního úseku"}</p>
+          <button type="button" onClick={togglePause} aria-pressed={paused} className="ui-choice mx-auto mt-3 min-h-11 rounded-full px-5 text-sm">{paused ? "Pokračovat" : "Pauza"}</button>
+          <div className="runner-next-card ui-inset mt-4 flex items-center justify-between gap-3 px-4 py-3 text-left">
+            <div className="min-w-0"><p className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">Následuje</p><p className="mt-0.5 truncate font-black">{nextStep ? nextStep.blockId === currentStep.blockId ? nextStep.name : `Hodnocení bloku ${currentStep.blockTitle}` : `Hodnocení bloku ${currentStep.blockTitle}`}</p></div>
+            <span className="text-accent" aria-hidden="true">→</span>
           </div>
-          <div className="mt-6 h-1.5 overflow-hidden rounded-full bg-elevated"><div className="h-full rounded-full bg-accent transition-[width] duration-200" style={{ width: `${((currentIndex + 1) / steps.length) * 100}%` }} /></div>
+          <div className="mt-3 h-1 overflow-hidden rounded-full bg-elevated"><div className="h-full rounded-full bg-accent transition-[width] duration-200" style={{ width: `${((currentIndex + 1) / steps.length) * 100}%` }} /></div>
         </section>
-        <button type="button" onClick={advanceManual} disabled={paused} className="ui-button ui-button-primary ui-button-lg w-full text-xl">{currentIndex === steps.length - 1 ? "Dokončit trénink" : currentStep.durationSeconds ? "Přeskočit minutu →" : "Hotovo →"}</button>
-        <button type="button" onClick={minimizeWorkout} className="ui-button ui-button-ghost mt-3 w-full">Minimalizovat trénink</button>
-        <LocalSaveStatus failed={checkpointFailed} notice={recoveryNotice} />
+        <button type="button" onClick={advanceManual} disabled={paused} className="ui-button ui-button-primary min-h-13 w-full text-lg">{currentIndex === steps.length - 1 ? "Dokončit blok →" : currentStep.durationSeconds ? "Přeskočit minutu →" : "Hotovo →"}</button>
+        {(checkpointFailed || recoveryNotice) && <LocalSaveStatus failed={checkpointFailed} notice={recoveryNotice} />}
       </div>
 
       {showOverview && (
@@ -579,14 +641,15 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
             <div className="mt-6"><WorkoutOutline template={template} activeBlockId={currentStep.blockId} /></div>
             <div className="mt-6 grid gap-3">
               <button type="button" onClick={closeWorkoutOverview} className="ui-button ui-button-primary ui-button-lg w-full text-xl">{resumeAfterOverview ? "Zpět a pokračovat" : "Zpět do tréninku"}</button>
-              <button type="button" onClick={minimizeWorkout} className="ui-button ui-button-outline w-full">Minimalizovat trénink</button>
-              <button type="button" onClick={() => setShowQuit(true)} className="ui-button ui-button-danger w-full">Ukončit trénink</button>
+              <button type="button" onClick={() => setShowFinish(true)} className="ui-button ui-button-outline w-full">Dokončit trénink nyní</button>
+              <button type="button" onClick={() => setShowQuit(true)} className="ui-button ui-button-danger w-full">Zahodit průběh</button>
             </div>
           </div>
         </div>
       )}
 
-      <ConfirmDialog open={showQuit} title="Ukončit trénink?" description="Lokálně uložený postup, aktuální čas a mezičasy se odstraní." confirmLabel="Ukončit" destructive onCancel={() => setShowQuit(false)} onConfirm={() => { checkpointClosedRef.current = true; clearWorkoutCheckpoint(workoutKey); router.push("/"); }} />
+      <ConfirmDialog open={showQuit} title="Zahodit průběh?" description="Lokálně uložený postup, aktuální čas a mezičasy se odstraní bez výsledku." confirmLabel="Zahodit" destructive onCancel={() => setShowQuit(false)} onConfirm={() => { checkpointClosedRef.current = true; clearWorkoutCheckpoint(workoutKey); router.push("/"); }} />
+      <ConfirmDialog open={showFinish} title="Dokončit trénink nyní?" description="Uloží se dosavadní čas a hotové úseky. Zbývající části se přeskočí." confirmLabel="Dokončit" onCancel={() => setShowFinish(false)} onConfirm={finishWorkoutNow} />
     </main>
   );
 }

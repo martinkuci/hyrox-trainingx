@@ -3,18 +3,38 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useHyroxData } from "@/hooks/useHyroxData";
-import type { StepSplit, WorkoutTemplate } from "@/lib/types";
+import { blockFeedbackLabel, blockFeedbackToRpe } from "@/lib/block-feedback";
+import type { BlockFeedback, StepSplit, WorkoutTemplate } from "@/lib/types";
 
 function formatDuration(seconds: number) {
   const hours = Math.floor(seconds / 3600); const minutes = Math.floor((seconds % 3600) / 60); const remainingSeconds = seconds % 60;
   return [hours, minutes, remainingSeconds].map((value) => String(value).padStart(2, "0")).join(":");
 }
 
-type Props = { template: WorkoutTemplate; scheduledWorkoutId?: string; durationSeconds: number; splits: StepSplit[] };
+type Props = { template: WorkoutTemplate; scheduledWorkoutId?: string; durationSeconds: number; splits: StepSplit[]; blockFeedbacks: BlockFeedback[] };
 
-export default function WorkoutResultForm({ template, scheduledWorkoutId, durationSeconds, splits }: Props) {
+export default function WorkoutResultForm({ template, scheduledWorkoutId, durationSeconds, splits, blockFeedbacks }: Props) {
   const { addResult, updateScheduledWorkout } = useHyroxData();
-  const [rpe, setRpe] = useState(7); const [weights, setWeights] = useState(""); const [notes, setNotes] = useState(""); const [saved, setSaved] = useState(false);
+  const [notes, setNotes] = useState("");
+  const [saved, setSaved] = useState(false);
+  const rpe = blockFeedbacks.length > 0
+    ? Math.round(blockFeedbacks.reduce((sum, feedback) => sum + blockFeedbackToRpe(feedback.rating), 0) / blockFeedbacks.length)
+    : 7;
+  const durationMinutes = Math.round(durationSeconds / 60);
+  const durationComparison = template.metadata
+    ? durationMinutes < template.metadata.expectedDurationMin
+      ? `${template.metadata.expectedDurationMin - durationMinutes} min pod plánem`
+      : durationMinutes > template.metadata.expectedDurationMax
+        ? `${durationMinutes - template.metadata.expectedDurationMax} min nad plánem`
+        : "V plánovaném rozmezí"
+    : null;
+  const rpeComparison = template.metadata
+    ? rpe < template.metadata.targetRpeMin
+      ? "Lehčí než plán"
+      : rpe > template.metadata.targetRpeMax
+        ? "Těžší než plán"
+        : "V plánovaném rozmezí"
+    : null;
   function save() {
     addResult({
       templateId: template.id,
@@ -23,7 +43,7 @@ export default function WorkoutResultForm({ template, scheduledWorkoutId, durati
       templateVersion: template.metadata?.templateVersion,
       metadataSnapshot: template.metadata ? structuredClone(template.metadata) : undefined,
       scheduledWorkoutId,
-      completedAt: new Date().toISOString(), durationSeconds, rpe, weights: weights.trim(), notes: notes.trim(), splits,
+      completedAt: new Date().toISOString(), durationSeconds, rpe, weights: "", notes: notes.trim(), splits, blockFeedbacks,
       source: "runner",
     });
     if (scheduledWorkoutId) updateScheduledWorkout(scheduledWorkoutId, { status: "completed" });
@@ -50,34 +70,23 @@ export default function WorkoutResultForm({ template, scheduledWorkoutId, durati
   }
 
   return (
-    <main className="runner-shell safe-screen min-h-dvh px-5 text-white">
+    <main className="runner-shell safe-screen min-h-dvh px-4 text-white">
       <section className="mx-auto max-w-md">
-        <p className="text-sm font-black uppercase tracking-[0.22em] text-accent">Trénink dokončen</p>
-        {template.metadata?.workoutCode && <p className="ui-chip ui-chip-accent mt-3">{template.metadata.workoutCode}-V{template.metadata.templateVersion}</p>}
-        <h1 className="mt-2 text-3xl font-black">{template.title}</h1>
+        <p className="text-center text-xs font-black tracking-[0.2em] text-accent">HYROX</p>
+        <div className="mt-4 flex items-start justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[0.22em] text-accent">Trénink dokončen</p><h1 className="mt-1 text-2xl font-black leading-tight">{template.title}</h1></div>{template.metadata?.workoutCode && <p className="ui-chip ui-chip-accent shrink-0">{template.metadata.workoutCode}-V{template.metadata.templateVersion}</p>}</div>
 
-        <div className="ui-card ui-card-accent mt-6 p-6">
-          <p className="text-sm text-zinc-400">Celkový čas</p>
-          <p className="mt-1 font-mono text-5xl font-black text-accent">{formatDuration(durationSeconds)}</p>
-          <p className="mt-2 text-sm text-zinc-400">{splits.length} zaznamenaných úseků</p>
-          {template.metadata && <p className="mt-3 text-sm text-zinc-300">Cíl: {template.metadata.expectedDurationMin}–{template.metadata.expectedDurationMax} min · RPE {template.metadata.targetRpeMin}–{template.metadata.targetRpeMax}</p>}
+        <div className="ui-card ui-card-accent mt-4 grid grid-cols-[1fr_auto] items-end gap-4 p-5">
+          <div><p className="text-xs font-bold uppercase tracking-wide text-zinc-500">Celkový čas</p><p className="mt-1 font-mono text-4xl font-black text-accent">{formatDuration(durationSeconds)}</p></div>
+          <div className="text-right"><p className="text-xs text-zinc-500">Hotové úseky</p><p className="mt-1 text-xl font-black">{splits.length}</p></div>
         </div>
 
-        <div className="ui-card mt-5 p-6">
-          <fieldset>
-            <legend className="text-lg font-bold">Jak náročné to bylo?</legend>
-            <p className="mt-1 text-sm text-zinc-400">RPE 1 = velmi lehké, 10 = maximum</p>
-            <div className="mt-4 grid grid-cols-5 gap-2">
-              {Array.from({ length: 10 }, (_, index) => index + 1).map((value) => (
-                <button key={value} type="button" aria-pressed={rpe === value} onClick={() => setRpe(value)} className="ui-choice px-1 py-3">{value}</button>
-              ))}
-            </div>
-          </fieldset>
-          <label className="mt-7 block font-semibold" htmlFor="weights">Použité váhy</label>
-          <input id="weights" value={weights} onChange={(e) => setWeights(e.target.value)} placeholder="Např. wall ball 9 kg, KB 24 kg" className="ui-field mt-2 text-base" />
-          <label className="mt-6 block font-semibold" htmlFor="notes">Poznámka</label>
-          <textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Co bylo nejtěžší? Jak ses cítil?" rows={4} className="ui-field mt-2 resize-none text-base" />
-          <button type="button" onClick={save} className="ui-button ui-button-primary ui-button-lg mt-7 w-full">Uložit výsledek</button>
+        {blockFeedbacks.length > 0 && <div className="mt-4"><h2 className="text-xs font-black uppercase tracking-[0.18em] text-zinc-500">Hodnocení bloků</h2><div className="mt-2 space-y-2">{blockFeedbacks.map((feedback) => { const block = template.blocks.find((item) => item.id === feedback.blockId); return <div key={feedback.blockId} className="ui-inset flex items-center justify-between gap-3 px-4 py-3"><div className="min-w-0"><p className="truncate font-bold">{block?.title ?? "Blok"}</p><p className="mt-0.5 text-xs text-zinc-500">{blockFeedbackLabel(feedback.rating)}</p></div><span className="grid size-9 shrink-0 place-items-center rounded-xl bg-accent-soft font-black text-accent">{feedback.rating}</span></div>; })}</div></div>}
+
+        <div className="ui-card mt-4 p-5">
+          {template.metadata && <div className="ui-inset grid grid-cols-2 gap-3 p-4 text-sm"><div><p className="text-xs font-bold uppercase tracking-wide text-zinc-500">Čas vs. plán</p><p className="mt-1 font-bold text-zinc-100">{durationComparison}</p></div><div><p className="text-xs font-bold uppercase tracking-wide text-zinc-500">Zátěž vs. plán</p><p className="mt-1 font-bold text-zinc-100">{rpeComparison}</p></div></div>}
+          <label className="mt-4 block font-semibold" htmlFor="notes">Poznámka k tréninku <span className="font-normal text-zinc-500">(volitelné)</span></label>
+          <textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Co chceš příště změnit?" rows={3} className="ui-field mt-2 resize-none text-base" />
+          <button type="button" onClick={save} className="ui-button ui-button-primary mt-4 w-full">Uložit výsledek</button>
         </div>
       </section>
     </main>
