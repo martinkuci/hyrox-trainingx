@@ -70,6 +70,7 @@ export type ScheduledWorkoutStatus = "planned" | "completed" | "skipped";
 export type ScheduledWorkout = {
   id: string;
   templateId: string;
+  originalTemplateId?: string;
   date: string;
   time: string;
   status: ScheduledWorkoutStatus;

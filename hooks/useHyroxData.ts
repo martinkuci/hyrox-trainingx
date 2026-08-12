@@ -21,6 +21,7 @@ import {
   scheduleWorkout,
   updateResult,
   updateScheduledWorkout,
+  updateScheduledWorkouts,
   updateTemplate,
   updateTrainingProgram,
 } from "@/lib/storage";
@@ -31,6 +32,7 @@ import type {
   NewWorkoutResult,
   NewWorkoutTemplate,
 } from "@/lib/types";
+import type { ScheduledWorkoutUpdate } from "@/lib/calendar-planning";
 
 export function useHyroxData() {
   const [data, setData] = useState(createDefaultHyroxData);
@@ -60,6 +62,7 @@ export function useHyroxData() {
     scheduleMany: (inputs: NewScheduledWorkout[]) => scheduleMany(inputs),
     replaceSchedulesForDates: (inputs: NewScheduledWorkout[], dates: string[]) => replaceSchedulesForDates(inputs, dates),
     updateScheduledWorkout: (id: string, updates: Partial<NewScheduledWorkout>) => updateScheduledWorkout(id, updates),
+    updateScheduledWorkouts: (updates: ScheduledWorkoutUpdate[]) => updateScheduledWorkouts(updates),
     deleteScheduledWorkout,
     createWeeklyPlan: (input: NewWeeklyPlanTemplate) => createWeeklyPlan(input),
     deleteWeeklyPlan,

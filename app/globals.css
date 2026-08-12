@@ -312,6 +312,8 @@ html {
 }
 
 .ui-calendar-item {
+  display: block;
+  overflow: hidden;
   width: 100%;
   min-height: 1.75rem;
   border: 1px solid rgb(190 242 100 / 0.24);
@@ -323,12 +325,21 @@ html {
   font-weight: 850;
   line-height: 1.15;
   text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.ui-calendar-item[data-completed="true"] {
+.ui-calendar-item[data-status="completed"] {
   border-color: rgb(52 211 153 / 0.24);
   background: var(--success-soft);
   color: var(--success);
+}
+
+.ui-calendar-item[data-status="skipped"] {
+  border-color: var(--line-strong);
+  background: rgb(255 255 255 / 0.035);
+  color: #71717a;
+  text-decoration: line-through;
 }
 
 .ui-field {

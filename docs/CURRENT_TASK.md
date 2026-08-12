@@ -2,43 +2,43 @@
 
 ## Feature větev
 
-`agent/workout-logging-1b`
+`agent/calendar-program-changes-1c`
 
 ## Cíl změny
 
-Zjednodušit mobilní workout runner tak, aby aktivní krok včetně hlavních ovládacích prvků zůstal bez posouvání. Minimalizace se přesune do značky HYROX, trénink půjde kdykoli korektně dokončit a subjektivní zpětná vazba se zadá jedinou pětistupňovou volbou až po celém bloku.
+Umožnit bezpečně upravovat rozběhnutý tréninkový plán přímo v kalendáři. Sportovec může přesunout jednu jednotku nebo celý zbývající program, vynechat trénink a zvolit kratší příbuznou variantu bez ztráty vazby na program.
 
-## Rozsah releasu 1B
+## Rozsah releasu 1C
 
-- odstranit formulář výkonu z jednotlivých úseků,
-- po dokončení celého bloku nabídnout pět úrovní od „Příště ubrat“ po „Brnkačka“,
-- ukládat hodnocení bloků do stejného lokálního checkpointu jako čas a postup,
-- obnovit hodnocení po reloadu, návratu z minimalizace i po pádu,
-- minimalizovat trénink kliknutím na středovou značku HYROX bez dalšího tlačítka,
-- umožnit dokončit trénink z aktuální rozpracované části a uložit dosavadní čas i mezičasy,
-- zkomprimovat aktivní runner pro běžnou mobilní výšku bez vertikálního scrollu,
-- zjednodušit přehled bloku a výsledný souhrn do aktuálního vizuálního jazyka,
-- přenést hodnocení bloků do dokončeného výsledku a zobrazit je v historii,
-- v souhrnu ukázat základní porovnání plánovaného času a zátěže proti skutečnosti,
-- ponechat dosavadní souhrnná pole RPE, váhy a poznámka pro staré výsledky a import screenshotu.
+- přesunout jednu plánovanou jednotku na jiné datum,
+- přesunout vybranou jednotku a všechny následující plánované jednotky stejného programu,
+- provést hromadný posun atomicky a zachovat pořadí i rozestupy programu,
+- před uložením odhalit kolize s jinými naplánovanými tréninky,
+- při kolizi nabídnout bezpečný nejbližší volný termín,
+- označit jednotku jako vynechanou a umožnit její návrat do plánu,
+- nabídnout kratší trénink ze stejné progresní řady nebo stejné kategorie,
+- zachovat informaci o původně naplánované šabloně při použití kratší varianty,
+- zobrazit plánované, dokončené i vynechané jednotky v jednom programovém kalendáři,
+- sjednotit mobilní detail jednotky, stavy a zpětnou vazbu s aktuálním designem aplikace.
 
 ## Akceptační kritéria
 
-- starý výsledek bez hodnocení bloků se načte beze změny,
-- starý checkpoint bez hodnocení bloků lze obnovit,
-- hodnocení je jednoznačně svázané s blokem a používá pouze úroveň 1–5,
-- aktivní krok, časovač, pauza a hlavní akce se na běžném telefonu vejdou bez posunu,
-- kliknutí na HYROX trénink pozastaví, uloží a minimalizuje,
-- předčasné dokončení uloží dosavadní čas a hotové úseky a otevře souhrn,
-- reload a minimalizace zachovají hodnocení dokončených bloků,
-- historie zobrazí hodnocení u správných bloků,
-- rozhraní zůstane použitelné na šířce 320 px a ovladatelné klávesnicí,
-- lint, TypeScript, produkční build a cílené scénáře kompatibility projdou.
+- změna jednoho tréninku nepřepíše jinou jednotku bez výslovného rozhodnutí,
+- hromadný posun se uloží jedním zápisem a nemůže zůstat napůl provedený,
+- hromadný posun zachová relativní rozestupy a pořadí všech přesouvaných jednotek,
+- dokončené jednotky se hromadným posunem nemění,
+- při kolizi aplikace změnu nejdřív zastaví a srozumitelně vysvětlí další možnost,
+- vynechaná jednotka zůstane viditelná a započítaná ve statistikách programu,
+- kratší varianta je vždy kratší než původní a tematicky příbuzná,
+- původní varianta se dá jedním krokem obnovit,
+- stará uložená data bez informace o původní šabloně se načtou beze změny,
+- kalendář je použitelný od šířky 320 px a všechny akce mají dotykově bezpečnou velikost,
+- lint, TypeScript, produkční build a cílené scénáře plánovací logiky projdou.
 
-## Mimo rozsah 1B
+## Mimo rozsah 1C
 
-- změna schématu hlavního uložiště z verze 1,
-- podrobný zápis vah a opakování po jednotlivých úsecích,
-- vzdálená synchronizace aktivního checkpointu mezi zařízeními,
-- rychlé přesuny a zkrácené varianty tréninků v kalendáři,
+- editace struktury už uloženého tréninkového programu,
+- automatická regenerace programu podle vynechaných výsledků,
+- vzdálené zamykání souběžných úprav na více zařízeních,
+- integrace externích kalendářů,
 - Apple Health, Health Connect, Garmin a Strava.
