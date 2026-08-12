@@ -80,6 +80,16 @@ export type ScheduledWorkout = {
 export type WeeklyPlanDay = { weekday: 0 | 1 | 2 | 3 | 4 | 5 | 6; templateId: string | null; time: string };
 export type WeeklyPlanTemplate = { id: string; name: string; days: WeeklyPlanDay[]; createdAt: string; updatedAt: string };
 export type StepSplit = { blockId: string; stepId: string; round: number; durationSeconds: number; blockTitle?: string; stepName?: string; stepDetail?: string };
+export type StepPerformance = {
+  blockId: string;
+  stepId: string;
+  round: number;
+  weightKg?: number;
+  repetitions?: number;
+  completedRounds?: number;
+  rpe?: number;
+  note?: string;
+};
 export type WorkoutResultMetrics = {
   averageHeartRate?: number;
   maxHeartRate?: number;
@@ -102,6 +112,7 @@ export type WorkoutResult = {
   weights: string;
   notes: string;
   splits: StepSplit[];
+  stepPerformances?: StepPerformance[];
   source?: "runner" | "screenshot";
   sourceImageName?: string;
   metrics?: WorkoutResultMetrics;

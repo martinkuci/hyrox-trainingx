@@ -3,18 +3,33 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useHyroxData } from "@/hooks/useHyroxData";
-import type { StepSplit, WorkoutTemplate } from "@/lib/types";
+import type { StepPerformance, StepSplit, WorkoutTemplate } from "@/lib/types";
 
 function formatDuration(seconds: number) {
   const hours = Math.floor(seconds / 3600); const minutes = Math.floor((seconds % 3600) / 60); const remainingSeconds = seconds % 60;
   return [hours, minutes, remainingSeconds].map((value) => String(value).padStart(2, "0")).join(":");
 }
 
-type Props = { template: WorkoutTemplate; scheduledWorkoutId?: string; durationSeconds: number; splits: StepSplit[] };
+type Props = { template: WorkoutTemplate; scheduledWorkoutId?: string; durationSeconds: number; splits: StepSplit[]; stepPerformances: StepPerformance[] };
 
-export default function WorkoutResultForm({ template, scheduledWorkoutId, durationSeconds, splits }: Props) {
+export default function WorkoutResultForm({ template, scheduledWorkoutId, durationSeconds, splits, stepPerformances }: Props) {
   const { addResult, updateScheduledWorkout } = useHyroxData();
   const [rpe, setRpe] = useState(7); const [weights, setWeights] = useState(""); const [notes, setNotes] = useState(""); const [saved, setSaved] = useState(false);
+  const durationMinutes = Math.round(durationSeconds / 60);
+  const durationComparison = template.metadata
+    ? durationMinutes < template.metadata.expectedDurationMin
+      ? `${template.metadata.expectedDurationMin - durationMinutes} min pod plánem`
+      : durationMinutes > template.metadata.expectedDurationMax
+        ? `${durationMinutes - template.metadata.expectedDurationMax} min nad plánem`
+        : "V plánovaném rozmezí"
+    : null;
+  const rpeComparison = template.metadata
+    ? rpe < template.metadata.targetRpeMin
+      ? "Lehčí než plán"
+      : rpe > template.metadata.targetRpeMax
+        ? "Těžší než plán"
+        : "V plánovaném rozmezí"
+    : null;
   function save() {
     addResult({
       templateId: template.id,
@@ -23,7 +38,7 @@ export default function WorkoutResultForm({ template, scheduledWorkoutId, durati
       templateVersion: template.metadata?.templateVersion,
       metadataSnapshot: template.metadata ? structuredClone(template.metadata) : undefined,
       scheduledWorkoutId,
-      completedAt: new Date().toISOString(), durationSeconds, rpe, weights: weights.trim(), notes: notes.trim(), splits,
+      completedAt: new Date().toISOString(), durationSeconds, rpe, weights: weights.trim(), notes: notes.trim(), splits, stepPerformances,
       source: "runner",
     });
     if (scheduledWorkoutId) updateScheduledWorkout(scheduledWorkoutId, { status: "completed" });
@@ -59,7 +74,7 @@ export default function WorkoutResultForm({ template, scheduledWorkoutId, durati
         <div className="ui-card ui-card-accent mt-6 p-6">
           <p className="text-sm text-zinc-400">Celkový čas</p>
           <p className="mt-1 font-mono text-5xl font-black text-accent">{formatDuration(durationSeconds)}</p>
-          <p className="mt-2 text-sm text-zinc-400">{splits.length} zaznamenaných úseků</p>
+          <p className="mt-2 text-sm text-zinc-400">{splits.length} časů · {stepPerformances.length} záznamů výkonu</p>
           {template.metadata && <p className="mt-3 text-sm text-zinc-300">Cíl: {template.metadata.expectedDurationMin}–{template.metadata.expectedDurationMax} min · RPE {template.metadata.targetRpeMin}–{template.metadata.targetRpeMax}</p>}
         </div>
 
@@ -73,6 +88,7 @@ export default function WorkoutResultForm({ template, scheduledWorkoutId, durati
               ))}
             </div>
           </fieldset>
+          {template.metadata && <div className="ui-inset mt-6 grid grid-cols-2 gap-3 p-4 text-sm"><div><p className="text-xs font-bold uppercase tracking-wide text-zinc-500">Čas vs. plán</p><p className="mt-1 font-bold text-zinc-100">{durationComparison}</p></div><div><p className="text-xs font-bold uppercase tracking-wide text-zinc-500">RPE vs. plán</p><p className="mt-1 font-bold text-zinc-100">{rpeComparison}</p></div></div>}
           <label className="mt-7 block font-semibold" htmlFor="weights">Použité váhy</label>
           <input id="weights" value={weights} onChange={(e) => setWeights(e.target.value)} placeholder="Např. wall ball 9 kg, KB 24 kg" className="ui-field mt-2 text-base" />
           <label className="mt-6 block font-semibold" htmlFor="notes">Poznámka</label>

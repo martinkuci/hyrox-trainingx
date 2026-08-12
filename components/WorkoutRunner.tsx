@@ -2,9 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { StepSplit, WorkoutBlock, WorkoutTemplate } from "@/lib/types";
+import type { StepPerformance, StepSplit, WorkoutBlock, WorkoutTemplate } from "@/lib/types";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import WorkoutRecoveryDialog from "@/components/WorkoutRecoveryDialog";
+import WorkoutPerformanceEditor, { type StepPerformanceValues } from "@/components/WorkoutPerformanceEditor";
 import WorkoutResultForm from "@/components/WorkoutResultForm";
 import {
   clearWorkoutCheckpoint,
@@ -123,6 +124,7 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
   const [totalElapsed, setTotalElapsed] = useState(0);
   const [stepElapsed, setStepElapsed] = useState(0);
   const [splits, setSplits] = useState<StepSplit[]>([]);
+  const [stepPerformances, setStepPerformances] = useState<StepPerformance[]>([]);
   const [countdown, setCountdown] = useState(10);
   const [recoveryCheckpoint, setRecoveryCheckpoint] = useState<WorkoutCheckpoint | null>(null);
   const [recoveryReady, setRecoveryReady] = useState(false);
@@ -135,6 +137,7 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
   const stepAccumulatedRef = useRef(0);
   const stepStartedAtRef = useRef<number | null>(null);
   const splitsRef = useRef<StepSplit[]>([]);
+  const stepPerformancesRef = useRef<StepPerformance[]>([]);
   const audioContextRef = useRef<AudioContext | null>(null);
   const checkpointClosedRef = useRef(false);
 
@@ -167,6 +170,23 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
     const split: StepSplit = { blockId: step.blockId, stepId: step.stepId, round: step.round, durationSeconds: Math.max(0, Math.round(durationMilliseconds / 1000)) };
     splitsRef.current = [...splitsRef.current, split];
     setSplits(splitsRef.current);
+  }
+
+  function updateStepPerformance(step: RunnableStep, values: StepPerformanceValues) {
+    const sameStep = (performance: StepPerformance) => performance.blockId === step.blockId
+      && performance.stepId === step.stepId
+      && performance.round === step.round;
+    const withoutCurrent = stepPerformancesRef.current.filter((performance) => !sameStep(performance));
+    const hasValue = values.weightKg !== undefined
+      || values.repetitions !== undefined
+      || values.completedRounds !== undefined
+      || values.rpe !== undefined
+      || Boolean(values.note?.trim());
+    const next = hasValue
+      ? [...withoutCurrent, { blockId: step.blockId, stepId: step.stepId, round: step.round, ...values, note: values.note || undefined }]
+      : withoutCurrent;
+    stepPerformancesRef.current = next;
+    setStepPerformances(next);
   }
 
   function beginCountdown() {
@@ -251,6 +271,7 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
       totalElapsedMilliseconds: savedTotalElapsed,
       stepElapsedMilliseconds: savedStepElapsed,
       splits: splitsRef.current,
+      stepPerformances: stepPerformancesRef.current,
       countdown,
       paused: savedPaused,
       countdownPaused: savedCountdownPaused,
@@ -330,12 +351,14 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
     totalAccumulatedRef.current = restored.totalElapsedMilliseconds;
     stepAccumulatedRef.current = restored.stepElapsedMilliseconds;
     splitsRef.current = restored.splits;
+    stepPerformancesRef.current = restored.stepPerformances;
     totalStartedAtRef.current = restored.mode === "running" && !restored.paused ? now : null;
     stepStartedAtRef.current = restored.mode === "running" && !restored.paused ? now : null;
     setCurrentIndex(restored.currentIndex);
     setTotalElapsed(restored.totalElapsedMilliseconds);
     setStepElapsed(restored.stepElapsedMilliseconds);
     setSplits(restored.splits);
+    setStepPerformances(restored.stepPerformances);
     setCountdown(restored.countdown);
     setPaused(restored.paused);
     setCountdownPaused(restored.countdownPaused);
@@ -393,6 +416,7 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
         totalElapsedMilliseconds: elapsedMilliseconds(totalAccumulatedRef.current, totalStartedAtRef.current, now),
         stepElapsedMilliseconds: elapsedMilliseconds(stepAccumulatedRef.current, stepStartedAtRef.current, now),
         splits: splitsRef.current,
+        stepPerformances: stepPerformancesRef.current,
         countdown,
         paused,
         countdownPaused,
@@ -487,7 +511,7 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
     </main>
   );
 
-  if (mode === "finished") return <WorkoutResultForm template={template} scheduledWorkoutId={scheduledWorkoutId} durationSeconds={Math.max(1, Math.round(totalElapsed / 1000))} splits={splits} />;
+  if (mode === "finished") return <WorkoutResultForm template={template} scheduledWorkoutId={scheduledWorkoutId} durationSeconds={Math.max(1, Math.round(totalElapsed / 1000))} splits={splits} stepPerformances={stepPerformances} />;
 
   if (mode === "overview") return (
     <main className="runner-shell safe-screen min-h-dvh px-5 text-white">
@@ -539,6 +563,9 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
 
   if (!currentStep) return null;
   const shownTime = currentStep.durationSeconds ? currentStep.durationSeconds * 1000 - stepElapsed : stepElapsed;
+  const currentPerformance = stepPerformances.find((performance) => performance.blockId === currentStep.blockId
+    && performance.stepId === currentStep.stepId
+    && performance.round === currentStep.round);
   return (
     <main className="runner-shell safe-screen flex min-h-dvh flex-col px-5 text-white">
       <div className="mx-auto flex w-full max-w-md flex-1 flex-col">
@@ -554,6 +581,7 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
           {currentStep.detail && <p className="mt-4 text-2xl font-semibold leading-8 text-zinc-300">{currentStep.detail}</p>}
           <div className="mt-9 font-mono text-6xl font-black tracking-tight">{formatClock(shownTime)}</div>
           <p className="mt-3 text-base text-zinc-500">{paused ? "Časovač je pozastavený" : currentStep.durationSeconds ? "Zbývá v minutě" : "Čas aktuálního úseku"}</p>
+          <WorkoutPerformanceEditor elapsedLabel={formatClock(stepElapsed)} value={currentPerformance} onChange={(values) => updateStepPerformance(currentStep, values)} />
           <div className="ui-card mt-8 p-5 text-left">
             <p className="text-sm font-black uppercase tracking-[0.18em] text-zinc-500">Následuje</p>
             {nextStep ? <><p className="mt-2 text-2xl font-black leading-tight">{nextStep.blockId === currentStep.blockId ? nextStep.name : `Pauza před blokem ${nextStep.blockTitle}`}</p>{nextStep.blockId === currentStep.blockId && nextStep.detail && <p className="mt-2 text-lg leading-7 text-zinc-300">{nextStep.detail}</p>}</> : <p className="mt-2 text-2xl font-black">Dokončení tréninku</p>}
