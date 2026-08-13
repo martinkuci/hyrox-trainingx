@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useCloudSyncState } from "@/hooks/useCloudSyncState";
 
 type Props = {
   title?: string;
@@ -11,6 +12,16 @@ type Props = {
 export function StickyHeader({ title, fallbackHref = "/" }: Props) {
   const router = useRouter();
   const pathname = usePathname();
+  const syncState = useCloudSyncState();
+  const syncLabels = {
+    local: { short: "Lokálně", label: "data pouze v tomto zařízení", dot: "bg-zinc-500" },
+    offline: { short: "Offline", label: "bez připojení", dot: "bg-amber-300" },
+    pending: { short: "Čeká", label: "změny čekají na synchronizaci", dot: "bg-amber-300" },
+    syncing: { short: "Ukládám", label: "probíhá synchronizace", dot: "bg-accent animate-pulse" },
+    synced: { short: "Uloženo", label: "data jsou synchronizovaná", dot: "bg-emerald-300" },
+    error: { short: "Chyba", label: "synchronizace vyžaduje pozornost", dot: "bg-red-400" },
+  } as const;
+  const syncLabel = syncLabels[syncState.phase];
 
   function goBack() {
     if (window.history.length > 1) {
@@ -55,10 +66,14 @@ export function StickyHeader({ title, fallbackHref = "/" }: Props) {
 
         <Link
           href="/account"
-          className="ui-button ui-button-ghost ui-button-icon justify-end justify-self-end text-zinc-400"
-          aria-label="Účet a cloud"
+          className="flex min-h-11 max-w-full items-center justify-end gap-1.5 justify-self-end rounded-xl px-2 text-zinc-400"
+          aria-label={`Účet a cloud – ${syncLabel.label}`}
         >
-          <svg viewBox="0 0 24 24" className="size-6" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+          <span className={`size-2 shrink-0 rounded-full ${syncLabel.dot}`} aria-hidden="true" />
+          <span className="truncate text-[9px] font-black uppercase tracking-wide">
+            {syncLabel.short}
+          </span>
+          <svg viewBox="0 0 24 24" className="hidden size-5 shrink-0 sm:block" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
             <circle cx="12" cy="8" r="3.25" />
             <path d="M5.5 19.5c.5-3.75 2.67-5.75 6.5-5.75s6 2 6.5 5.75" strokeLinecap="round" />
           </svg>

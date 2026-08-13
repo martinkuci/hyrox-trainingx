@@ -2,43 +2,42 @@
 
 ## Feature větev
 
-`agent/calendar-program-changes-1c`
+`agent/offline-sync-2a`
 
 ## Cíl změny
 
-Umožnit bezpečně upravovat rozběhnutý tréninkový plán přímo v kalendáři. Sportovec může přesunout jednu jednotku nebo celý zbývající program, vynechat trénink a zvolit kratší příbuznou variantu bez ztráty vazby na program.
+Zajistit, aby lokálně uložené tréninkové změny zůstaly bezpečné při výpadku připojení a aby přihlášený uživatel vždy rozuměl stavu cloudové synchronizace. Neodeslaná lokální data se po návratu internetu bezpečně nahrají a nesmí je přepsat starší cloudová kopie.
 
-## Rozsah releasu 1C
+## Rozsah releasu 2A
 
-- přesunout jednu plánovanou jednotku na jiné datum,
-- přesunout vybranou jednotku a všechny následující plánované jednotky stejného programu,
-- provést hromadný posun atomicky a zachovat pořadí i rozestupy programu,
-- před uložením odhalit kolize s jinými naplánovanými tréninky,
-- při kolizi nabídnout bezpečný nejbližší volný termín,
-- označit jednotku jako vynechanou a umožnit její návrat do plánu,
-- nabídnout kratší trénink ze stejné progresní řady nebo stejné kategorie,
-- zachovat informaci o původně naplánované šabloně při použití kratší varianty,
-- zobrazit plánované, dokončené i vynechané jednotky v jednom programovém kalendáři,
-- sjednotit mobilní detail jednotky, stavy a zpětnou vazbu s aktuálním designem aplikace.
+- trvale evidovat, že po lokální změně čekají data na cloudovou synchronizaci,
+- rozlišit stav pouze v zařízení, synchronizaci, úspěšné uložení, čekání bez připojení a chybu,
+- při ztrátě internetu ponechat aplikaci a lokální ukládání funkční,
+- po návratu připojení automaticky odeslat nejnovější lokální data,
+- po obnovení stránky zachovat informaci o neodeslaných změnách,
+- před stažením cloudových dat upřednostnit lokální kopii označenou jako neodeslanou,
+- zobrazit stav synchronizace v globálním nerušivém indikátoru a v obrazovce Účet a cloud,
+- umožnit ruční opakování synchronizace po chybě,
+- zachovat stávající formát `hyrox-data-v1` a současné přihlášení přes Firebase.
 
 ## Akceptační kritéria
 
-- změna jednoho tréninku nepřepíše jinou jednotku bez výslovného rozhodnutí,
-- hromadný posun se uloží jedním zápisem a nemůže zůstat napůl provedený,
-- hromadný posun zachová relativní rozestupy a pořadí všech přesouvaných jednotek,
-- dokončené jednotky se hromadným posunem nemění,
-- při kolizi aplikace změnu nejdřív zastaví a srozumitelně vysvětlí další možnost,
-- vynechaná jednotka zůstane viditelná a započítaná ve statistikách programu,
-- kratší varianta je vždy kratší než původní a tematicky příbuzná,
-- původní varianta se dá jedním krokem obnovit,
-- stará uložená data bez informace o původní šabloně se načtou beze změny,
-- kalendář je použitelný od šířky 320 px a všechny akce mají dotykově bezpečnou velikost,
-- lint, TypeScript, produkční build a cílené scénáře plánovací logiky projdou.
+- každá úspěšná lokální změna se uloží i bez internetu,
+- neodeslaná změna zůstane označená i po zavření nebo obnovení aplikace,
+- návrat internetu automaticky spustí právě jednu synchronizaci nejnovější lokální kopie,
+- starší cloudová data nepřepíšou lokální kopii, která čeká na odeslání,
+- při úspěšném odeslání se čekající stav zruší a uloží se čas poslední synchronizace,
+- síťová nebo serverová chyba nezpůsobí odhlášení ani ztrátu lokálních dat,
+- odhlášený uživatel vidí, že data zůstávají pouze v tomto zařízení,
+- stav není rozlišen pouze barvou a změny jsou oznámené přístupným textem,
+- globální indikátor nepřekrývá spodní navigaci ani hlavní akce od šířky 320 px,
+- lint, TypeScript, produkční build a cílené scénáře synchronizační logiky projdou.
 
-## Mimo rozsah 1C
+## Mimo rozsah 2A
 
-- editace struktury už uloženého tréninkového programu,
-- automatická regenerace programu podle vynechaných výsledků,
-- vzdálené zamykání souběžných úprav na více zařízeních,
-- integrace externích kalendářů,
-- Apple Health, Health Connect, Garmin a Strava.
+- plná instalovatelná PWA a offline cache aplikačních souborů,
+- slučování dvou současně upravených datových sad po jednotlivých položkách,
+- vzdálené zamykání úprav na více zařízeních,
+- změna poskytovatele autentizace nebo databáze,
+- Apple Health, Health Connect, Garmin a Strava,
+- statistiky výkonu a adaptivní úprava tréninkového programu.

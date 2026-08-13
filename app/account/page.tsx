@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { PlanningShell } from "@/components/planning/PlanningShell";
+import { useCloudSyncState } from "@/hooks/useCloudSyncState";
+import { requestCloudSync } from "@/lib/cloud-sync-state";
 import {
   AUTH_EVENT,
   createEmailAccount,
@@ -13,6 +15,7 @@ import {
 import type { CloudUser } from "@/lib/firebase-rest";
 
 export default function AccountPage() {
+  const syncState = useCloudSyncState();
   const [user, setUser] = useState<CloudUser | null>(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -42,6 +45,43 @@ export default function AccountPage() {
     }
   }
 
+  const syncPresentation = {
+    local: {
+      title: "Kontroluji cloud",
+      description: "Ověřuji stav přihlášení a poslední uloženou verzi.",
+      tone: "",
+    },
+    offline: {
+      title: syncState.pending ? "Změny čekají v zařízení" : "Jsi offline",
+      description: syncState.pending
+        ? "Data jsou bezpečně uložená v tomto zařízení a odešlou se automaticky po návratu internetu."
+        : "Aplikaci můžeš dál používat. Nové změny zůstanou v zařízení do návratu internetu.",
+      tone: "ui-feedback-warning",
+    },
+    pending: {
+      title: "Změny čekají na odeslání",
+      description: "Lokální kopie je uložená. Cloudová synchronizace se spustí během okamžiku.",
+      tone: "ui-feedback-warning",
+    },
+    syncing: {
+      title: "Synchronizuji…",
+      description: "Odesílám nejnovější lokální data do tvého účtu.",
+      tone: "",
+    },
+    synced: {
+      title: "Všechna data jsou uložená",
+      description: syncState.lastSyncedAt
+        ? `Poslední synchronizace ${new Intl.DateTimeFormat("cs-CZ", { dateStyle: "short", timeStyle: "short" }).format(new Date(syncState.lastSyncedAt))}.`
+        : "Tréninky, plán a výsledky jsou synchronizované s cloudem.",
+      tone: "ui-feedback-success",
+    },
+    error: {
+      title: "Synchronizace vyžaduje pozornost",
+      description: syncState.error ?? "Data zůstala bezpečně v zařízení. Zkus synchronizaci zopakovat.",
+      tone: "ui-feedback-danger",
+    },
+  }[syncState.phase];
+
   return (
     <PlanningShell
       eyebrow="Profil"
@@ -61,12 +101,24 @@ export default function AccountPage() {
                 <p className="text-sm text-zinc-400">{user.email}</p>
               </div>
             </div>
-            <div className="ui-feedback ui-feedback-success mt-6">
-              <p className="font-black text-accent">Synchronizace je aktivní</p>
+            <div className={`ui-feedback mt-6 ${syncPresentation.tone}`} aria-live="polite">
+              <p className="font-black">{syncPresentation.title}</p>
               <p className="mt-2 text-sm leading-6 text-zinc-400">
-                Tréninky, kalendář, výsledky a týdenní plány se ukládají do tvého účtu. Po přihlášení stejným e-mailem na telefonu a počítači uvidíš stejná data.
+                {syncPresentation.description}
               </p>
             </div>
+            {syncState.phase === "error" && (
+              <button
+                type="button"
+                onClick={requestCloudSync}
+                className="ui-button ui-button-accent mt-4 w-full"
+              >
+                Zkusit synchronizaci znovu
+              </button>
+            )}
+            <p className="mt-5 text-sm leading-6 text-zinc-500">
+              Tréninky, kalendář, výsledky a týdenní plány se nejdřív ukládají do tohoto zařízení. Cloud je následně bezpečně synchronizuje mezi přihlášenými zařízeními.
+            </p>
             <button
               type="button"
               onClick={() => { signOutCloud(); setUser(null); }}
@@ -77,6 +129,12 @@ export default function AccountPage() {
           </section>
         ) : (
           <section className="ui-card p-6">
+            <div className="ui-feedback mb-6">
+              <p className="font-black">Data jsou pouze v tomto zařízení</p>
+              <p className="mt-2 text-sm leading-6 text-zinc-400">
+                Tréninky můžeš používat i bez účtu. Pro zálohu a přenos mezi telefonem a počítačem se přihlas ke cloudu.
+              </p>
+            </div>
             <div className="ui-segmented grid grid-cols-2">
               <button type="button" aria-pressed={mode === "login"} onClick={() => setMode("login")} className="ui-choice px-3 py-3">Přihlášení</button>
               <button type="button" aria-pressed={mode === "register"} onClick={() => setMode("register")} className="ui-choice px-3 py-3">Nový účet</button>
