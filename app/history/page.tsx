@@ -6,6 +6,12 @@ import ConfirmDialog from "@/components/ConfirmDialog";
 import { PlanningShell } from "@/components/planning/PlanningShell";
 import { useHyroxData } from "@/hooks/useHyroxData";
 import { blockFeedbackLabel } from "@/lib/block-feedback";
+import {
+  buildComparableWorkouts,
+  buildTrainingOverview,
+  buildWeeklyActivity,
+} from "@/lib/training-insights";
+import type { ComparableWorkout, TrainingOverview, WeeklyActivity } from "@/lib/training-insights";
 import type { WorkoutResult } from "@/lib/types";
 
 function formatDuration(seconds: number) {
@@ -16,12 +22,35 @@ function formatDuration(seconds: number) {
   return parts.map((value) => String(value).padStart(2, "0")).join(":");
 }
 
+function formatTrainingVolume(seconds: number) {
+  const totalMinutes = Math.round(seconds / 60);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours === 0) return `${minutes} min`;
+  return minutes === 0 ? `${hours} h` : `${hours} h ${minutes} min`;
+}
+
+function formatShortDate(value: string) {
+  return new Intl.DateTimeFormat("cs-CZ", { day: "numeric", month: "numeric" }).format(
+    new Date(`${value.slice(0, 10)}T12:00:00.000Z`),
+  );
+}
+
 export default function HistoryPage() {
   const { data, ready, deleteResult } = useHyroxData();
   const [pendingDelete, setPendingDelete] = useState<WorkoutResult | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<Record<string, "chronological" | "exercise">>({});
   const results = useMemo(() => [...data.results].sort((a, b) => b.completedAt.localeCompare(a.completedAt)), [data.results]);
+  const insights = useMemo(() => {
+    if (!ready) return null;
+    const now = new Date();
+    return {
+      overview: buildTrainingOverview(data.results, data.templates, now),
+      weeks: buildWeeklyActivity(data.results, now),
+      comparisons: buildComparableWorkouts(data.results),
+    };
+  }, [data.results, data.templates, ready]);
 
   function describeSplit(result: WorkoutResult, blockId: string, stepId: string, round: number) {
     const template = data.templates.find((item) => item.id === result.templateId);
@@ -46,6 +75,24 @@ export default function HistoryPage() {
 
         {!ready && <div className="ui-card h-48 animate-pulse" aria-label="Načítám výsledky" />}
         {ready && results.length === 0 && <section className="ui-card border-dashed p-8 text-center"><div className="app-empty-icon mx-auto"><ResultsIcon /></div><h2 className="mt-5 text-xl font-black">Zatím žádné výsledky</h2><p className="mt-2 text-zinc-400">Dokončený trénink se zobrazí tady včetně času, RPE a mezičasů.</p><Link href="/workouts" className="ui-button ui-button-accent mt-7 w-full">Vybrat trénink</Link></section>}
+
+        {insights && results.length > 0 && (
+          <TrainingInsights
+            overview={insights.overview}
+            weeks={insights.weeks}
+            comparisons={insights.comparisons}
+          />
+        )}
+
+        {results.length > 0 && (
+          <div className="mb-4 mt-9 flex items-end justify-between gap-4">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-accent">Záznamy</p>
+              <h2 className="mt-1 text-2xl font-black">Historie tréninků</h2>
+            </div>
+            <span className="ui-chip">{results.length} celkem</span>
+          </div>
+        )}
 
         <div className={`${results.length > 0 ? "space-y-4" : ""}`}>
           {results.map((result) => {
@@ -95,6 +142,153 @@ export default function HistoryPage() {
       </div>
       <ConfirmDialog open={pendingDelete !== null} title="Smazat výsledek?" description="Tento záznam už nepůjde obnovit." confirmLabel="Smazat" destructive onCancel={() => setPendingDelete(null)} onConfirm={() => { if (pendingDelete) deleteResult(pendingDelete.id); setPendingDelete(null); }} />
     </PlanningShell>
+  );
+}
+
+function TrainingInsights({
+  overview,
+  weeks,
+  comparisons,
+}: {
+  overview: TrainingOverview;
+  weeks: WeeklyActivity[];
+  comparisons: ComparableWorkout[];
+}) {
+  const maxWeeklyDuration = Math.max(...weeks.map((week) => week.durationSeconds), 1);
+
+  return (
+    <div className="space-y-4">
+      <section className="ui-card ui-card-accent p-5 sm:p-6" aria-labelledby="insight-overview-title">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-accent">Posledních 28 dní</p>
+            <h2 id="insight-overview-title" className="mt-1 text-2xl font-black">Tréninkový přehled</h2>
+          </div>
+          <span className="ui-chip ui-chip-accent">Pozorovaná data</span>
+        </div>
+
+        <dl className="mt-5 grid grid-cols-2 gap-2">
+          <InsightMetric label="Tréninky" value={String(overview.sessionCount)} />
+          <InsightMetric label="Celkový čas" value={formatTrainingVolume(overview.durationSeconds)} />
+          <InsightMetric label="Průměrné RPE" value={overview.averageRpe?.toLocaleString("cs-CZ", { maximumFractionDigits: 1 }) ?? "—"} />
+          <InsightMetric
+            label="RPE v cíli"
+            value={overview.targetRpeCount > 0 ? `${overview.targetRpeMatches} z ${overview.targetRpeCount}` : "Bez cíle"}
+          />
+        </dl>
+        <p className="mt-4 text-xs leading-5 text-zinc-500">
+          Souhrn vychází jen z uložených tréninků. Nejde o zdravotní hodnocení ani automatickou změnu programu.
+        </p>
+      </section>
+
+      <section className="ui-card p-5 sm:p-6" aria-labelledby="weekly-activity-title">
+        <div className="flex items-end justify-between gap-4">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-accent">Pravidelnost</p>
+            <h2 id="weekly-activity-title" className="mt-1 text-xl font-black">Aktivita po týdnech</h2>
+          </div>
+          <span className="text-xs text-zinc-500">Výška = čas</span>
+        </div>
+        <ol className="mt-6 grid h-40 grid-cols-5 items-end gap-2" aria-label="Tréninková aktivita za pět týdnů">
+          {weeks.map((week) => {
+            const height = week.durationSeconds > 0
+              ? Math.max(10, Math.round((week.durationSeconds / maxWeeklyDuration) * 100))
+              : 2;
+            return (
+              <li key={week.startDate} className="flex h-full min-w-0 flex-col justify-end text-center">
+                <span className="mb-2 text-xs font-black text-zinc-300">{week.sessionCount}×</span>
+                <div className="flex h-24 items-end justify-center rounded-xl bg-white/[0.025] px-1" title={`${week.sessionCount} tréninků · ${formatTrainingVolume(week.durationSeconds)}`}>
+                  <span
+                    className={`block w-full max-w-10 rounded-t-lg ${week.current ? "bg-accent" : "bg-zinc-600"}`}
+                    style={{ height: `${height}%` }}
+                    aria-hidden="true"
+                  />
+                </div>
+                <span className={`mt-2 truncate text-[10px] font-bold ${week.current ? "text-accent" : "text-zinc-500"}`}>
+                  {week.current ? "Teď" : formatShortDate(week.startDate)}
+                </span>
+                <span className="sr-only">{formatShortDate(week.startDate)} až {formatShortDate(week.endDate)}, {week.sessionCount} tréninků, {formatTrainingVolume(week.durationSeconds)}</span>
+              </li>
+            );
+          })}
+        </ol>
+      </section>
+
+      <section className="ui-card p-5 sm:p-6" aria-labelledby="comparisons-title">
+        <p className="text-xs font-black uppercase tracking-[0.2em] text-accent">Vývoj výkonu</p>
+        <h2 id="comparisons-title" className="mt-1 text-xl font-black">Opakované tréninky</h2>
+        {comparisons.length === 0 ? (
+          <div className="ui-feedback mt-5 text-sm leading-6">
+            Srovnání se objeví po druhém dokončení stejného tréninku. Podobný název sám o sobě ke spojení výsledků nestačí.
+          </div>
+        ) : (
+          <div className="mt-5 space-y-4">
+            {comparisons.map((comparison) => (
+              <WorkoutComparison key={comparison.key} comparison={comparison} />
+            ))}
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function InsightMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="ui-inset min-w-0 p-4">
+      <dt className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">{label}</dt>
+      <dd className="mt-1 truncate text-lg font-black text-zinc-100">{value}</dd>
+    </div>
+  );
+}
+
+function WorkoutComparison({ comparison }: { comparison: ComparableWorkout }) {
+  const change = comparison.durationChangePercent;
+  const changeLabel = change < 0
+    ? `O ${Math.abs(change).toLocaleString("cs-CZ")} % rychleji`
+    : change > 0
+      ? `O ${change.toLocaleString("cs-CZ")} % pomaleji`
+      : "Stejný čas jako minule";
+  const maxDuration = Math.max(...comparison.attempts.map((attempt) => attempt.durationSeconds), 1);
+
+  return (
+    <article className="ui-inset p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <h3 className="font-black text-zinc-100">{comparison.title}</h3>
+          <p className="mt-1 text-sm text-zinc-500">Poslední dva platné výsledky stejné jednotky</p>
+        </div>
+        <span className={`ui-chip self-start ${change <= 0 ? "ui-chip-success" : "ui-feedback-warning"}`}>
+          {changeLabel}
+        </span>
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        <ResultMetric label="Naposledy" value={formatDuration(comparison.latestDurationSeconds)} />
+        <ResultMetric label="Předtím" value={formatDuration(comparison.previousDurationSeconds)} />
+      </div>
+      {(comparison.latestRpe !== null || comparison.previousRpe !== null) && (
+        <p className="mt-3 text-xs text-zinc-500">
+          RPE naposledy {comparison.latestRpe ?? "—"} · předtím {comparison.previousRpe ?? "—"}
+        </p>
+      )}
+
+      <ol className="mt-4 space-y-2" aria-label={`Časový trend: ${comparison.title}`}>
+        {comparison.attempts.map((attempt) => (
+          <li key={attempt.id} className="grid grid-cols-[3.2rem_1fr_auto] items-center gap-2 text-xs">
+            <span className="text-zinc-500">{formatShortDate(attempt.completedAt)}</span>
+            <span className="h-2 overflow-hidden rounded-full bg-zinc-800" aria-hidden="true">
+              <span
+                className="block h-full rounded-full bg-accent/70"
+                style={{ width: `${Math.max(8, Math.round((attempt.durationSeconds / maxDuration) * 100))}%` }}
+              />
+            </span>
+            <span className="font-mono font-bold text-zinc-200">{formatDuration(attempt.durationSeconds)}</span>
+          </li>
+        ))}
+      </ol>
+      <p className="mt-3 text-[10px] text-zinc-600">Délka sloupce odpovídá času; kratší sloupec znamená kratší dokončení.</p>
+    </article>
   );
 }
 

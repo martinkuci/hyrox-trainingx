@@ -2,42 +2,41 @@
 
 ## Feature větev
 
-`agent/offline-sync-2a`
+`agent/training-insights-2b`
 
 ## Cíl změny
 
-Zajistit, aby lokálně uložené tréninkové změny zůstaly bezpečné při výpadku připojení a aby přihlášený uživatel vždy rozuměl stavu cloudové synchronizace. Neodeslaná lokální data se po návratu internetu bezpečně nahrají a nesmí je přepsat starší cloudová kopie.
+Proměnit uložené výsledky v jednoduchý a důvěryhodný přehled tréninkového vývoje. Sportovec má na obrazovce Výsledky rychle poznat pravidelnost, objem, vnímanou náročnost a změnu výkonu u skutečně opakovaných tréninků, aniž by aplikace vydávala zdravotní nebo trenérské diagnózy.
 
-## Rozsah releasu 2A
+## Rozsah releasu 2B
 
-- trvale evidovat, že po lokální změně čekají data na cloudovou synchronizaci,
-- rozlišit stav pouze v zařízení, synchronizaci, úspěšné uložení, čekání bez připojení a chybu,
-- při ztrátě internetu ponechat aplikaci a lokální ukládání funkční,
-- po návratu připojení automaticky odeslat nejnovější lokální data,
-- po obnovení stránky zachovat informaci o neodeslaných změnách,
-- před stažením cloudových dat upřednostnit lokální kopii označenou jako neodeslanou,
-- zobrazit stav synchronizace v globálním nerušivém indikátoru a v obrazovce Účet a cloud,
-- umožnit ruční opakování synchronizace po chybě,
-- zachovat stávající formát `hyrox-data-v1` a současné přihlášení přes Firebase.
+- zobrazit souhrn posledních čtyř dokončených týdnů a aktuálního týdne,
+- spočítat počet tréninků, celkový čas a průměrné RPE za posledních 28 dní,
+- zobrazit týdenní aktivitu v čitelné textové i vizuální podobě,
+- seskupit srovnatelné výsledky podle kódu tréninku nebo původní šablony,
+- porovnat poslední dva výsledky stejného tréninku podle času a RPE,
+- ukázat krátký časový trend nejvýše šesti posledních opakování,
+- vyhodnotit soulad RPE s cílovým rozsahem pouze tam, kde jsou dostupná metadata,
+- zachovat stávající chronologickou historii, detail mezičasů a import screenshotu,
+- odvodit všechny insighty za běhu bez změny formátu `hyrox-data-v1`.
 
 ## Akceptační kritéria
 
-- každá úspěšná lokální změna se uloží i bez internetu,
-- neodeslaná změna zůstane označená i po zavření nebo obnovení aplikace,
-- návrat internetu automaticky spustí právě jednu synchronizaci nejnovější lokální kopie,
-- starší cloudová data nepřepíšou lokální kopii, která čeká na odeslání,
-- při úspěšném odeslání se čekající stav zruší a uloží se čas poslední synchronizace,
-- síťová nebo serverová chyba nezpůsobí odhlášení ani ztrátu lokálních dat,
-- odhlášený uživatel vidí, že data zůstávají pouze v tomto zařízení,
-- stav není rozlišen pouze barvou a změny jsou oznámené přístupným textem,
-- globální indikátor nepřekrývá spodní navigaci ani hlavní akce od šířky 320 px,
-- lint, TypeScript, produkční build a cílené scénáře synchronizační logiky projdou.
+- staré výsledky bez kódu, metadat, metrik nebo blokového hodnocení se zobrazí beze změny,
+- dva různé tréninky se neporovnají jen kvůli podobnému názvu,
+- procentní změna času se zobrazí pouze pro dva platné výsledky stejného tréninku,
+- rychlejší a pomalejší čas je popsán textem a není rozlišen pouze barvou,
+- průměry ignorují chybějící hodnoty a nevytvářejí `NaN` nebo nekonečno,
+- týden bez tréninku zůstane v přehledu viditelný s nulovou hodnotou,
+- zobrazení výslovně odděluje pozorovaná data od doporučení a neobsahuje zdravotní tvrzení,
+- přehled je použitelný od šířky 320 px bez horizontálního scrollu,
+- lint, TypeScript, produkční build a cílené testy analytické logiky projdou.
 
-## Mimo rozsah 2A
+## Mimo rozsah 2B
 
-- plná instalovatelná PWA a offline cache aplikačních souborů,
-- slučování dvou současně upravených datových sad po jednotlivých položkách,
-- vzdálené zamykání úprav na více zařízeních,
-- změna poskytovatele autentizace nebo databáze,
+- biometrická připravenost, zdravotní hodnocení a rehabilitační doporučení,
+- automatické změny tréninkového programu podle výsledků,
+- porovnávání různých tréninků pomocí odhadovaného skóre,
+- predikce závodního času a AI coach,
 - Apple Health, Health Connect, Garmin a Strava,
-- statistiky výkonu a adaptivní úprava tréninkového programu.
+- změna ukládaného datového modelu výsledků.
