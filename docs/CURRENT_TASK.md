@@ -2,41 +2,38 @@
 
 ## Feature větev
 
-`agent/training-insights-2b`
+`agent/data-backup-2c`
 
 ## Cíl změny
 
-Proměnit uložené výsledky v jednoduchý a důvěryhodný přehled tréninkového vývoje. Sportovec má na obrazovce Výsledky rychle poznat pravidelnost, objem, vnímanou náročnost a změnu výkonu u skutečně opakovaných tréninků, aniž by aplikace vydávala zdravotní nebo trenérské diagnózy.
+Umožnit sportovci stáhnout úplnou zálohu lokálních tréninkových dat a bezpečně ji obnovit na stejném nebo jiném zařízení. Obnova musí být srozumitelná na telefonu, před zápisem ukázat obsah souboru a nikdy nepřepsat data po chybě validace.
 
-## Rozsah releasu 2B
+## Rozsah releasu 2C
 
-- zobrazit souhrn posledních čtyř dokončených týdnů a aktuálního týdne,
-- spočítat počet tréninků, celkový čas a průměrné RPE za posledních 28 dní,
-- zobrazit týdenní aktivitu v čitelné textové i vizuální podobě,
-- seskupit srovnatelné výsledky podle kódu tréninku nebo původní šablony,
-- porovnat poslední dva výsledky stejného tréninku podle času a RPE,
-- ukázat krátký časový trend nejvýše šesti posledních opakování,
-- vyhodnotit soulad RPE s cílovým rozsahem pouze tam, kde jsou dostupná metadata,
-- zachovat stávající chronologickou historii, detail mezičasů a import screenshotu,
-- odvodit všechny insighty za běhu bez změny formátu `hyrox-data-v1`.
+- exportovat jeden verzovaný JSON soubor se šablonami, kalendářem, programy, týdenními plány a výsledky,
+- přijmout novou obálku zálohy i starší přímý export objektu `hyrox-data-v1`,
+- před obnovou ověřit formát, podporovanou verzi a základní strukturu všech kolekcí,
+- před potvrzením zobrazit datum zálohy a počty uložených položek,
+- data nahradit až po výslovném potvrzení uživatele,
+- po obnově vyvolat běžný datový event, aby se UI i volitelný cloud aktualizovaly stejnou cestou jako po jiné lokální změně,
+- umístit export a obnovu na obrazovku Profil / Účet a cloud,
+- zachovat formát lokálního úložiště `hyrox-data-v1` a zpětnou kompatibilitu starších dat.
 
 ## Akceptační kritéria
 
-- staré výsledky bez kódu, metadat, metrik nebo blokového hodnocení se zobrazí beze změny,
-- dva různé tréninky se neporovnají jen kvůli podobnému názvu,
-- procentní změna času se zobrazí pouze pro dva platné výsledky stejného tréninku,
-- rychlejší a pomalejší čas je popsán textem a není rozlišen pouze barvou,
-- průměry ignorují chybějící hodnoty a nevytvářejí `NaN` nebo nekonečno,
-- týden bez tréninku zůstane v přehledu viditelný s nulovou hodnotou,
-- zobrazení výslovně odděluje pozorovaná data od doporučení a neobsahuje zdravotní tvrzení,
-- přehled je použitelný od šířky 320 px bez horizontálního scrollu,
-- lint, TypeScript, produkční build a cílené testy analytické logiky projdou.
+- export neobsahuje přihlašovací tokeny, hesla, cloudový stav ani obrázky importovaných výsledků,
+- prázdná i naplněná data lze exportovat a znovu obnovit,
+- poškozený JSON, cizí formát, nepodporovaná verze nebo chybějící kolekce nezmění aktuální data,
+- soubor větší než 5 MB je odmítnut před načtením,
+- obnova nepokračuje bez samostatného potvrzení nahrazení aktuálních dat,
+- stav úspěchu a chyby je čitelný a oznámený přes `aria-live`,
+- ovládání je použitelné od šířky 320 px bez horizontálního scrollu,
+- lint, TypeScript, produkční build a cílené testy zálohovací logiky projdou.
 
-## Mimo rozsah 2B
+## Mimo rozsah 2C
 
-- biometrická připravenost, zdravotní hodnocení a rehabilitační doporučení,
-- automatické změny tréninkového programu podle výsledků,
-- porovnávání různých tréninků pomocí odhadovaného skóre,
-- predikce závodního času a AI coach,
-- Apple Health, Health Connect, Garmin a Strava,
-- změna ukládaného datového modelu výsledků.
+- slučování dvou rozdílných záloh po jednotlivých položkách,
+- export aktivně rozpracovaného tréninku,
+- automatické plánované zálohy a historie více obnov,
+- migrace na nový datový model,
+- biometrická data a integrace třetích stran.
