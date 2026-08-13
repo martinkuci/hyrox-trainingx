@@ -1,0 +1,199 @@
+import type { WorkoutMetadata, WorkoutResult, WorkoutTemplate } from "./types";
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+export type TrainingOverview = {
+  sessionCount: number;
+  durationSeconds: number;
+  averageRpe: number | null;
+  targetRpeMatches: number;
+  targetRpeCount: number;
+};
+
+export type WeeklyActivity = {
+  startDate: string;
+  endDate: string;
+  sessionCount: number;
+  durationSeconds: number;
+  current: boolean;
+};
+
+export type ComparableWorkout = {
+  key: string;
+  title: string;
+  latestCompletedAt: string;
+  latestDurationSeconds: number;
+  previousDurationSeconds: number;
+  durationChangePercent: number;
+  latestRpe: number | null;
+  previousRpe: number | null;
+  attempts: Array<{
+    id: string;
+    completedAt: string;
+    durationSeconds: number;
+    rpe: number | null;
+  }>;
+};
+
+function validDate(value: string) {
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp) ? timestamp : null;
+}
+
+function validDuration(result: WorkoutResult) {
+  return Number.isFinite(result.durationSeconds) && result.durationSeconds > 0;
+}
+
+function validRpe(value: number) {
+  return Number.isFinite(value) && value >= 1 && value <= 10 ? value : null;
+}
+
+function resultMetadata(
+  result: WorkoutResult,
+  templatesById: ReadonlyMap<string, WorkoutTemplate>,
+): WorkoutMetadata | undefined {
+  return result.metadataSnapshot ?? templatesById.get(result.templateId)?.metadata;
+}
+
+function toUtcDate(timestamp: number) {
+  return new Date(timestamp).toISOString().slice(0, 10);
+}
+
+function startOfUtcWeek(timestamp: number) {
+  const date = new Date(timestamp);
+  const day = date.getUTCDay();
+  const daysFromMonday = day === 0 ? 6 : day - 1;
+  return Date.UTC(
+    date.getUTCFullYear(),
+    date.getUTCMonth(),
+    date.getUTCDate() - daysFromMonday,
+  );
+}
+
+export function buildTrainingOverview(
+  results: readonly WorkoutResult[],
+  templates: readonly WorkoutTemplate[],
+  now = new Date(),
+): TrainingOverview {
+  const end = now.getTime();
+  const start = end - 28 * DAY_MS;
+  const templatesById = new Map(templates.map((template) => [template.id, template]));
+  const recent = results.filter((result) => {
+    const timestamp = validDate(result.completedAt);
+    return timestamp !== null && timestamp >= start && timestamp <= end;
+  });
+  const rpes = recent.map((result) => validRpe(result.rpe)).filter((value): value is number => value !== null);
+  let targetRpeMatches = 0;
+  let targetRpeCount = 0;
+
+  for (const result of recent) {
+    const rpe = validRpe(result.rpe);
+    const metadata = resultMetadata(result, templatesById);
+    if (rpe === null || !metadata) continue;
+    targetRpeCount += 1;
+    if (rpe >= metadata.targetRpeMin && rpe <= metadata.targetRpeMax) {
+      targetRpeMatches += 1;
+    }
+  }
+
+  return {
+    sessionCount: recent.length,
+    durationSeconds: recent.reduce(
+      (sum, result) => sum + (validDuration(result) ? result.durationSeconds : 0),
+      0,
+    ),
+    averageRpe:
+      rpes.length > 0
+        ? Math.round((rpes.reduce((sum, value) => sum + value, 0) / rpes.length) * 10) / 10
+        : null,
+    targetRpeMatches,
+    targetRpeCount,
+  };
+}
+
+export function buildWeeklyActivity(
+  results: readonly WorkoutResult[],
+  now = new Date(),
+  weekCount = 5,
+): WeeklyActivity[] {
+  const safeWeekCount = Math.max(1, Math.floor(weekCount));
+  const currentWeekStart = startOfUtcWeek(now.getTime());
+  const firstWeekStart = currentWeekStart - (safeWeekCount - 1) * 7 * DAY_MS;
+  const weeks = Array.from({ length: safeWeekCount }, (_, index) => {
+    const start = firstWeekStart + index * 7 * DAY_MS;
+    return {
+      startDate: toUtcDate(start),
+      endDate: toUtcDate(start + 6 * DAY_MS),
+      sessionCount: 0,
+      durationSeconds: 0,
+      current: start === currentWeekStart,
+    };
+  });
+
+  for (const result of results) {
+    const timestamp = validDate(result.completedAt);
+    if (timestamp === null || timestamp < firstWeekStart || timestamp >= currentWeekStart + 7 * DAY_MS) {
+      continue;
+    }
+    const index = Math.floor((startOfUtcWeek(timestamp) - firstWeekStart) / (7 * DAY_MS));
+    const week = weeks[index];
+    if (!week) continue;
+    week.sessionCount += 1;
+    if (validDuration(result)) week.durationSeconds += result.durationSeconds;
+  }
+
+  return weeks;
+}
+
+function comparisonKey(result: WorkoutResult) {
+  const workoutCode = result.workoutCode ?? result.metadataSnapshot?.workoutCode;
+  if (workoutCode) return `code:${workoutCode}`;
+  return result.templateId ? `template:${result.templateId}` : null;
+}
+
+export function buildComparableWorkouts(
+  results: readonly WorkoutResult[],
+  limit = 3,
+): ComparableWorkout[] {
+  const groups = new Map<string, WorkoutResult[]>();
+
+  for (const result of results) {
+    const key = comparisonKey(result);
+    if (!key || validDate(result.completedAt) === null || !validDuration(result)) continue;
+    const group = groups.get(key) ?? [];
+    group.push(result);
+    groups.set(key, group);
+  }
+
+  return [...groups.entries()]
+    .flatMap(([key, group]) => {
+      const sorted = [...group].sort((a, b) => b.completedAt.localeCompare(a.completedAt));
+      if (sorted.length < 2) return [];
+      const latest = sorted[0];
+      const previous = sorted[1];
+      const durationChangePercent =
+        Math.round(
+          ((latest.durationSeconds - previous.durationSeconds) /
+            previous.durationSeconds) *
+            1000,
+        ) / 10;
+      return [{
+        key,
+        title: latest.workoutTitle,
+        latestCompletedAt: latest.completedAt,
+        latestDurationSeconds: latest.durationSeconds,
+        previousDurationSeconds: previous.durationSeconds,
+        durationChangePercent,
+        latestRpe: validRpe(latest.rpe),
+        previousRpe: validRpe(previous.rpe),
+        attempts: sorted.slice(0, 6).reverse().map((result) => ({
+          id: result.id,
+          completedAt: result.completedAt,
+          durationSeconds: result.durationSeconds,
+          rpe: validRpe(result.rpe),
+        })),
+      }];
+    })
+    .sort((a, b) => b.latestCompletedAt.localeCompare(a.latestCompletedAt))
+    .slice(0, Math.max(0, Math.floor(limit)));
+}
