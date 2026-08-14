@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
+import DataBackupCard from "@/components/DataBackupCard";
 import { PlanningShell } from "@/components/planning/PlanningShell";
 import { useCloudSyncState } from "@/hooks/useCloudSyncState";
 import { requestCloudSync } from "@/lib/cloud-sync-state";
@@ -159,6 +160,7 @@ export default function AccountPage() {
             </p>
           </section>
         )}
+        <DataBackupCard />
       </div>
     </PlanningShell>
   );
