@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import DataBackupCard from "@/components/DataBackupCard";
@@ -160,6 +161,16 @@ export default function AccountPage() {
             </p>
           </section>
         )}
+        <section className="ui-card mt-6 p-5 sm:p-6">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-accent">Podpora</p>
+          <h2 className="mt-2 text-xl font-black">Nápověda a kontakt</h2>
+          <p className="mt-2 text-sm leading-6 text-zinc-400">
+            Najdi odpovědi, obnov heslo, pošli technický dotaz nebo navrhni vylepšení aplikace.
+          </p>
+          <Link href="/help" className="ui-button ui-button-outline mt-5 w-full">
+            Otevřít centrum nápovědy
+          </Link>
+        </section>
         <DataBackupCard />
       </div>
     </PlanningShell>
