@@ -67,6 +67,7 @@ function friendlyError(message = "UNKNOWN") {
     WEAK_PASSWORD: "Heslo musí mít alespoň 6 znaků.",
     TOO_MANY_ATTEMPTS_TRY_LATER: "Příliš mnoho pokusů. Zkus to později.",
     USER_DISABLED: "Tento účet je zablokovaný.",
+    MISSING_EMAIL: "Doplň e-mailovou adresu.",
   };
   return messages[code] ?? `Přihlášení selhalo: ${code}`;
 }
@@ -97,6 +98,33 @@ export function signInWithEmail(email: string, password: string) {
 
 export function createEmailAccount(email: string, password: string) {
   return identityRequest("signUp", email.trim(), password);
+}
+
+export async function requestPasswordReset(email: string) {
+  ensureConfigured();
+  const normalizedEmail = email.trim();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+    throw new Error("Zadej platnou e-mailovou adresu.");
+  }
+
+  const response = await fetch(
+    `https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=${API_KEY}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        requestType: "PASSWORD_RESET",
+        email: normalizedEmail,
+      }),
+    },
+  );
+  const body = (await response.json()) as FirebaseError;
+  const errorCode = body.error?.message?.split(" : ")[0];
+
+  // Stejná odpověď pro existující i neexistující účet neprozrazuje registraci.
+  if (!response.ok && errorCode !== "EMAIL_NOT_FOUND") {
+    throw new Error(friendlyError(body.error?.message));
+  }
 }
 
 export function signOutCloud() {
