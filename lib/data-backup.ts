@@ -61,10 +61,23 @@ function validBlock(value: unknown) {
     return false;
   }
   if (value.type === "manual") {
-    return isFiniteNumber(value.repeat) && value.repeat >= 1;
+    return isFiniteNumber(value.repeat) && Number.isInteger(value.repeat) && value.repeat >= 1;
   }
-  if (value.type === "emom") {
-    return isFiniteNumber(value.minutes) && value.minutes >= 1;
+  if (value.type === "for-time") {
+    return isFiniteNumber(value.rounds) && Number.isInteger(value.rounds) && value.rounds >= 1 &&
+      isFiniteNumber(value.restSeconds) && Number.isInteger(value.restSeconds) && value.restSeconds >= 0 &&
+      (value.restName === undefined || typeof value.restName === "string") &&
+      (value.restDetail === undefined || typeof value.restDetail === "string");
+  }
+  if (value.type === "interval" || value.type === "tabata") {
+    return isFiniteNumber(value.rounds) && Number.isInteger(value.rounds) && value.rounds >= 1 &&
+      isFiniteNumber(value.workSeconds) && Number.isInteger(value.workSeconds) && value.workSeconds >= 1 &&
+      isFiniteNumber(value.restSeconds) && Number.isInteger(value.restSeconds) && value.restSeconds >= 0 &&
+      (value.restName === undefined || typeof value.restName === "string") &&
+      (value.restDetail === undefined || typeof value.restDetail === "string");
+  }
+  if (value.type === "emom" || value.type === "amrap") {
+    return isFiniteNumber(value.minutes) && Number.isInteger(value.minutes) && value.minutes >= 1;
   }
   return false;
 }

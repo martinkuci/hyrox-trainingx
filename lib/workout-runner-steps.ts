@@ -1,4 +1,4 @@
-import type { WorkoutStep, WorkoutTemplate } from "./types";
+import type { IntervalWorkoutBlock, TabataWorkoutBlock, WorkoutStep, WorkoutTemplate } from "./types";
 
 const DIACRITICS_PATTERN = /[\u0300-\u036f]/g;
 const RECOVERY_PATTERN = /\b(odpocinek|odpocinku|pauza|rest|recovery|recover|zotaveni)\b|srovnej dech|vydychej/;
@@ -15,6 +15,7 @@ export type RunnableStep = {
   detail: string;
   durationSeconds?: number;
   kind: "work" | "rest";
+  mode: "manual" | "for-time" | "interval" | "tabata" | "emom" | "amrap";
   emomMinute?: number;
   emomMinutes?: number;
 };
@@ -46,6 +47,49 @@ export function countdownCueSecond(durationSeconds: number, elapsedMilliseconds:
   return remainingSeconds >= 1 && remainingSeconds <= 3 ? remainingSeconds : undefined;
 }
 
+function structuredRestStep(
+  block: { id: string; title: string; rounds: number; restSeconds: number; restName?: string; restDetail?: string },
+  round: number,
+  mode: "for-time" | "interval" | "tabata",
+): RunnableStep | undefined {
+  if (block.restSeconds <= 0 || round >= block.rounds) return undefined;
+  return {
+    blockId: block.id,
+    stepId: `${block.id}-rest`,
+    blockTitle: block.title,
+    round,
+    roundCount: block.rounds,
+    name: block.restName?.trim() || "Odpočinek",
+    detail: block.restDetail?.trim() || `${block.restSeconds} s · potom kolo ${round + 1} z ${block.rounds}`,
+    durationSeconds: block.restSeconds,
+    kind: "rest",
+    mode,
+  };
+}
+
+function flattenTimedIntervals(block: IntervalWorkoutBlock | TabataWorkoutBlock): RunnableStep[] {
+  if (block.steps.length === 0) return [];
+
+  return Array.from({ length: block.rounds }, (_, index) => {
+    const round = index + 1;
+    const step = block.steps[index % block.steps.length];
+    const work: RunnableStep = {
+      blockId: block.id,
+      stepId: step.id,
+      blockTitle: block.title,
+      round,
+      roundCount: block.rounds,
+      name: step.name,
+      detail: step.detail,
+      durationSeconds: block.workSeconds,
+      kind: "work",
+      mode: block.type,
+    };
+    const rest = structuredRestStep(block, round, block.type);
+    return rest ? [work, rest] : [work];
+  }).flat();
+}
+
 export function flattenWorkoutTemplate(template: WorkoutTemplate): RunnableStep[] {
   return template.blocks.flatMap((block) => {
     if (block.type === "emom") {
@@ -62,10 +106,53 @@ export function flattenWorkoutTemplate(template: WorkoutTemplate): RunnableStep[
           detail: step.detail,
           durationSeconds: 60,
           kind: "work" as const,
+          mode: "emom" as const,
           emomMinute: minute + 1,
           emomMinutes: block.minutes,
         };
       });
+    }
+
+    if (block.type === "amrap") {
+      if (block.steps.length === 0) return [];
+      const exerciseList = block.steps
+        .map((step) => step.detail ? `${step.name} (${step.detail})` : step.name)
+        .join(" · ");
+      return [{
+        blockId: block.id,
+        stepId: `${block.id}-amrap`,
+        blockTitle: block.title,
+        round: 1,
+        roundCount: 1,
+        name: block.title,
+        detail: `Opakuj dokola: ${exerciseList}`,
+        durationSeconds: Math.max(1, block.minutes) * 60,
+        kind: "work" as const,
+        mode: "amrap" as const,
+      }];
+    }
+
+    if (block.type === "interval" || block.type === "tabata") {
+      return flattenTimedIntervals(block);
+    }
+
+    if (block.type === "for-time") {
+      return Array.from({ length: block.rounds }, (_, index) => {
+        const round = index + 1;
+        const work = block.steps.map((step): RunnableStep => ({
+          blockId: block.id,
+          stepId: step.id,
+          blockTitle: block.title,
+          round,
+          roundCount: block.rounds,
+          name: step.name,
+          detail: step.detail,
+          kind: "work",
+          mode: "for-time",
+        }));
+        const rest = structuredRestStep(block, round, "for-time");
+        return rest ? [...work, rest] : work;
+      }).flat();
     }
 
     return Array.from({ length: block.repeat }, (_, round) => block.steps.flatMap((step, stepIndex) => {
@@ -84,6 +171,7 @@ export function flattenWorkoutTemplate(template: WorkoutTemplate): RunnableStep[
         detail: step.detail,
         durationSeconds: restDuration,
         kind: restDuration ? "rest" as const : "work" as const,
+        mode: "manual" as const,
       }];
     })).flat();
   });

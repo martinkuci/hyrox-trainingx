@@ -54,7 +54,7 @@ test("časuje také aktivní zotavení v intervalových blocích", () => {
   assert.equal(timedRestDurationSeconds({ id: "3", name: "90 s easy", detail: "Recovery." }), 90);
 });
 
-test("všechny časované pauzy a zotavení v katalogu používají intervalový režim", () => {
+test("všechny časované pauzy a zotavení v katalogu používají strukturovaný režim", () => {
   const expected = new Map([
     ["catalog-base-engine-01", 120],
     ["catalog-strength-01", 90],
@@ -69,11 +69,11 @@ test("všechny časované pauzy a zotavení v katalogu používají intervalový
     const template = TRAINING_CATALOG.find((item) => item.id === templateId);
     assert.ok(template, `Chybí šablona ${templateId}`);
     const mainBlock = template.blocks.find((block) => block.id.endsWith("-main"));
-    assert.ok(mainBlock?.type === "manual", `Chybí manuální hlavní blok ${templateId}`);
+    assert.ok(mainBlock?.type === "for-time" || mainBlock?.type === "interval", `Chybí strukturovaný hlavní blok ${templateId}`);
     const rests = flattenWorkoutTemplate(template).filter(
       (step) => step.blockId === mainBlock.id && step.kind === "rest",
     );
-    assert.equal(rests.length, mainBlock.repeat - 1, templateId);
+    assert.equal(rests.length, mainBlock.rounds - 1, templateId);
     assert.ok(rests.every((step) => step.durationSeconds === durationSeconds), templateId);
   }
 });

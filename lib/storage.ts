@@ -1,4 +1,5 @@
 import { createDefaultHyroxData } from "./default-data";
+import { upgradeCatalogTemplates } from "./catalog-migration";
 import type {
   HyroxData,
   NewScheduledWorkout,
@@ -44,25 +45,7 @@ function normalizeTemplates(data: Partial<HyroxData>, fallback: HyroxData) {
   const storedCatalogVersion =
     typeof data.catalogVersion === "number" ? data.catalogVersion : 0;
   const currentCatalogVersion = fallback.catalogVersion ?? 0;
-  if (storedCatalogVersion >= currentCatalogVersion) return stored;
-
-  const legacySeedTimestamp = "2026-07-14T00:00:00.000Z";
-  const upgraded = stored.map((template) => {
-    const isUnmodifiedLegacyDefault =
-      template.id === "hyrox-02" &&
-      !template.metadata &&
-      template.createdAt === legacySeedTimestamp &&
-      template.updatedAt === legacySeedTimestamp;
-    return isUnmodifiedLegacyDefault
-      ? fallback.templates.find((item) => item.id === template.id) ?? template
-      : template;
-  });
-  const existingIds = new Set(upgraded.map((template) => template.id));
-
-  return [
-    ...upgraded,
-    ...fallback.templates.filter((template) => !existingIds.has(template.id)),
-  ];
+  return upgradeCatalogTemplates(stored, storedCatalogVersion, fallback.templates, currentCatalogVersion);
 }
 
 function normalize(value: unknown): HyroxData {
