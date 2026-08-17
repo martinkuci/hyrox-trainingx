@@ -7,12 +7,27 @@ import { PlanningShell } from "@/components/planning/PlanningShell";
 import { useHyroxData } from "@/hooks/useHyroxData";
 import { blockFeedbackLabel } from "@/lib/block-feedback";
 import {
+  buildCategoryInsights,
   buildComparableWorkouts,
-  buildTrainingOverview,
+  buildTrainingPeriodComparison,
   buildWeeklyActivity,
 } from "@/lib/training-insights";
-import type { ComparableWorkout, TrainingOverview, WeeklyActivity } from "@/lib/training-insights";
-import type { StepSplit, WorkoutResult } from "@/lib/types";
+import type { CategoryInsight, ComparableWorkout, TrainingPeriodComparison, WeeklyActivity } from "@/lib/training-insights";
+import type { StepSplit, WorkoutCategory, WorkoutResult } from "@/lib/types";
+
+const insightPeriods = [4, 8, 12] as const;
+
+const categoryLabels: Record<WorkoutCategory | "other", string> = {
+  "base-engine": "Aerobní základ",
+  "base-builder": "Technika a přechody",
+  strength: "Síla",
+  threshold: "Prahový běh",
+  "race-simulation": "Závodní simulace",
+  "long-engine": "Dlouhá vytrvalost",
+  recovery: "Regenerace",
+  mixed: "Kombinovaný trénink",
+  other: "Ostatní",
+};
 
 function formatDuration(seconds: number) {
   const hours = Math.floor(seconds / 3600);
@@ -38,6 +53,7 @@ function formatShortDate(value: string) {
 
 export default function HistoryPage() {
   const { data, ready, deleteResult } = useHyroxData();
+  const [insightPeriod, setInsightPeriod] = useState<(typeof insightPeriods)[number]>(4);
   const [pendingDelete, setPendingDelete] = useState<WorkoutResult | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<Record<string, "chronological" | "exercise">>({});
@@ -46,11 +62,12 @@ export default function HistoryPage() {
     if (!ready) return null;
     const now = new Date();
     return {
-      overview: buildTrainingOverview(data.results, data.templates, now),
-      weeks: buildWeeklyActivity(data.results, now),
+      period: buildTrainingPeriodComparison(data.results, data.templates, now, insightPeriod),
+      categories: buildCategoryInsights(data.results, data.templates, now, insightPeriod),
+      weeks: buildWeeklyActivity(data.results, now, insightPeriod),
       comparisons: buildComparableWorkouts(data.results),
     };
-  }, [data.results, data.templates, ready]);
+  }, [data.results, data.templates, insightPeriod, ready]);
 
   function describeSplit(result: WorkoutResult, split: StepSplit) {
     const template = data.templates.find((item) => item.id === result.templateId);
@@ -84,9 +101,12 @@ export default function HistoryPage() {
 
         {insights && results.length > 0 && (
           <TrainingInsights
-            overview={insights.overview}
+            period={insights.period}
+            periodWeeks={insightPeriod}
+            categories={insights.categories}
             weeks={insights.weeks}
             comparisons={insights.comparisons}
+            onPeriodChange={setInsightPeriod}
           />
         )}
 
@@ -152,38 +172,64 @@ export default function HistoryPage() {
 }
 
 function TrainingInsights({
-  overview,
+  period,
+  periodWeeks,
+  categories,
   weeks,
   comparisons,
+  onPeriodChange,
 }: {
-  overview: TrainingOverview;
+  period: TrainingPeriodComparison;
+  periodWeeks: (typeof insightPeriods)[number];
+  categories: CategoryInsight[];
   weeks: WeeklyActivity[];
   comparisons: ComparableWorkout[];
+  onPeriodChange: (weeks: (typeof insightPeriods)[number]) => void;
 }) {
   const maxWeeklyDuration = Math.max(...weeks.map((week) => week.durationSeconds), 1);
+  const maxCategoryDuration = Math.max(...categories.map((category) => category.durationSeconds), 1);
 
   return (
     <div className="space-y-4">
       <section className="ui-card ui-card-accent p-5 sm:p-6" aria-labelledby="insight-overview-title">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-accent">Posledních 28 dní</p>
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-accent">Zvolené období</p>
             <h2 id="insight-overview-title" className="mt-1 text-2xl font-black">Tréninkový přehled</h2>
           </div>
           <span className="ui-chip ui-chip-accent">Pozorovaná data</span>
         </div>
 
-        <dl className="mt-5 grid grid-cols-2 gap-2">
-          <InsightMetric label="Tréninky" value={String(overview.sessionCount)} />
-          <InsightMetric label="Celkový čas" value={formatTrainingVolume(overview.durationSeconds)} />
-          <InsightMetric label="Průměrné RPE" value={overview.averageRpe?.toLocaleString("cs-CZ", { maximumFractionDigits: 1 }) ?? "—"} />
+        <div className="ui-segmented mt-5 grid grid-cols-3" aria-label="Období tréninkových statistik">
+          {insightPeriods.map((weeks) => (
+            <button
+              key={weeks}
+              type="button"
+              className="ui-choice min-h-11 px-2 py-2 text-sm"
+              aria-pressed={periodWeeks === weeks}
+              onClick={() => onPeriodChange(weeks)}
+            >
+              {weeks} týdnů
+            </button>
+          ))}
+        </div>
+
+        <p className="mt-4 text-xs text-zinc-500">
+          {formatShortDate(period.currentStartDate)}–{formatShortDate(period.currentEndDate)} · srovnání s předchozími {periodWeeks} týdny
+        </p>
+
+        <dl className="mt-3 grid grid-cols-2 gap-2">
+          <InsightMetric label="Tréninky" value={String(period.current.sessionCount)} comparison={formatCountChange(period.current.sessionCount, period.previous.sessionCount)} />
+          <InsightMetric label="Celkový čas" value={formatTrainingVolume(period.current.durationSeconds)} comparison={formatPercentChange(period.current.durationSeconds, period.previous.durationSeconds)} />
+          <InsightMetric label="Průměrné RPE" value={period.current.averageRpe?.toLocaleString("cs-CZ", { maximumFractionDigits: 1 }) ?? "—"} comparison={formatRpeChange(period.current.averageRpe, period.previous.averageRpe)} />
           <InsightMetric
             label="RPE v cíli"
-            value={overview.targetRpeCount > 0 ? `${overview.targetRpeMatches} z ${overview.targetRpeCount}` : "Bez cíle"}
+            value={period.current.targetRpeCount > 0 ? `${period.current.targetRpeMatches} z ${period.current.targetRpeCount}` : "Bez cíle"}
+            comparison="v aktuálním období"
           />
         </dl>
         <p className="mt-4 text-xs leading-5 text-zinc-500">
-          Souhrn vychází jen z uložených tréninků. Nejde o zdravotní hodnocení ani automatickou změnu programu.
+          Souhrn vychází jen z uložených tréninků. Změna nahoru nebo dolů sama o sobě neznamená lepší ani horší výsledek.
         </p>
       </section>
 
@@ -193,31 +239,51 @@ function TrainingInsights({
             <p className="text-xs font-black uppercase tracking-[0.2em] text-accent">Pravidelnost</p>
             <h2 id="weekly-activity-title" className="mt-1 text-xl font-black">Aktivita po týdnech</h2>
           </div>
-          <span className="text-xs text-zinc-500">Výška = čas</span>
+          <span className="text-xs text-zinc-500">{periodWeeks} týdnů · výška = čas</span>
         </div>
-        <ol className="mt-6 grid h-40 grid-cols-5 items-end gap-2" aria-label="Tréninková aktivita za pět týdnů">
-          {weeks.map((week) => {
-            const height = week.durationSeconds > 0
-              ? Math.max(10, Math.round((week.durationSeconds / maxWeeklyDuration) * 100))
-              : 2;
-            return (
-              <li key={week.startDate} className="flex h-full min-w-0 flex-col justify-end text-center">
-                <span className="mb-2 text-xs font-black text-zinc-300">{week.sessionCount}×</span>
-                <div className="flex h-24 items-end justify-center rounded-xl bg-white/[0.025] px-1" title={`${week.sessionCount} tréninků · ${formatTrainingVolume(week.durationSeconds)}`}>
-                  <span
-                    className={`block w-full max-w-10 rounded-t-lg ${week.current ? "bg-accent" : "bg-zinc-600"}`}
-                    style={{ height: `${height}%` }}
-                    aria-hidden="true"
-                  />
-                </div>
-                <span className={`mt-2 truncate text-[10px] font-bold ${week.current ? "text-accent" : "text-zinc-500"}`}>
-                  {week.current ? "Teď" : formatShortDate(week.startDate)}
-                </span>
-                <span className="sr-only">{formatShortDate(week.startDate)} až {formatShortDate(week.endDate)}, {week.sessionCount} tréninků, {formatTrainingVolume(week.durationSeconds)}</span>
-              </li>
-            );
-          })}
-        </ol>
+        <div className="-mx-1 mt-6 overflow-x-auto px-1 pb-1">
+          <ol
+            className="grid h-40 items-end gap-2"
+            style={{ gridTemplateColumns: `repeat(${weeks.length}, minmax(2.75rem, 1fr))`, minWidth: weeks.length > 5 ? `${weeks.length * 52}px` : undefined }}
+            aria-label={`Tréninková aktivita za ${periodWeeks} týdnů`}
+          >
+            {weeks.map((week) => {
+              const height = week.durationSeconds > 0
+                ? Math.max(10, Math.round((week.durationSeconds / maxWeeklyDuration) * 100))
+                : 2;
+              return (
+                <li key={week.startDate} className="flex h-full min-w-0 flex-col justify-end text-center">
+                  <span className="mb-2 text-xs font-black text-zinc-300">{week.sessionCount}×</span>
+                  <div className="flex h-24 items-end justify-center rounded-xl bg-white/[0.025] px-1" title={`${week.sessionCount} tréninků · ${formatTrainingVolume(week.durationSeconds)}`}>
+                    <span
+                      className={`block w-full max-w-10 rounded-t-lg ${week.current ? "bg-accent" : "bg-zinc-600"}`}
+                      style={{ height: `${height}%` }}
+                      aria-hidden="true"
+                    />
+                  </div>
+                  <span className={`mt-2 truncate text-[10px] font-bold ${week.current ? "text-accent" : "text-zinc-500"}`}>
+                    {week.current ? "Teď" : formatShortDate(week.startDate)}
+                  </span>
+                  <span className="sr-only">{formatShortDate(week.startDate)} až {formatShortDate(week.endDate)}, {week.sessionCount} tréninků, {formatTrainingVolume(week.durationSeconds)}</span>
+                </li>
+              );
+            })}
+          </ol>
+        </div>
+      </section>
+
+      <section className="ui-card p-5 sm:p-6" aria-labelledby="categories-title">
+        <p className="text-xs font-black uppercase tracking-[0.2em] text-accent">Skladba přípravy</p>
+        <h2 id="categories-title" className="mt-1 text-xl font-black">Tréninky podle zaměření</h2>
+        {categories.length === 0 ? (
+          <div className="ui-feedback mt-5 text-sm">Ve zvoleném období zatím není žádný dokončený trénink.</div>
+        ) : (
+          <ol className="mt-5 space-y-3">
+            {categories.map((category) => (
+              <CategoryInsightRow key={category.category} insight={category} maxDuration={maxCategoryDuration} />
+            ))}
+          </ol>
+        )}
       </section>
 
       <section className="ui-card p-5 sm:p-6" aria-labelledby="comparisons-title">
@@ -239,21 +305,67 @@ function TrainingInsights({
   );
 }
 
-function InsightMetric({ label, value }: { label: string; value: string }) {
+function InsightMetric({ label, value, comparison }: { label: string; value: string; comparison?: string }) {
   return (
     <div className="ui-inset min-w-0 p-4">
       <dt className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">{label}</dt>
       <dd className="mt-1 truncate text-lg font-black text-zinc-100">{value}</dd>
+      {comparison && <dd className="mt-1 text-[10px] leading-4 text-zinc-500">{comparison}</dd>}
     </div>
   );
+}
+
+function CategoryInsightRow({ insight, maxDuration }: { insight: CategoryInsight; maxDuration: number }) {
+  const targetLabel = insight.targetRpeCount > 0
+    ? `${insight.targetRpeMatches}/${insight.targetRpeCount} v cíli`
+    : "bez cílového RPE";
+  const width = insight.durationSeconds > 0
+    ? Math.max(6, Math.round((insight.durationSeconds / maxDuration) * 100))
+    : 0;
+
+  return (
+    <li className="ui-inset p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="font-black text-zinc-100">{categoryLabels[insight.category]}</h3>
+          <p className="mt-1 text-xs text-zinc-500">{formatTrainingVolume(insight.durationSeconds)} · RPE {insight.averageRpe?.toLocaleString("cs-CZ", { maximumFractionDigits: 1 }) ?? "—"} · {targetLabel}</p>
+        </div>
+        <span className="ui-chip shrink-0">{insight.sessionCount}×</span>
+      </div>
+      <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-zinc-800" aria-hidden="true">
+        <span className="block h-full rounded-full bg-accent/70" style={{ width: `${width}%` }} />
+      </div>
+    </li>
+  );
+}
+
+function formatCountChange(current: number, previous: number) {
+  const delta = current - previous;
+  if (previous === 0) return current === 0 ? "stejně jako předtím" : "předtím bez tréninku";
+  if (delta === 0) return "stejně jako předtím";
+  return `${delta > 0 ? "+" : ""}${delta} proti předchozímu období`;
+}
+
+function formatPercentChange(current: number, previous: number) {
+  if (previous === 0) return current === 0 ? "stejně jako předtím" : "předtím bez záznamu";
+  const change = Math.round(((current - previous) / previous) * 100);
+  if (change === 0) return "stejně jako předtím";
+  return `${change > 0 ? "+" : ""}${change} % proti předchozímu období`;
+}
+
+function formatRpeChange(current: number | null, previous: number | null) {
+  if (current === null || previous === null) return "bez úplného srovnání";
+  const change = Math.round((current - previous) * 10) / 10;
+  if (change === 0) return "stejně jako předtím";
+  return `${change > 0 ? "+" : ""}${change.toLocaleString("cs-CZ")} proti předchozímu období`;
 }
 
 function WorkoutComparison({ comparison }: { comparison: ComparableWorkout }) {
   const change = comparison.durationChangePercent;
   const changeLabel = change < 0
-    ? `O ${Math.abs(change).toLocaleString("cs-CZ")} % rychleji`
+    ? `Čas −${Math.abs(change).toLocaleString("cs-CZ")} %`
     : change > 0
-      ? `O ${change.toLocaleString("cs-CZ")} % pomaleji`
+      ? `Čas +${change.toLocaleString("cs-CZ")} %`
       : "Stejný čas jako minule";
   const maxDuration = Math.max(...comparison.attempts.map((attempt) => attempt.durationSeconds), 1);
 
@@ -264,7 +376,7 @@ function WorkoutComparison({ comparison }: { comparison: ComparableWorkout }) {
           <h3 className="font-black text-zinc-100">{comparison.title}</h3>
           <p className="mt-1 text-sm text-zinc-500">Poslední dva platné výsledky stejné jednotky</p>
         </div>
-        <span className={`ui-chip self-start ${change <= 0 ? "ui-chip-success" : "ui-feedback-warning"}`}>
+        <span className="ui-chip self-start">
           {changeLabel}
         </span>
       </div>
@@ -293,7 +405,7 @@ function WorkoutComparison({ comparison }: { comparison: ComparableWorkout }) {
           </li>
         ))}
       </ol>
-      <p className="mt-3 text-[10px] text-zinc-600">Délka sloupce odpovídá času; kratší sloupec znamená kratší dokončení.</p>
+      <p className="mt-3 text-[10px] text-zinc-600">Délka sloupce odpovídá času. Rozdíl nezohledňuje změnu podmínek, zátěže ani provedení.</p>
     </article>
   );
 }
