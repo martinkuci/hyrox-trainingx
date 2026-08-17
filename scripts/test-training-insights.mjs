@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  buildCategoryInsights,
   buildComparableWorkouts,
+  buildTrainingPeriodComparison,
   buildTrainingOverview,
   buildWeeklyActivity,
 } from "../lib/training-insights.ts";
@@ -48,6 +50,44 @@ test("soulad RPE používá snapshot a metadata šablony jako fallback", () => {
 
   assert.equal(overview.targetRpeMatches, 2);
   assert.equal(overview.targetRpeCount, 2);
+});
+
+test("srovnávaná období jsou stejně dlouhá, nepřekrývají se a ignorují budoucnost", () => {
+  const comparison = buildTrainingPeriodComparison([
+    result({ id: "current-start", completedAt: "2026-07-16T12:00:00.000Z", durationSeconds: 1200, rpe: 6 }),
+    result({ id: "current", completedAt: "2026-08-01T12:00:00.000Z", durationSeconds: 1800, rpe: 8 }),
+    result({ id: "previous", completedAt: "2026-07-01T12:00:00.000Z", durationSeconds: 2400, rpe: 7 }),
+    result({ id: "boundary", completedAt: "2026-07-16T11:59:59.999Z", durationSeconds: 600, rpe: 5 }),
+    result({ id: "future", completedAt: "2026-08-14T12:00:00.001Z", durationSeconds: 9999, rpe: 10 }),
+    result({ id: "invalid", completedAt: "invalid", durationSeconds: 9999, rpe: 10 }),
+  ], [], new Date("2026-08-13T12:00:00.000Z"), 4);
+
+  assert.equal(comparison.current.sessionCount, 2);
+  assert.equal(comparison.current.durationSeconds, 3000);
+  assert.equal(comparison.current.averageRpe, 7);
+  assert.equal(comparison.previous.sessionCount, 2);
+  assert.equal(comparison.previous.durationSeconds, 3000);
+  assert.equal(comparison.previous.averageRpe, 6);
+  assert.equal(comparison.currentStartDate, comparison.previousEndDate);
+});
+
+test("kategorie používají snapshot, šablonu i bezpečnou skupinu Ostatní", () => {
+  const metadata = {
+    category: "strength",
+    targetRpeMin: 6,
+    targetRpeMax: 8,
+  };
+  const categories = buildCategoryInsights([
+    result({ id: "snapshot", durationSeconds: 1800, rpe: 7, metadataSnapshot: { ...metadata, category: "base-engine" } }),
+    result({ id: "template", durationSeconds: 1200, rpe: 9 }),
+    result({ id: "other", templateId: "missing", durationSeconds: 600, rpe: Number.NaN }),
+  ], [{ id: "template-a", metadata }], new Date("2026-08-13T12:00:00.000Z"), 4);
+
+  assert.deepEqual(categories.map((item) => item.category), ["base-engine", "strength", "other"]);
+  assert.equal(categories[0].targetRpeMatches, 1);
+  assert.equal(categories[1].targetRpeMatches, 0);
+  assert.equal(categories[2].averageRpe, null);
+  assert.equal(categories.reduce((sum, item) => sum + item.sessionCount, 0), 3);
 });
 
 test("týdenní aktivita zachová i týdny bez výsledků", () => {

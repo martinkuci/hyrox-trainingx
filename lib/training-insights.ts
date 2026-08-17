@@ -1,4 +1,4 @@
-import type { WorkoutMetadata, WorkoutResult, WorkoutTemplate } from "./types";
+import type { WorkoutCategory, WorkoutMetadata, WorkoutResult, WorkoutTemplate } from "./types";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -16,6 +16,20 @@ export type WeeklyActivity = {
   sessionCount: number;
   durationSeconds: number;
   current: boolean;
+};
+
+export type TrainingPeriodComparison = {
+  weekCount: number;
+  currentStartDate: string;
+  currentEndDate: string;
+  previousStartDate: string;
+  previousEndDate: string;
+  current: TrainingOverview;
+  previous: TrainingOverview;
+};
+
+export type CategoryInsight = TrainingOverview & {
+  category: WorkoutCategory | "other";
 };
 
 export type ComparableWorkout = {
@@ -70,6 +84,48 @@ function startOfUtcWeek(timestamp: number) {
   );
 }
 
+function summarizeResults(
+  results: readonly WorkoutResult[],
+  templatesById: ReadonlyMap<string, WorkoutTemplate>,
+): TrainingOverview {
+  const rpes = results.map((result) => validRpe(result.rpe)).filter((value): value is number => value !== null);
+  let targetRpeMatches = 0;
+  let targetRpeCount = 0;
+
+  for (const result of results) {
+    const rpe = validRpe(result.rpe);
+    const metadata = resultMetadata(result, templatesById);
+    if (rpe === null || !metadata) continue;
+    targetRpeCount += 1;
+    if (rpe >= metadata.targetRpeMin && rpe <= metadata.targetRpeMax) targetRpeMatches += 1;
+  }
+
+  return {
+    sessionCount: results.length,
+    durationSeconds: results.reduce(
+      (sum, result) => sum + (validDuration(result) ? result.durationSeconds : 0),
+      0,
+    ),
+    averageRpe: rpes.length > 0
+      ? Math.round((rpes.reduce((sum, value) => sum + value, 0) / rpes.length) * 10) / 10
+      : null,
+    targetRpeMatches,
+    targetRpeCount,
+  };
+}
+
+function resultsInWindow(
+  results: readonly WorkoutResult[],
+  start: number,
+  end: number,
+  includeEnd: boolean,
+) {
+  return results.filter((result) => {
+    const timestamp = validDate(result.completedAt);
+    return timestamp !== null && timestamp >= start && (includeEnd ? timestamp <= end : timestamp < end);
+  });
+}
+
 export function buildTrainingOverview(
   results: readonly WorkoutResult[],
   templates: readonly WorkoutTemplate[],
@@ -78,37 +134,55 @@ export function buildTrainingOverview(
   const end = now.getTime();
   const start = end - 28 * DAY_MS;
   const templatesById = new Map(templates.map((template) => [template.id, template]));
-  const recent = results.filter((result) => {
-    const timestamp = validDate(result.completedAt);
-    return timestamp !== null && timestamp >= start && timestamp <= end;
-  });
-  const rpes = recent.map((result) => validRpe(result.rpe)).filter((value): value is number => value !== null);
-  let targetRpeMatches = 0;
-  let targetRpeCount = 0;
+  return summarizeResults(resultsInWindow(results, start, end, true), templatesById);
+}
 
-  for (const result of recent) {
-    const rpe = validRpe(result.rpe);
-    const metadata = resultMetadata(result, templatesById);
-    if (rpe === null || !metadata) continue;
-    targetRpeCount += 1;
-    if (rpe >= metadata.targetRpeMin && rpe <= metadata.targetRpeMax) {
-      targetRpeMatches += 1;
-    }
-  }
+export function buildTrainingPeriodComparison(
+  results: readonly WorkoutResult[],
+  templates: readonly WorkoutTemplate[],
+  now = new Date(),
+  weekCount = 4,
+): TrainingPeriodComparison {
+  const safeWeekCount = Math.max(1, Math.floor(weekCount));
+  const end = now.getTime();
+  const periodDuration = safeWeekCount * 7 * DAY_MS;
+  const currentStart = end - periodDuration;
+  const previousStart = currentStart - periodDuration;
+  const templatesById = new Map(templates.map((template) => [template.id, template]));
 
   return {
-    sessionCount: recent.length,
-    durationSeconds: recent.reduce(
-      (sum, result) => sum + (validDuration(result) ? result.durationSeconds : 0),
-      0,
-    ),
-    averageRpe:
-      rpes.length > 0
-        ? Math.round((rpes.reduce((sum, value) => sum + value, 0) / rpes.length) * 10) / 10
-        : null,
-    targetRpeMatches,
-    targetRpeCount,
+    weekCount: safeWeekCount,
+    currentStartDate: toUtcDate(currentStart),
+    currentEndDate: toUtcDate(end),
+    previousStartDate: toUtcDate(previousStart),
+    previousEndDate: toUtcDate(currentStart),
+    current: summarizeResults(resultsInWindow(results, currentStart, end, true), templatesById),
+    previous: summarizeResults(resultsInWindow(results, previousStart, currentStart, false), templatesById),
   };
+}
+
+export function buildCategoryInsights(
+  results: readonly WorkoutResult[],
+  templates: readonly WorkoutTemplate[],
+  now = new Date(),
+  weekCount = 4,
+): CategoryInsight[] {
+  const safeWeekCount = Math.max(1, Math.floor(weekCount));
+  const end = now.getTime();
+  const start = end - safeWeekCount * 7 * DAY_MS;
+  const templatesById = new Map(templates.map((template) => [template.id, template]));
+  const groups = new Map<WorkoutCategory | "other", WorkoutResult[]>();
+
+  for (const result of resultsInWindow(results, start, end, true)) {
+    const category = resultMetadata(result, templatesById)?.category ?? "other";
+    const group = groups.get(category) ?? [];
+    group.push(result);
+    groups.set(category, group);
+  }
+
+  return [...groups.entries()]
+    .map(([category, group]) => ({ category, ...summarizeResults(group, templatesById) }))
+    .sort((left, right) => right.durationSeconds - left.durationSeconds || right.sessionCount - left.sessionCount);
 }
 
 export function buildWeeklyActivity(
