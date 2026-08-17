@@ -1,5 +1,6 @@
 import { createDefaultHyroxData } from "./default-data";
 import { upgradeCatalogTemplates } from "./catalog-migration";
+import { applyTrainingAdaptationDecision } from "./training-adaptation";
 import type {
   HyroxData,
   NewScheduledWorkout,
@@ -8,6 +9,7 @@ import type {
   NewWorkoutResult,
   NewWorkoutTemplate,
   ScheduledWorkout,
+  TrainingAdaptationDecision,
   TrainingProgram,
   WeeklyPlanTemplate,
   WorkoutResult,
@@ -255,6 +257,16 @@ export function updateResult(id: string, updates: Partial<NewWorkoutResult>) {
     ),
   }));
   return found;
+}
+
+export function decideTrainingAdaptation(resultId: string, decision: TrainingAdaptationDecision) {
+  let applied = false;
+  updateData((data) => {
+    const next = applyTrainingAdaptationDecision(data, resultId, decision);
+    applied = next.ok;
+    return next.data;
+  });
+  return applied;
 }
 
 export function deleteResult(id: string) {

@@ -135,6 +135,36 @@ test("rejects a malformed nested workout before restore", () => {
   );
 });
 
+test("accepts a saved adaptation decision and rejects an invalid one", () => {
+  const data = createData();
+  data.results.push({
+    id: "result-1",
+    templateId: "template-1",
+    workoutTitle: "Test workout",
+    completedAt: "2026-08-18T18:00:00.000Z",
+    durationSeconds: 1800,
+    rpe: 9,
+    weights: "",
+    notes: "",
+    splits: [],
+    adaptationDecision: {
+      status: "accepted",
+      direction: "reduce",
+      scheduleId: "schedule-2",
+      originalTemplateId: "template-2",
+      recommendedTemplateId: "template-1",
+      decidedAt: "2026-08-18T19:00:00.000Z",
+    },
+  });
+
+  assert.doesNotThrow(() => parseHyroxBackupText(serializeHyroxBackup(data)));
+  data.results[0].adaptationDecision.direction = "unsafe";
+  assert.throws(
+    () => parseHyroxBackupText(serializeHyroxBackup(data)),
+    /neplatná nebo neúplná/,
+  );
+});
+
 test("limits backup uploads to five megabytes", () => {
   assert.doesNotThrow(() => assertBackupFileSize(MAX_BACKUP_FILE_BYTES));
   assert.throws(

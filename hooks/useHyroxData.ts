@@ -14,6 +14,7 @@ import {
   deleteTemplate,
   deleteTrainingProgram,
   deleteWeeklyPlan,
+  decideTrainingAdaptation,
   loadHyroxData,
   replaceSchedulesForDates,
   resetHyroxData,
@@ -31,6 +32,7 @@ import type {
   NewWeeklyPlanTemplate,
   NewWorkoutResult,
   NewWorkoutTemplate,
+  TrainingAdaptationDecision,
 } from "@/lib/types";
 import type { ScheduledWorkoutUpdate } from "@/lib/calendar-planning";
 
@@ -71,6 +73,7 @@ export function useHyroxData() {
     deleteTrainingProgram,
     addResult: (input: NewWorkoutResult) => addResult(input),
     updateResult: (id: string, updates: Partial<NewWorkoutResult>) => updateResult(id, updates),
+    decideTrainingAdaptation: (resultId: string, decision: TrainingAdaptationDecision) => decideTrainingAdaptation(resultId, decision),
     deleteResult,
     resetData: resetHyroxData,
   };

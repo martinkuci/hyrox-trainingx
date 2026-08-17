@@ -59,10 +59,10 @@ export default function WorkoutResultForm({ template, scheduledWorkoutId, durati
           </div>
           <p className="mt-6 text-sm font-black uppercase tracking-[0.2em] text-accent">Hotovo</p>
           <h1 className="mt-2 text-3xl font-black">Výsledek je uložený</h1>
-          <p className="mt-3 text-zinc-400">Uložili jsme i kód, verzi a cílový profil tréninku pro budoucí porovnání.</p>
+          <p className="mt-3 text-zinc-400">Výsledek je uložený. Na přehledu uvidíš, zda podle RPE dává smysl upravit některou z dalších jednotek programu.</p>
           <div className="mt-8 grid gap-3">
-            <Link href="/history" className="ui-button ui-button-primary">Zobrazit historii</Link>
-            <Link href="/" className="ui-button ui-button-outline">Zpět na přehled</Link>
+            <Link href="/" className="ui-button ui-button-primary">Zobrazit doporučení</Link>
+            <Link href="/history" className="ui-button ui-button-outline">Zobrazit historii</Link>
           </div>
         </section>
       </main>
