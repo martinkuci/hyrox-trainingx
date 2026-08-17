@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { BlockFeedback, BlockFeedbackRating, StepSplit, WorkoutBlock, WorkoutTemplate } from "@/lib/types";
 import BlockFeedbackPrompt from "@/components/BlockFeedbackPrompt";
@@ -165,7 +165,7 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
     if (audioContextRef.current.state === "suspended") void audioContextRef.current.resume();
   }
 
-  function tone(frequency = 880, duration = 0.2, volume = 0.2, waveform: OscillatorType = "triangle") {
+  const tone = useCallback((frequency = 880, duration = 0.2, volume = 0.2, waveform: OscillatorType = "triangle") => {
     const context = audioContextRef.current;
     if (!context) return;
     const oscillator = context.createOscillator();
@@ -179,22 +179,22 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
     gain.connect(context.destination);
     oscillator.start();
     oscillator.stop(context.currentTime + duration + 0.02);
-  }
+  }, []);
 
-  function vibrate(pattern: number | number[]) {
+  const vibrate = useCallback((pattern: number | number[]) => {
     if ("vibrate" in navigator) navigator.vibrate(pattern);
-  }
+  }, []);
 
-  function countdownCue(seconds: number) {
+  const countdownCue = useCallback((seconds: number) => {
     const isLastSecond = seconds === 1;
     tone(isLastSecond ? 1440 : 1120, isLastSecond ? 0.34 : 0.25, isLastSecond ? 0.52 : 0.42, "square");
     vibrate(isLastSecond ? [90, 45, 90] : 70);
-  }
+  }, [tone, vibrate]);
 
-  function transitionCue() {
+  const transitionCue = useCallback(() => {
     tone(1560, 0.55, 0.55, "square");
     vibrate([110, 55, 110]);
-  }
+  }, [tone, vibrate]);
 
   function recordSplit(step: RunnableStep, durationMilliseconds: number) {
     const split: StepSplit = {
@@ -561,7 +561,7 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
     tick();
     const timer = window.setInterval(tick, 200);
     return () => window.clearInterval(timer);
-  }, [mode, paused, steps]);
+  }, [countdownCue, mode, paused, steps, transitionCue]);
 
   useEffect(() => () => { void audioContextRef.current?.close(); }, []);
 
