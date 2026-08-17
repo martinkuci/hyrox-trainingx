@@ -390,10 +390,10 @@ export default function LiveProgramCalendarPage() {
 
           {originalTemplate && (
             <div className="ui-feedback ui-feedback-warning mt-4 text-sm">
-              <p className="font-bold">Používáš kratší variantu.</p>
+              <p className="font-bold">Používáš upravenou variantu programu.</p>
               <p className="mt-1 text-zinc-300">Původně: {originalTemplate.title} · {originalTemplate.durationMinutes} min</p>
               <button type="button" onClick={restoreOriginalVariant} className="ui-button ui-button-secondary ui-button-sm mt-3 w-full">
-                Obnovit původní variantu
+                Obnovit původně naplánovaný trénink
               </button>
             </div>
           )}

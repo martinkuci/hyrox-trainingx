@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { useMemo, useState } from "react";
 import { StickyBottomNavigation } from "@/components/navigation/StickyBottomNavigation";
 import { StickyHeader } from "@/components/navigation/StickyHeader";
 import { useHyroxData } from "@/hooks/useHyroxData";
-import type { ProgramPhase, ScheduledWorkoutStatus } from "@/lib/types";
+import { buildTrainingAdaptation, type TrainingAdaptationRecommendation } from "@/lib/training-adaptation";
+import type { ProgramPhase, ScheduledWorkout, ScheduledWorkoutStatus, WorkoutTemplate } from "@/lib/types";
 
 const phaseLabels: Record<ProgramPhase, string> = {
   base: "Budování základu",
@@ -46,7 +48,8 @@ function statusPriority(status: ScheduledWorkoutStatus) {
 }
 
 export default function Home() {
-  const { data, ready } = useHyroxData();
+  const { data, ready, decideTrainingAdaptation } = useHyroxData();
+  const [adaptationNotice, setAdaptationNotice] = useState<{ tone: "success" | "danger"; text: string } | null>(null);
   const now = new Date();
   const todayKey = localDateKey(now);
   const todayLabel = new Intl.DateTimeFormat("cs-CZ", {
@@ -112,13 +115,47 @@ export default function Home() {
   const latestTemplate = latestResult
     ? data.templates.find((template) => template.id === latestResult.templateId)
     : undefined;
-  const recommendation = latestResult
-    ? latestResult.rpe <= 6
-      ? "Poslední jednotka byla s rezervou. V dalším tréninku můžeš držet o něco vyšší tempo, pokud se cítíš dobře."
-      : latestResult.rpe >= 9
-        ? "Poslední jednotka byla velmi náročná. Před dalším těžkým tréninkem dej prioritu odpočinku."
-        : "Zátěž posledního tréninku odpovídala cílovému pásmu. Pokračuj podle plánu a hlídej stabilitu kol."
-    : "Dokonči první trénink a aplikace zde připraví jednoduché doporučení podle výsledku a RPE.";
+  const adaptation = useMemo(() => ready ? buildTrainingAdaptation({
+    results: data.results,
+    templates: data.templates,
+    scheduledWorkouts: data.scheduledWorkouts,
+  }) : null, [data.results, data.scheduledWorkouts, data.templates, ready]);
+  const adaptationSchedule = adaptation?.targetScheduleId
+    ? data.scheduledWorkouts.find((schedule) => schedule.id === adaptation.targetScheduleId)
+    : undefined;
+  const adaptationCurrent = adaptation?.currentTemplateId
+    ? data.templates.find((template) => template.id === adaptation.currentTemplateId)
+    : undefined;
+  const adaptationRecommended = adaptation?.recommendedTemplateId
+    ? data.templates.find((template) => template.id === adaptation.recommendedTemplateId)
+    : undefined;
+
+  function saveAdaptationDecision(status: "accepted" | "dismissed") {
+    if (!adaptation || adaptation.direction === "maintain" || !adaptationSchedule || !adaptationCurrent || !adaptationRecommended) return;
+    const currentSchedule = data.scheduledWorkouts.find((schedule) => schedule.id === adaptationSchedule.id);
+    if (!currentSchedule || currentSchedule.status !== "planned" || currentSchedule.templateId !== adaptationCurrent.id) {
+      setAdaptationNotice({ tone: "danger", text: "Plán se mezitím změnil. Doporučení znovu přepočítáme podle aktuálních dat." });
+      return;
+    }
+    const applied = decideTrainingAdaptation(adaptation.resultId, {
+      status,
+      direction: adaptation.direction,
+      scheduleId: currentSchedule.id,
+      originalTemplateId: adaptationCurrent.id,
+      recommendedTemplateId: adaptationRecommended.id,
+      decidedAt: new Date().toISOString(),
+    });
+    if (!applied) {
+      setAdaptationNotice({ tone: "danger", text: "Plán se mezitím změnil. Doporučení znovu přepočítáme podle aktuálních dat." });
+      return;
+    }
+    setAdaptationNotice({
+      tone: "success",
+      text: status === "accepted"
+        ? `Plán je upravený: ${adaptationRecommended.title}. Datum ani pořadí programu se nezměnilo.`
+        : "Původní plán zůstává beze změny.",
+    });
+  }
 
   return (
     <>
@@ -252,11 +289,22 @@ export default function Home() {
                 </div>
               </article>
 
-              <article className="ui-card p-5">
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-zinc-500">Doporučení</p>
-                <p className="mt-3 text-sm leading-6 text-zinc-300">{recommendation}</p>
-              </article>
+              <AdaptiveRecommendationCard
+                recommendation={adaptation}
+                schedule={adaptationSchedule}
+                currentTemplate={adaptationCurrent}
+                recommendedTemplate={adaptationRecommended}
+                hasResults={Boolean(latestResult)}
+                onAccept={() => saveAdaptationDecision("accepted")}
+                onDismiss={() => saveAdaptationDecision("dismissed")}
+              />
             </section>
+          )}
+
+          {adaptationNotice && (
+            <p role="status" className={`ui-feedback ui-feedback-${adaptationNotice.tone} mt-4 text-sm font-bold`}>
+              {adaptationNotice.text}
+            </p>
           )}
 
           {ready && activeProgram && (
@@ -298,6 +346,77 @@ export default function Home() {
 
       <StickyBottomNavigation />
     </>
+  );
+}
+
+function AdaptiveRecommendationCard({
+  recommendation,
+  schedule,
+  currentTemplate,
+  recommendedTemplate,
+  hasResults,
+  onAccept,
+  onDismiss,
+}: {
+  recommendation: TrainingAdaptationRecommendation | null;
+  schedule?: ScheduledWorkout;
+  currentTemplate?: WorkoutTemplate;
+  recommendedTemplate?: WorkoutTemplate;
+  hasResults: boolean;
+  onAccept: () => void;
+  onDismiss: () => void;
+}) {
+  const actionable = Boolean(
+    recommendation &&
+    recommendation.direction !== "maintain" &&
+    schedule &&
+    currentTemplate &&
+    recommendedTemplate,
+  );
+
+  return (
+    <article className="ui-card p-5">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-zinc-500">Doporučení 3C</p>
+        {actionable && <span className="ui-chip ui-chip-accent">Čeká na potvrzení</span>}
+      </div>
+      <h2 className="mt-3 text-lg font-black text-zinc-100">
+        {recommendation?.title ?? (hasResults ? "Plán je vyhodnocený" : "Nejdřív dokonči trénink")}
+      </h2>
+      <p className="mt-2 text-sm leading-6 text-zinc-300">
+        {recommendation?.rationale ?? (hasResults
+          ? "Poslední doporučení už bylo vyřešeno. Další vznikne po novém výsledku."
+          : "Po prvním výsledku aplikace porovná RPE s cílem a připraví bezpečný návrh.")}
+      </p>
+
+      {actionable && schedule && currentTemplate && recommendedTemplate && (
+        <>
+          <div className="mt-4 grid grid-cols-[1fr_auto_1fr] items-stretch gap-2">
+            <AdaptationTemplate template={currentTemplate} label="Původně" />
+            <span className="self-center text-accent" aria-hidden="true">→</span>
+            <AdaptationTemplate template={recommendedTemplate} label="Návrh" accent />
+          </div>
+          <p className="mt-3 text-xs leading-5 text-zinc-500">
+            Týká se {new Intl.DateTimeFormat("cs-CZ", { weekday: "long", day: "numeric", month: "numeric" }).format(parseDate(schedule.date))}. Datum, čas a pořadí programu zůstanou stejné.
+          </p>
+          <div className="mt-4 grid gap-2">
+            <button type="button" onClick={onAccept} className="ui-button ui-button-primary w-full">Použít navržený trénink</button>
+            <button type="button" onClick={onDismiss} className="ui-button ui-button-outline w-full">Ponechat původní plán</button>
+          </div>
+          <p className="mt-3 text-center text-[11px] text-zinc-600">Bez potvrzení se plán nikdy nezmění.</p>
+        </>
+      )}
+    </article>
+  );
+}
+
+function AdaptationTemplate({ template, label, accent = false }: { template: WorkoutTemplate; label: string; accent?: boolean }) {
+  return (
+    <div className={`min-w-0 rounded-2xl border p-3 ${accent ? "border-accent/35 bg-accent-soft" : "border-white/8 bg-elevated"}`}>
+      <p className={`text-[9px] font-black uppercase tracking-wide ${accent ? "text-accent" : "text-zinc-500"}`}>{label}</p>
+      <p className="mt-1 line-clamp-2 text-xs font-black leading-4 text-zinc-100">{template.title}</p>
+      <p className="mt-1 text-[10px] text-zinc-500">Level {template.metadata?.difficultyLevel ?? 1} · {template.durationMinutes} min</p>
+    </div>
   );
 }
 
