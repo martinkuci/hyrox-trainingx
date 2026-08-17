@@ -12,7 +12,8 @@
     "test:backup": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types --test scripts/test-data-backup.mjs",
     "test:help": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types --test scripts/test-help-support.mjs",
     "test:release-fixes": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types --test scripts/test-release-fixes.mjs",
-    "test:workout-modes": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types --test scripts/test-workout-modes.mjs scripts/test-storage-migration.mjs"
+    "test:workout-modes": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types --test scripts/test-workout-modes.mjs scripts/test-storage-migration.mjs",
+    "test:adaptation": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types --test scripts/test-training-adaptation.mjs"
   },
   "dependencies": {
     "next": "16.2.10",

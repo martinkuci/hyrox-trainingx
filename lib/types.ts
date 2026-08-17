@@ -104,6 +104,15 @@ export type WorkoutResultMetrics = {
   distanceKm?: number;
   watchDurationSeconds?: number;
 };
+export type TrainingAdaptationDirection = "reduce" | "maintain" | "increase";
+export type TrainingAdaptationDecision = {
+  status: "accepted" | "dismissed";
+  direction: Exclude<TrainingAdaptationDirection, "maintain">;
+  scheduleId: string;
+  originalTemplateId: string;
+  recommendedTemplateId: string;
+  decidedAt: string;
+};
 
 export type WorkoutResult = {
   id: string;
@@ -123,6 +132,7 @@ export type WorkoutResult = {
   source?: "runner" | "screenshot";
   sourceImageName?: string;
   metrics?: WorkoutResultMetrics;
+  adaptationDecision?: TrainingAdaptationDecision;
 };
 export type HyroxData = {
   version: 1;

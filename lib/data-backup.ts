@@ -94,6 +94,19 @@ function validSplit(value: unknown) {
   );
 }
 
+function validAdaptationDecision(value: unknown) {
+  return (
+    isRecord(value) &&
+    ["accepted", "dismissed"].includes(String(value.status)) &&
+    ["reduce", "increase"].includes(String(value.direction)) &&
+    hasText(value.scheduleId) &&
+    hasText(value.originalTemplateId) &&
+    hasText(value.recommendedTemplateId) &&
+    hasText(value.decidedAt) &&
+    !Number.isNaN(Date.parse(value.decidedAt))
+  );
+}
+
 function validPlanDay(value: unknown) {
   return (
     isRecord(value) &&
@@ -188,7 +201,8 @@ function validateCollections(value: unknown): asserts value is HyroxData {
       item.rpe >= 0 &&
       item.rpe <= 10 &&
       Array.isArray(item.splits) &&
-      item.splits.every(validSplit),
+      item.splits.every(validSplit) &&
+      (item.adaptationDecision === undefined || validAdaptationDecision(item.adaptationDecision)),
   );
   const weeklyPlansValid = weeklyPlans.every(
     (item) =>
