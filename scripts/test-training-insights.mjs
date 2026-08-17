@@ -6,6 +6,7 @@ import {
   buildTrainingPeriodComparison,
   buildTrainingOverview,
   buildWeeklyActivity,
+  buildWorkoutBenchmarks,
 } from "../lib/training-insights.ts";
 
 function result(overrides = {}) {
@@ -128,4 +129,61 @@ test("neplatný čas nevytvoří procentní změnu", () => {
   ]);
 
   assert.equal(comparisons.length, 0);
+});
+
+test("benchmark spojí stejný kód a verzi i přes změnu ID šablony", () => {
+  const benchmarks = buildWorkoutBenchmarks([
+    result({ id: "old", templateId: "v1-a", workoutCode: "HYX-01", templateVersion: 2, completedAt: "2026-08-01T10:00:00.000Z", durationSeconds: 3600 }),
+    result({ id: "new", templateId: "v1-b", workoutCode: "HYX-01", templateVersion: 2, completedAt: "2026-08-10T10:00:00.000Z", durationSeconds: 3300 }),
+  ]);
+
+  assert.equal(benchmarks.length, 1);
+  assert.equal(benchmarks[0].latestStatus, "new-best");
+  assert.equal(benchmarks[0].latestDifferencePercent, -8.3);
+  assert.equal(benchmarks[0].bestDurationSeconds, 3300);
+  assert.deepEqual(benchmarks[0].bestResultIds, ["new"]);
+});
+
+test("benchmark nikdy nespojí různé verze stejného kódu", () => {
+  const benchmarks = buildWorkoutBenchmarks([
+    result({ id: "v1", workoutCode: "HYX-01", templateVersion: 1, durationSeconds: 3600 }),
+    result({ id: "v2", workoutCode: "HYX-01", templateVersion: 2, durationSeconds: 3300 }),
+  ]);
+
+  assert.equal(benchmarks.length, 0);
+});
+
+test("shodný nejkratší čas je vyrovnání a zachová oba výsledky", () => {
+  const benchmarks = buildWorkoutBenchmarks([
+    result({ id: "first", workoutCode: "HYX-02", templateVersion: 1, completedAt: "2026-08-01T10:00:00.000Z", durationSeconds: 3000 }),
+    result({ id: "tie", workoutCode: "HYX-02", templateVersion: 1, completedAt: "2026-08-10T10:00:00.000Z", durationSeconds: 3000 }),
+  ]);
+
+  assert.equal(benchmarks[0].latestStatus, "matched-best");
+  assert.equal(benchmarks[0].latestDifferencePercent, 0);
+  assert.deepEqual(benchmarks[0].bestResultIds, ["first", "tie"]);
+  assert.equal(benchmarks[0].bestCompletedAt, "2026-08-01T10:00:00.000Z");
+});
+
+test("starší výsledky se porovnají jen podle stejného ID šablony", () => {
+  const benchmarks = buildWorkoutBenchmarks([
+    result({ id: "first", templateId: "legacy-a", workoutTitle: "Stejný název", durationSeconds: 3000 }),
+    result({ id: "second", templateId: "legacy-a", workoutTitle: "Stejný název", completedAt: "2026-08-11T10:00:00.000Z", durationSeconds: 3200 }),
+    result({ id: "other", templateId: "legacy-b", workoutTitle: "Stejný název", completedAt: "2026-08-12T10:00:00.000Z", durationSeconds: 2800 }),
+  ]);
+
+  assert.equal(benchmarks.length, 1);
+  assert.equal(benchmarks[0].key, "template:legacy-a");
+  assert.equal(benchmarks[0].latestStatus, "above-best");
+  assert.equal(benchmarks[0].latestDifferencePercent, 6.7);
+});
+
+test("neplatný datum a čas se do benchmarku nezapočítají", () => {
+  const benchmarks = buildWorkoutBenchmarks([
+    result({ id: "valid", workoutCode: "HYX-03", templateVersion: 1 }),
+    result({ id: "invalid-date", workoutCode: "HYX-03", templateVersion: 1, completedAt: "invalid" }),
+    result({ id: "invalid-duration", workoutCode: "HYX-03", templateVersion: 1, durationSeconds: 0 }),
+  ]);
+
+  assert.equal(benchmarks.length, 0);
 });
