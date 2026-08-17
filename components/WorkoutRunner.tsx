@@ -17,36 +17,11 @@ import {
   type CheckpointRunnerMode,
   type WorkoutCheckpoint,
 } from "@/lib/workout-checkpoint";
-
-type RunnableStep = {
-  blockId: string;
-  stepId: string;
-  blockTitle: string;
-  round: number;
-  roundCount: number;
-  name: string;
-  detail: string;
-  durationSeconds?: number;
-  emomMinute?: number;
-  emomMinutes?: number;
-};
+import { countdownCueSecond, flattenWorkoutTemplate, type RunnableStep } from "@/lib/workout-runner-steps";
 
 type RunnerMode = "overview" | "block-preview" | "block-feedback" | "countdown" | "running" | "finished";
 
 type WorkoutRunnerProps = { template: WorkoutTemplate; scheduledWorkoutId?: string };
-
-function flattenTemplate(template: WorkoutTemplate): RunnableStep[] {
-  return template.blocks.flatMap((block) => {
-    if (block.type === "emom") {
-      if (block.steps.length === 0) return [];
-      return Array.from({ length: block.minutes }, (_, minute) => {
-        const step = block.steps[minute % block.steps.length];
-        return { blockId: block.id, stepId: step.id, blockTitle: block.title, round: minute + 1, roundCount: block.minutes, name: step.name, detail: step.detail, durationSeconds: 60, emomMinute: minute + 1, emomMinutes: block.minutes };
-      });
-    }
-    return Array.from({ length: block.repeat }, (_, round) => block.steps.map((step) => ({ blockId: block.id, stepId: step.id, blockTitle: block.title, round: round + 1, roundCount: block.repeat, name: step.name, detail: step.detail }))).flat();
-  });
-}
 
 function formatClock(milliseconds: number) {
   const totalSeconds = Math.max(0, Math.floor(milliseconds / 1000));
@@ -113,7 +88,7 @@ function WorkoutOutline({ template, activeBlockId }: { template: WorkoutTemplate
 
 export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutRunnerProps) {
   const router = useRouter();
-  const steps = useMemo(() => flattenTemplate(template), [template]);
+  const steps = useMemo(() => flattenWorkoutTemplate(template), [template]);
   const workoutKey = useMemo(() => makeWorkoutKey(template.id, scheduledWorkoutId), [scheduledWorkoutId, template.id]);
   const [mode, setMode] = useState<RunnerMode>("overview");
   const [paused, setPaused] = useState(false);
@@ -143,10 +118,12 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
   const splitsRef = useRef<StepSplit[]>([]);
   const blockFeedbacksRef = useRef<BlockFeedback[]>([]);
   const audioContextRef = useRef<AudioContext | null>(null);
+  const lastCountdownCueRef = useRef("");
   const checkpointClosedRef = useRef(false);
 
   const currentStep = steps[currentIndex];
   const nextStep = steps[currentIndex + 1];
+  const nextStepInBlock = nextStep?.blockId === currentStep?.blockId ? nextStep : undefined;
   const currentBlock = template.blocks.find((block) => block.id === currentStep?.blockId);
   const workoutStarted = currentIndex > 0 || totalElapsed > 0 || splits.length > 0;
 
@@ -155,12 +132,13 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
     if (audioContextRef.current.state === "suspended") void audioContextRef.current.resume();
   }
 
-  function tone(frequency = 880, duration = 0.2, volume = 0.16) {
+  function tone(frequency = 880, duration = 0.2, volume = 0.2, waveform: OscillatorType = "triangle") {
     const context = audioContextRef.current;
     if (!context) return;
     const oscillator = context.createOscillator();
     const gain = context.createGain();
     oscillator.frequency.value = frequency;
+    oscillator.type = waveform;
     gain.gain.setValueAtTime(0.0001, context.currentTime);
     gain.gain.exponentialRampToValueAtTime(volume, context.currentTime + 0.01);
     gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + duration);
@@ -168,6 +146,21 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
     gain.connect(context.destination);
     oscillator.start();
     oscillator.stop(context.currentTime + duration + 0.02);
+  }
+
+  function vibrate(pattern: number | number[]) {
+    if ("vibrate" in navigator) navigator.vibrate(pattern);
+  }
+
+  function countdownCue(seconds: number) {
+    const isLastSecond = seconds === 1;
+    tone(isLastSecond ? 1440 : 1120, isLastSecond ? 0.34 : 0.25, isLastSecond ? 0.52 : 0.42, "square");
+    vibrate(isLastSecond ? [90, 45, 90] : 70);
+  }
+
+  function transitionCue() {
+    tone(1560, 0.55, 0.55, "square");
+    vibrate([110, 55, 110]);
   }
 
   function recordSplit(step: RunnableStep, durationMilliseconds: number) {
@@ -195,7 +188,7 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
     setPaused(false);
     setCountdownPaused(false);
     setMode("running");
-    tone(1320, 0.55, 0.24);
+    tone(1320, 0.55, 0.34, "square");
   }
 
   function pauseRunning() {
@@ -475,7 +468,8 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
       const startTimer = window.setTimeout(beginRunning, 0);
       return () => window.clearTimeout(startTimer);
     }
-    tone(countdown <= 3 ? 1080 : 720, countdown <= 3 ? 0.24 : 0.14, countdown <= 3 ? 0.2 : 0.1);
+    if (countdown <= 3) countdownCue(countdown);
+    else tone(760, 0.16, 0.16);
     const timer = window.setTimeout(() => setCountdown((value) => value - 1), 1000);
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -492,7 +486,7 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
       while (step?.durationSeconds && stepTime >= step.durationSeconds * 1000) {
         recordSplit(step, step.durationSeconds * 1000);
         stepTime -= step.durationSeconds * 1000;
-        tone(900, 0.15, 0.14);
+        transitionCue();
         if (index >= steps.length - 1) return openBlockFeedback(step.blockId, true, now);
         const next = steps[index + 1];
         if (next.blockId !== step.blockId) {
@@ -511,6 +505,14 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
         setCurrentIndex(index);
         stepAccumulatedRef.current = 0;
         stepStartedAtRef.current = now - stepTime;
+      }
+      if (step?.durationSeconds) {
+        const cueSecond = countdownCueSecond(step.durationSeconds, stepTime);
+        const cueKey = cueSecond ? `${index}:${cueSecond}` : "";
+        if (cueSecond && cueKey !== lastCountdownCueRef.current) {
+          lastCountdownCueRef.current = cueKey;
+          countdownCue(cueSecond);
+        }
       }
       setTotalElapsed(total);
       setStepElapsed(stepTime);
@@ -615,15 +617,19 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
           <h1 className="runner-main-title mt-3 text-[clamp(2.25rem,10vw,3.75rem)] font-black leading-[0.95]">{currentStep.name}</h1>
           {currentStep.detail && <p className="runner-step-detail mx-auto mt-2 max-w-sm text-lg font-semibold leading-6 text-zinc-300">{currentStep.detail}</p>}
           <div className="mt-4 font-mono text-5xl font-black tracking-tight">{formatClock(shownTime)}</div>
-          <p className="mt-1 text-sm text-zinc-500">{paused ? "Časovač je pozastavený" : currentStep.durationSeconds ? "Zbývá v minutě" : "Čas aktuálního úseku"}</p>
+          <p className="mt-1 text-sm text-zinc-500">{paused ? "Časovač je pozastavený" : currentStep.kind === "rest" ? "Zbývá do dalšího kola" : currentStep.durationSeconds ? "Zbývá v minutě" : "Čas aktuálního úseku"}</p>
           <button type="button" onClick={togglePause} aria-pressed={paused} className="ui-choice mx-auto mt-3 min-h-11 rounded-full px-5 text-sm">{paused ? "Pokračovat" : "Pauza"}</button>
           <div className="runner-next-card ui-inset mt-4 flex items-center justify-between gap-3 px-4 py-3 text-left">
-            <div className="min-w-0"><p className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">Následuje</p><p className="mt-0.5 truncate font-black">{nextStep ? nextStep.blockId === currentStep.blockId ? nextStep.name : `Hodnocení bloku ${currentStep.blockTitle}` : `Hodnocení bloku ${currentStep.blockTitle}`}</p></div>
+            <div className="min-w-0">
+              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">Následuje</p>
+              <p className="mt-0.5 font-black leading-5">{nextStepInBlock?.name ?? `Hodnocení bloku ${currentStep.blockTitle}`}</p>
+              {nextStepInBlock?.detail && <p className="mt-0.5 truncate text-xs text-zinc-400">{nextStepInBlock.detail}</p>}
+            </div>
             <span className="text-accent" aria-hidden="true">→</span>
           </div>
           <div className="mt-3 h-1 overflow-hidden rounded-full bg-elevated"><div className="h-full rounded-full bg-accent transition-[width] duration-200" style={{ width: `${((currentIndex + 1) / steps.length) * 100}%` }} /></div>
         </section>
-        <button type="button" onClick={advanceManual} disabled={paused} className="ui-button ui-button-primary min-h-13 w-full text-lg">{currentIndex === steps.length - 1 ? "Dokončit blok →" : currentStep.durationSeconds ? "Přeskočit minutu →" : "Hotovo →"}</button>
+        <button type="button" onClick={advanceManual} disabled={paused} className="ui-button ui-button-primary min-h-13 w-full text-lg">{currentIndex === steps.length - 1 ? "Dokončit blok →" : currentStep.kind === "rest" ? "Přeskočit odpočinek →" : currentStep.durationSeconds ? "Přeskočit minutu →" : "Hotovo →"}</button>
         {(checkpointFailed || recoveryNotice) && <LocalSaveStatus failed={checkpointFailed} notice={recoveryNotice} />}
       </div>
 

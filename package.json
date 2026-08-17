@@ -10,7 +10,8 @@
     "test:sync": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types --test scripts/test-cloud-sync.mjs",
     "test:insights": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types --test scripts/test-training-insights.mjs",
     "test:backup": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types --test scripts/test-data-backup.mjs",
-    "test:help": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types --test scripts/test-help-support.mjs"
+    "test:help": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types --test scripts/test-help-support.mjs",
+    "test:release-fixes": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types --test scripts/test-release-fixes.mjs"
   },
   "dependencies": {
     "next": "16.2.10",

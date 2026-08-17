@@ -8,6 +8,7 @@ import { useHyroxData } from "@/hooks/useHyroxData";
 import {
   calendarDateKey,
   findShorterWorkoutVariants,
+  listProgramCalendarChoices,
   orderProgramSchedules,
   parseCalendarDate,
   planScheduledWorkoutMove,
@@ -81,11 +82,12 @@ export default function LiveProgramCalendarPage() {
   const [pendingCollision, setPendingCollision] = useState<PendingCollision | null>(null);
   const [pendingSkip, setPendingSkip] = useState<ScheduledWorkout | null>(null);
 
-  const schedulesWithProgram = useMemo(
-    () => data.scheduledWorkouts.filter((item) => item.programId),
-    [data.scheduledWorkouts],
+  const programChoices = useMemo(
+    () => listProgramCalendarChoices(data.trainingPrograms, data.scheduledWorkouts),
+    [data.scheduledWorkouts, data.trainingPrograms],
   );
-  const effectiveProgramId = programId || schedulesWithProgram[0]?.programId || data.trainingPrograms[0]?.id || "";
+  const firstScheduledProgramId = data.scheduledWorkouts.find((item) => item.programId)?.programId;
+  const effectiveProgramId = programId || firstScheduledProgramId || programChoices[0]?.id || "";
   const activeProgram = data.trainingPrograms.find((item) => item.id === effectiveProgramId);
   const programSchedules = useMemo(
     () => orderProgramSchedules(
@@ -258,8 +260,8 @@ export default function LiveProgramCalendarPage() {
             onChange={(event) => changeProgram(event.target.value)}
             className="ui-field mt-2"
           >
-            {data.trainingPrograms.length === 0 && <option value="">Žádný program</option>}
-            {data.trainingPrograms.map((item) => (
+            {programChoices.length === 0 && <option value="">Žádný program</option>}
+            {programChoices.map((item) => (
               <option key={item.id} value={item.id}>{item.name}</option>
             ))}
           </select>
@@ -333,6 +335,7 @@ export default function LiveProgramCalendarPage() {
                   {schedules.map((schedule) => {
                     const template = data.templates.find((item) => item.id === schedule.templateId);
                     const label = template?.metadata?.workoutCode ?? template?.title ?? "Trénink";
+                    const isSelected = selectedId === schedule.id;
                     return (
                       <button
                         key={schedule.id}
@@ -340,10 +343,12 @@ export default function LiveProgramCalendarPage() {
                         onClick={() => openSchedule(schedule)}
                         className="ui-calendar-item"
                         data-status={schedule.status}
-                        aria-label={`${label}, ${formatDate(schedule.date, true)}, ${schedule.status}`}
+                        data-selected={isSelected}
+                        aria-pressed={isSelected}
+                        aria-label={`${label}, ${formatDate(schedule.date, true)}, ${schedule.status}${isSelected ? ", vybráno pro úpravu" : ""}`}
                         title={label}
                       >
-                        {label}
+                        <span aria-hidden="true">{isSelected ? `✓ ${label}` : label}</span>
                       </button>
                     );
                   })}
@@ -355,13 +360,13 @@ export default function LiveProgramCalendarPage() {
       </section>
 
       {!ready && <div className="ui-card mt-6 h-36 animate-pulse" />}
-      {ready && data.trainingPrograms.length === 0 && (
+      {ready && programChoices.length === 0 && (
         <section className="ui-card mt-6 border-dashed p-8 text-center">
           <h2 className="text-xl font-black">Zatím nemáš program</h2>
           <p className="mt-2 text-zinc-400">Nejdřív vytvoř program a vlož ho do kalendáře.</p>
         </section>
       )}
-      {ready && data.trainingPrograms.length > 0 && programSchedules.length === 0 && (
+      {ready && programChoices.length > 0 && programSchedules.length === 0 && (
         <section className="ui-card mt-6 border-dashed p-8 text-center text-zinc-400">
           Tento program zatím nemá jednotky v kalendáři.
         </section>
@@ -369,6 +374,7 @@ export default function LiveProgramCalendarPage() {
 
       {selected && selectedTemplate && (
         <section className="ui-card ui-card-accent mt-6 p-5 sm:p-6">
+          <p className="ui-chip ui-chip-accent mb-4 w-fit">✓ Vybráno pro úpravu</p>
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <p className="text-xs font-black uppercase tracking-[0.2em] text-accent">
