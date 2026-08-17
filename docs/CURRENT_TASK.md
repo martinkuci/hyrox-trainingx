@@ -2,43 +2,42 @@
 
 ## Feature větev
 
-`agent/release-fixes-3a`
+`agent/structured-workout-modes-3b`
 
 ## Cíl změny
 
-Odstranit dvě chyby nalezené při ověření fáze 3A: ruční potvrzování časovaného odpočinku ve vícekolových blocích a chybný prázdný stav kalendáře programu. Současně musí být v kalendáři na první pohled zřejmé, který trénink je vybraný pro přesun.
+Převést hlavní intervalové formáty na nativní režimy tréninku. Délka práce, odpočinku a počet kol mají být uložené přímo v datech bloku, aby přehrávač nemusel jejich význam odvozovat z volného textu. Starší manuální a EMOM tréninky musí zůstat funkční.
 
-## Rozsah opravy 3A
+## Rozsah fáze 3B
 
-- rozpoznat časovaný odpočinek v manuálním vícekolovém bloku,
-- stejné automatické chování použít také pro časované aktivní zotavení v intervalových blocích,
-- odpočinek automaticky odpočítat a po vypršení přejít na další kolo,
-- zachovat možnost odpočinek přeskočit, pozastavit a bezpečně obnovit,
-- nevkládat automatický odpočinek za poslední kolo,
-- ponechat běžné manuální kroky beze změny,
-- považovat naplánované jednotky s `programId` za existující program i při chybějícím nebo zastaralém záznamu programu,
-- nezobrazovat falešnou hlášku „Zatím nemáš program“, pokud jsou jednotky programu v kalendáři,
-- přidat jasný a přístupný stav vybraného tréninku v měsíčním kalendáři.
-- v kartě následujícího cviku zobrazit název i detail s počtem opakování, vzdáleností, váhou nebo tempem,
-- zesílit a odlišit zvuk posledních tří sekund všech automaticky časovaných úseků.
+- přidat nativní bloky `For Time`, interval, `TABATA` a `AMRAP`,
+- zachovat existující manuální a EMOM bloky,
+- ukládat počet kol a délku práce/odpočinku jako samostatná číselná pole,
+- ve `For Time` ponechat pracovní cviky na ruční potvrzení a odpočinek mezi koly odpočítávat automaticky,
+- v intervalu a TABATĚ automaticky střídat čas práce a odpočinku bez odpočinku po posledním kole,
+- v AMRAP odpočítat celý blok a zobrazit sestavu, která se opakuje dokola,
+- doplnit režimy do mobilního editoru, importu a zálohy dat,
+- zachovat pauzu, minimalizaci, obnovení a historii výkonu,
+- ponechat rozpoznání časovaného odpočinku z textu pouze jako kompatibilní zálohu pro starší manuální tréninky.
 
 ## Akceptační kritéria
 
-- krok typu „60 s odpočinek“ se spustí jako automatický odpočet a nevyžaduje ruční potvrzení po doběhnutí,
-- délka odpočinku se načte z údaje uloženého v kroku tréninku,
-- po posledním pracovním kole se pokračuje hodnocením nebo dalším blokem bez dodatečného odpočinku,
-- pauza, minimalizace a obnovení tréninku zachovají aktuální odpočet,
-- starší tréninky bez časovaného odpočinku se chovají stejně jako dosud,
-- časované aktivní zotavení typu „90 s lehký klus“ se chová stejně jako odpočinek,
-- před změnou cviku zazní tři výrazné signály a při přechodu delší odlišný signál,
-- karta „Následuje“ neztratí detail dalšího cviku ani v opakovaném nebo EMOM bloku,
-- kalendář nehlásí chybějící program, pokud obsahuje naplánované programové jednotky,
-- vybraný trénink má viditelné označení, stav `aria-pressed` a srozumitelný popis pro čtečku,
+- staré bloky `manual` a `emom` se přehrají beze změny,
+- nové režimy nepoužívají textový odhad délky práce ani odpočinku,
+- `For Time` vloží automatický odpočinek pouze mezi koly,
+- interval a TABATA střídají pracovní a odpočinkové úseky a samy postupují,
+- EMOM dál střídá cviky po minutách,
+- AMRAP má jeden odpočet celého bloku a přehled opakované sestavy,
+- karta „Následuje“ zobrazuje název i cílový počet opakování, vzdálenost, váhu nebo tempo,
+- editor je použitelný na mobilu a u časových údajů vždy uvádí jednotku,
+- import a obnova zálohy validují všechny podporované režimy,
+- pauza, minimalizace a obnovení zachovají stav časovaných režimů,
+- historie použije uložený název a detail i pro systémové kroky režimů,
 - lint, TypeScript, produkční build a cílené testy projdou.
 
 ## Mimo rozsah
 
-- obecný intervalový editor a nové typy bloků,
-- automatické časování pracovních cviků v manuálním bloku,
-- změna pořadí nebo obsahu existujících tréninkových programů,
-- další funkce plánované po fázi 3A.
+- samostatné počítadlo dokončených kol uvnitř AMRAP,
+- vnořené nebo kombinované režimy uvnitř jednoho bloku,
+- automatická změna programu podle výkonu; ta patří do fáze 3C,
+- přepisování již uložených starších tréninků.

@@ -1,6 +1,6 @@
 import type { WorkoutBlock, WorkoutCategory, WorkoutTemplate } from "./types";
 
-export const TRAINING_CATALOG_VERSION = 1;
+export const TRAINING_CATALOG_VERSION = 2;
 
 const seedTimestamp = "2026-07-19T00:00:00.000Z";
 
@@ -57,6 +57,60 @@ function emom(
     type: "emom",
     title,
     minutes,
+    steps: steps.map(([name, detail], index) => ({
+      id: `${templateId}-${key}-${index + 1}`,
+      name,
+      detail,
+    })),
+  };
+}
+
+function forTime(
+  templateId: string,
+  key: string,
+  title: string,
+  rounds: number,
+  restSeconds: number,
+  steps: StepInput[],
+  restName = "Odpočinek",
+  restDetail = "Připrav se na další kolo.",
+): WorkoutBlock {
+  return {
+    id: `${templateId}-${key}`,
+    type: "for-time",
+    title,
+    rounds,
+    restSeconds,
+    restName,
+    restDetail,
+    steps: steps.map(([name, detail], index) => ({
+      id: `${templateId}-${key}-${index + 1}`,
+      name,
+      detail,
+    })),
+  };
+}
+
+function interval(
+  templateId: string,
+  key: string,
+  title: string,
+  rounds: number,
+  workSeconds: number,
+  restSeconds: number,
+  steps: StepInput[],
+  restName = "Odpočinek",
+  restDetail = "Připrav se na další interval.",
+): WorkoutBlock {
+  return {
+    id: `${templateId}-${key}`,
+    type: "interval",
+    title,
+    rounds,
+    workSeconds,
+    restSeconds,
+    restName,
+    restDetail,
     steps: steps.map(([name, detail], index) => ({
       id: `${templateId}-${key}-${index + 1}`,
       name,
@@ -173,10 +227,9 @@ export const TRAINING_CATALOG: WorkoutTemplate[] = [
         ["8 min velmi lehce", "Začni chůzí a plynule přejdi do klusu."],
         ["3× 20 s svižně", "Mezi úseky 40 s lehce; bez maximálního sprintu."],
       ]),
-      manual(baseEngine01, "main", "3 aerobní bloky", 3, [
-        ["8 min lehký běh", "Drž Z2 a uvolněná ramena."],
-        ["2 min svižná chůze", "Srovnej dech, nezastavuj se."],
-      ]),
+      interval(baseEngine01, "main", "3 aerobní bloky", 3, 480, 120, [
+        ["Lehký běh", "8 min · drž Z2 a uvolněná ramena."],
+      ], "Svižná chůze", "2 min · srovnej dech, nezastavuj se."),
       manual(baseEngine01, "cooldown", "Zklidnění", 1, [
         ["5 min chůze a mobilita", "Kotníky, lýtka a flexory kyčlí."],
       ]),
@@ -294,13 +347,12 @@ export const TRAINING_CATALOG: WorkoutTemplate[] = [
         ["6 min lehký ergometr", "Klidné tempo."],
         ["2 kola aktivace", "8 glute bridge · 8 dřepů · 6 výpadů na stranu · 20 s plank."],
       ]),
-      manual(strength01, "main", "4 kvalitní kola", 4, [
+      forTime(strength01, "main", "4 kvalitní kola", 4, 90, [
         ["8 goblet squats", "RPE 6–7, pevný střed těla."],
         ["8 rumunských mrtvých tahů", "Kontrolovaný pohyb, neutrální záda."],
         ["8 split squats na každou nohu", "Rozsah bez ztráty stability."],
         ["40 m farmers carry", "Vzpřímený trup a pevný úchop."],
-        ["90 s odpočinek", "Další kolo začni s připravenou technikou."],
-      ]),
+      ], "Odpočinek", "90 s · další kolo začni s připravenou technikou."),
       manual(strength01, "cooldown", "Mobilita", 1, [
         ["5 min lehce", "Kyčle, hýždě a hrudní páteř."],
       ]),
@@ -327,12 +379,11 @@ export const TRAINING_CATALOG: WorkoutTemplate[] = [
         ["8 min lehký běh nebo ergometr", "Postupně zvyšuj teplotu těla."],
         ["3 lehké nájezdy na saně", "Krátký tlak i tah s lehkou váhou."],
       ]),
-      manual(strength02, "main", "5 silových kol", 5, [
+      forTime(strength02, "main", "5 silových kol", 5, 120, [
         ["12,5 m sled push", "Tréninková váha, se kterou úsek dokončíš bez zastavení."],
         ["12,5 m sled pull", "Plynulé kroky vzad a rychlé dobírání lana."],
         ["10 sandbag lunges na každou nohu", "Koleno kontrolovaně k podlaze."],
-        ["2 min odpočinek", "Další kolo drž ve stejné kvalitě."],
-      ]),
+      ], "Odpočinek", "2 min · další kolo drž ve stejné kvalitě."),
       manual(strength02, "cooldown", "Zklidnění", 1, [
         ["5 min volně", "Vychození a mobilita lýtek, kyčlí a zad."],
       ]),
@@ -359,13 +410,12 @@ export const TRAINING_CATALOG: WorkoutTemplate[] = [
         ["10 min lehce", "Běh nebo ergometr a dynamická mobilita."],
         ["3 postupné série", "Sled push, sled pull a wall balls s rostoucí tréninkovou váhou."],
       ]),
-      manual(strength03, "main", "4 těžká kola", 4, [
+      forTime(strength03, "main", "4 těžká kola", 4, 180, [
         ["25 m sled push", "Těžká, ale technicky zvládnutelná tréninková váha."],
         ["25 m sled pull", "Trup stabilní, lano vždy rychle dobírej."],
         ["20 m sandbag lunges", "Bez odkládání bagu uprostřed úseku."],
         ["15 wall balls", "Jedna až dvě plánované série."],
-        ["3 min odpočinek", "Nezkracuj odpočinek na úkor techniky."],
-      ]),
+      ], "Odpočinek", "3 min · nezkracuj odpočinek na úkor techniky."),
       manual(strength03, "cooldown", "Zklidnění", 1, [
         ["8 min velmi lehce", "Chůze, mobilita a klidné dýchání."],
       ]),
@@ -391,10 +441,9 @@ export const TRAINING_CATALOG: WorkoutTemplate[] = [
       manual(threshold01, "warmup", "Běžecký warm-up", 1, [
         ["12 min lehký běh", "Na konci 4× 20 s svižně s 40 s lehce."],
       ]),
-      manual(threshold01, "main", "6 intervalů", 6, [
+      forTime(threshold01, "main", "6 intervalů", 6, 90, [
         ["400 m svižně", "Kontrolované tempo, všech šest úseků podobně rychle."],
-        ["90 s lehký klus nebo chůze", "Srovnej dech, ale nezastavuj úplně."],
-      ]),
+      ], "Lehký klus nebo chůze", "90 s · srovnej dech, ale nezastavuj úplně."),
       manual(threshold01, "cooldown", "Výklus", 1, [
         ["8 min lehce", "Postupně zpomal až do chůze."],
       ]),
@@ -420,10 +469,9 @@ export const TRAINING_CATALOG: WorkoutTemplate[] = [
       manual(threshold02, "warmup", "Rozběhání", 1, [
         ["12 min lehce", "Přidej 4 krátká zrychlení."],
       ]),
-      manual(threshold02, "main", "4× 1 km", 4, [
+      forTime(threshold02, "main", "4× 1 km", 4, 120, [
         ["1 km v cílovém tempu", "První úsek nejvýše stejně rychlý jako poslední."],
-        ["2 min lehký klus", "Aktivní zotavení."],
-      ]),
+      ], "Lehký klus", "2 min aktivní zotavení."),
       manual(threshold02, "cooldown", "Výklus", 1, [
         ["10 min lehce", "Volné tempo a následná mobilita."],
       ]),
@@ -450,11 +498,10 @@ export const TRAINING_CATALOG: WorkoutTemplate[] = [
         ["12 min lehký běh", "Na konci 4 zrychlení."],
         ["500 m lehký SkiErg nebo row", "Připrav techniku záběru."],
       ]),
-      manual(threshold03, "main", "5 kompromitovaných kol", 5, [
+      forTime(threshold03, "main", "5 kompromitovaných kol", 5, 90, [
         ["1 km běh", "Cílové tempo, žádný finiš v prvních kolech."],
         ["250 m SkiErg nebo veslo", "Stroje střídej po kolech, RPE 8."],
-        ["90 s lehce", "Chůze nebo klus, srovnej dech."],
-      ]),
+      ], "Lehce", "90 s chůze nebo klus · srovnej dech."),
       manual(threshold03, "cooldown", "Výklus", 1, [
         ["8–10 min lehce", "Postupné zklidnění."],
       ]),

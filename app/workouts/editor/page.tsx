@@ -5,16 +5,17 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { PlanningShell } from "@/components/planning/PlanningShell";
 import { useHyroxData } from "@/hooks/useHyroxData";
 import type { NewWorkoutTemplate, WorkoutBlock, WorkoutMetadata, WorkoutStep } from "@/lib/types";
+import { convertWorkoutBlock, createWorkoutBlock, WORKOUT_BLOCK_TYPES, workoutBlockTypeDescription, workoutBlockTypeLabel, type WorkoutBlockType } from "@/lib/workout-blocks";
 import { emptyMetadata, normalizeMetadata, WORKOUT_CATEGORIES } from "@/lib/workout-metadata";
 
 const inputClass = "ui-field mt-2 placeholder:text-zinc-500";
 const uid = () => crypto.randomUUID();
 const blankStep = (): WorkoutStep => ({ id: uid(), name: "", detail: "" });
-const blankManualBlock = (): WorkoutBlock => ({ id: uid(), type: "manual", title: "Nový blok", repeat: 1, steps: [blankStep()] });
+const blankBlock = (type: WorkoutBlockType = "manual") => createWorkoutBlock(type, uid(), blankStep());
 const normalizeTags = (value: string) => Array.from(new Set(value.split(",").map((tag) => tag.trim().toLowerCase()).filter(Boolean)));
 
 function emptyDraft(): NewWorkoutTemplate {
-  return { title: "", description: "", durationMinutes: 45, tags: [], metadata: emptyMetadata(), blocks: [blankManualBlock()] };
+  return { title: "", description: "", durationMinutes: 45, tags: [], metadata: emptyMetadata(), blocks: [blankBlock()] };
 }
 
 function EditorContent() {
@@ -23,6 +24,7 @@ function EditorContent() {
   const editId = searchParams.get("id");
   const { data, ready, createTemplate, updateTemplate } = useHyroxData();
   const [editedDraft, setDraft] = useState<NewWorkoutTemplate | null>(null);
+  const [newBlockType, setNewBlockType] = useState<WorkoutBlockType>("manual");
   const [error, setError] = useState("");
   const template = editId ? data.templates.find((item) => item.id === editId) : undefined;
   const knownTags = useMemo(() => Array.from(new Set(data.templates.flatMap((item) => item.tags ?? []))).sort(), [data.templates]);
@@ -52,7 +54,7 @@ function EditorContent() {
     const cleanDraft: NewWorkoutTemplate = {
       ...draft, title, description: draft.description.trim(), durationMinutes: Math.max(1, draft.durationMinutes),
       tags: normalizeTags((draft.tags ?? []).join(",")), metadata: normalizeMetadata(draft.metadata),
-      blocks: draft.blocks.map((block) => ({ ...block, title: block.title.trim() || (block.type === "emom" ? "EMOM" : "Tréninkový blok"), steps: block.steps.map((step) => ({ ...step, name: step.name.trim(), detail: step.detail.trim() })) })),
+      blocks: draft.blocks.map((block) => ({ ...block, title: block.title.trim() || workoutBlockTypeLabel(block.type), steps: block.steps.map((step) => ({ ...step, name: step.name.trim(), detail: step.detail.trim() })) })),
     };
     if (editId) updateTemplate(editId, cleanDraft); else createTemplate(cleanDraft);
     router.push("/workouts");
@@ -85,15 +87,28 @@ function EditorContent() {
     </section>
 
     <div className="mt-6 space-y-4">{draft.blocks.map((block, blockIndex) => <section key={block.id} className="ui-card p-5">
-      <div className="flex items-center justify-between"><span className="ui-chip ui-chip-accent uppercase">{block.type === "emom" ? "EMOM" : "Manuální"}</span><div className="flex gap-1"><SmallButton label="Nahoru" onClick={() => moveBlock(blockIndex, -1)}>↑</SmallButton><SmallButton label="Dolů" onClick={() => moveBlock(blockIndex, 1)}>↓</SmallButton><SmallButton label="Smazat" onClick={() => setDraft({ ...draft, blocks: draft.blocks.filter((_, i) => i !== blockIndex) })}>×</SmallButton></div></div>
+      <div className="flex items-center justify-between gap-3"><span className="ui-chip ui-chip-accent uppercase">{workoutBlockTypeLabel(block.type)}</span><div className="flex gap-1"><SmallButton label="Nahoru" onClick={() => moveBlock(blockIndex, -1)}>↑</SmallButton><SmallButton label="Dolů" onClick={() => moveBlock(blockIndex, 1)}>↓</SmallButton><SmallButton label="Smazat" onClick={() => setDraft({ ...draft, blocks: draft.blocks.filter((_, i) => i !== blockIndex) })}>×</SmallButton></div></div>
+      <label className="mt-4 block text-sm font-bold text-zinc-300">Režim bloku<select value={block.type} onChange={(event) => replaceBlock(blockIndex, convertWorkoutBlock(block, event.target.value as WorkoutBlockType))} className={inputClass}>{WORKOUT_BLOCK_TYPES.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+      <p className="mt-2 text-xs leading-5 text-zinc-500">{workoutBlockTypeDescription(block.type)}</p>
       <input value={block.title} onChange={(e) => replaceBlock(blockIndex, { ...block, title: e.target.value })} className={`${inputClass} mt-4 font-bold`} />
-      <label className="mt-4 block text-sm text-zinc-400">{block.type === "emom" ? "Počet minut" : "Počet kol"}</label><input type="number" min={1} value={block.type === "emom" ? block.minutes : block.repeat} onChange={(e) => { const value = Math.max(1, Number(e.target.value) || 1); replaceBlock(blockIndex, block.type === "emom" ? { ...block, minutes: value } : { ...block, repeat: value }); }} className={`${inputClass} max-w-32`} />
+      <BlockSettings block={block} onChange={(nextBlock) => replaceBlock(blockIndex, nextBlock)} />
       <div className="mt-5 space-y-3">{block.steps.map((step, stepIndex) => <div key={step.id} className="ui-inset p-4"><div className="flex items-center gap-2"><span className="text-xs font-black text-zinc-500">{stepIndex + 1}</span><input value={step.name} onChange={(e) => updateStep(blockIndex, stepIndex, { name: e.target.value })} placeholder="Cvik" className="min-w-0 flex-1 bg-transparent font-bold outline-none" /><SmallButton label="Nahoru" onClick={() => moveStep(blockIndex, stepIndex, -1)}>↑</SmallButton><SmallButton label="Dolů" onClick={() => moveStep(blockIndex, stepIndex, 1)}>↓</SmallButton><SmallButton label="Smazat" onClick={() => replaceBlock(blockIndex, { ...block, steps: block.steps.filter((_, i) => i !== stepIndex) })}>×</SmallButton></div><input value={step.detail} onChange={(e) => updateStep(blockIndex, stepIndex, { detail: e.target.value })} placeholder="Detail, tempo nebo váha" className="mt-3 w-full bg-transparent text-sm text-zinc-400 outline-none" /></div>)}</div>
       <button type="button" onClick={() => replaceBlock(blockIndex, { ...block, steps: [...block.steps, blankStep()] })} className="ui-button ui-button-outline ui-button-sm mt-4 w-full border-dashed">+ Přidat cvik</button>
     </section>)}</div>
-    <div className="mt-5 grid grid-cols-2 gap-3"><button type="button" onClick={() => setDraft({ ...draft, blocks: [...draft.blocks, blankManualBlock()] })} className="ui-button ui-button-outline">+ Blok</button><button type="button" onClick={() => setDraft({ ...draft, blocks: [...draft.blocks, { id: uid(), type: "emom", title: "EMOM", minutes: 6, steps: [blankStep()] }] })} className="ui-button ui-button-secondary">+ EMOM</button></div>
+    <div className="ui-card mt-5 p-4"><label className="block text-sm font-bold text-zinc-300">Nový režim<select value={newBlockType} onChange={(event) => setNewBlockType(event.target.value as WorkoutBlockType)} className={inputClass}>{WORKOUT_BLOCK_TYPES.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label><p className="mt-2 text-xs leading-5 text-zinc-500">{workoutBlockTypeDescription(newBlockType)}</p><button type="button" onClick={() => setDraft({ ...draft, blocks: [...draft.blocks, blankBlock(newBlockType)] })} className="ui-button ui-button-secondary mt-3 w-full">+ Přidat {workoutBlockTypeLabel(newBlockType)}</button></div>
     {error && <p role="alert" className="ui-feedback ui-feedback-danger mt-5 text-sm font-semibold">{error}</p>}<button type="button" onClick={save} className="ui-button ui-button-primary ui-button-lg mt-6 w-full">Uložit trénink</button>
   </PlanningShell>;
+}
+
+function BlockSettings({ block, onChange }: { block: WorkoutBlock; onChange: (block: WorkoutBlock) => void }) {
+  if (block.type === "manual") return <NumberField label="Počet kol" min={1} value={block.repeat} onChange={(value) => onChange({ ...block, repeat: Math.max(1, value) })} />;
+  if (block.type === "emom" || block.type === "amrap") return <NumberField label="Délka bloku (min)" min={1} value={block.minutes} onChange={(value) => onChange({ ...block, minutes: Math.max(1, value) })} />;
+  if (block.type === "for-time") return <div className="grid gap-3 sm:grid-cols-2"><NumberField label="Počet kol" min={1} value={block.rounds} onChange={(value) => onChange({ ...block, rounds: Math.max(1, value) })} /><NumberField label="Odpočinek mezi koly (s)" min={0} value={block.restSeconds} onChange={(value) => onChange({ ...block, restSeconds: Math.max(0, value) })} /></div>;
+  return <div className="grid gap-3 sm:grid-cols-3"><NumberField label="Počet intervalů" min={1} value={block.rounds} onChange={(value) => onChange({ ...block, rounds: Math.max(1, value) })} /><NumberField label="Práce (s)" min={1} value={block.workSeconds} onChange={(value) => onChange({ ...block, workSeconds: Math.max(1, value) })} /><NumberField label="Odpočinek (s)" min={0} value={block.restSeconds} onChange={(value) => onChange({ ...block, restSeconds: Math.max(0, value) })} /></div>;
+}
+
+function NumberField({ label, min, value, onChange }: { label: string; min: number; value: number; onChange: (value: number) => void }) {
+  return <label className="mt-4 block text-sm text-zinc-400">{label}<input type="number" inputMode="numeric" min={min} value={value} onChange={(event) => onChange(Number(event.target.value) || min)} className={`${inputClass} max-w-full`} /></label>;
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) { return <label className="mt-5 block font-bold">{label}{children}</label>; }

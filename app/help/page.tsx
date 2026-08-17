@@ -1,6 +1,6 @@
 "use client";
 
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useState } from "react";
 import { PlanningShell } from "@/components/planning/PlanningShell";
 import { loadCloudUser, requestPasswordReset } from "@/lib/firebase-rest";
 import {
@@ -45,7 +45,7 @@ const faqItems = [
 ] as const;
 
 export default function HelpPage() {
-  const [resetEmail, setResetEmail] = useState("");
+  const [resetEmail, setResetEmail] = useState(() => loadCloudUser()?.email ?? "");
   const [resetBusy, setResetBusy] = useState(false);
   const [resetMessage, setResetMessage] = useState<{
     tone: "success" | "danger";
@@ -53,10 +53,6 @@ export default function HelpPage() {
   } | null>(null);
   const [supportType, setSupportType] = useState<SupportType>("technical");
   const [supportMessage, setSupportMessage] = useState("");
-
-  useEffect(() => {
-    setResetEmail(loadCloudUser()?.email ?? "");
-  }, []);
 
   async function resetPassword(event: FormEvent) {
     event.preventDefault();

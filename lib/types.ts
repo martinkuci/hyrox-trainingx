@@ -1,7 +1,18 @@
 export type WorkoutStep = { id: string; name: string; detail: string };
 export type ManualWorkoutBlock = { id: string; type: "manual"; title: string; repeat: number; steps: WorkoutStep[] };
+export type TimedRecoveryFields = { restSeconds: number; restName?: string; restDetail?: string };
+export type ForTimeWorkoutBlock = { id: string; type: "for-time"; title: string; rounds: number; steps: WorkoutStep[] } & TimedRecoveryFields;
+export type IntervalWorkoutBlock = { id: string; type: "interval"; title: string; rounds: number; workSeconds: number; steps: WorkoutStep[] } & TimedRecoveryFields;
+export type TabataWorkoutBlock = { id: string; type: "tabata"; title: string; rounds: number; workSeconds: number; steps: WorkoutStep[] } & TimedRecoveryFields;
 export type EmomWorkoutBlock = { id: string; type: "emom"; title: string; minutes: number; steps: WorkoutStep[] };
-export type WorkoutBlock = ManualWorkoutBlock | EmomWorkoutBlock;
+export type AmrapWorkoutBlock = { id: string; type: "amrap"; title: string; minutes: number; steps: WorkoutStep[] };
+export type WorkoutBlock =
+  | ManualWorkoutBlock
+  | ForTimeWorkoutBlock
+  | IntervalWorkoutBlock
+  | TabataWorkoutBlock
+  | EmomWorkoutBlock
+  | AmrapWorkoutBlock;
 
 export type WorkoutCategory =
   | "base-engine"

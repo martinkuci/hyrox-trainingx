@@ -62,6 +62,22 @@ test("accepts the complete built-in training catalog", () => {
   assert.deepEqual(restored.backup.data.templates, TRAINING_CATALOG);
 });
 
+test("accepts every structured workout mode", () => {
+  const data = createData();
+  const step = { id: "step-1", name: "SkiErg", detail: "250 m" };
+  data.templates[0].blocks = [
+    { id: "manual", type: "manual", title: "Manual", repeat: 1, steps: [step] },
+    { id: "for-time", type: "for-time", title: "For Time", rounds: 3, restSeconds: 60, steps: [step] },
+    { id: "interval", type: "interval", title: "Interval", rounds: 6, workSeconds: 45, restSeconds: 15, steps: [step] },
+    { id: "tabata", type: "tabata", title: "TABATA", rounds: 8, workSeconds: 20, restSeconds: 10, steps: [step] },
+    { id: "emom", type: "emom", title: "EMOM", minutes: 8, steps: [step] },
+    { id: "amrap", type: "amrap", title: "AMRAP", minutes: 12, steps: [step] },
+  ];
+
+  const restored = parseHyroxBackupText(serializeHyroxBackup(data));
+  assert.equal(restored.backup.data.templates[0].blocks.length, 6);
+});
+
 test("accepts the older direct hyrox-data-v1 object", () => {
   const data = createData();
   const restored = parseHyroxBackupText(JSON.stringify(data));

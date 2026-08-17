@@ -12,7 +12,7 @@ import {
   buildWeeklyActivity,
 } from "@/lib/training-insights";
 import type { ComparableWorkout, TrainingOverview, WeeklyActivity } from "@/lib/training-insights";
-import type { WorkoutResult } from "@/lib/types";
+import type { StepSplit, WorkoutResult } from "@/lib/types";
 
 function formatDuration(seconds: number) {
   const hours = Math.floor(seconds / 3600);
@@ -52,11 +52,17 @@ export default function HistoryPage() {
     };
   }, [data.results, data.templates, ready]);
 
-  function describeSplit(result: WorkoutResult, blockId: string, stepId: string, round: number) {
+  function describeSplit(result: WorkoutResult, split: StepSplit) {
     const template = data.templates.find((item) => item.id === result.templateId);
-    const block = template?.blocks.find((item) => item.id === blockId);
-    const step = block?.steps.find((item) => item.id === stepId);
-    return { blockTitle: block?.title ?? "Neznámý blok", stepTitle: step?.name ?? "Neznámý cvik", detail: step?.detail ?? "", round, isEmom: block?.type === "emom" };
+    const block = template?.blocks.find((item) => item.id === split.blockId);
+    const step = block?.steps.find((item) => item.id === split.stepId);
+    return {
+      blockTitle: block?.title ?? split.blockTitle ?? "Neznámý blok",
+      stepTitle: step?.name ?? split.stepName ?? "Neznámý cvik",
+      detail: step?.detail ?? split.stepDetail ?? "",
+      round: split.round,
+      isEmom: block?.type === "emom",
+    };
   }
 
   return (
@@ -98,7 +104,7 @@ export default function HistoryPage() {
           {results.map((result) => {
             const expanded = expandedId === result.id;
             const mode = viewMode[result.id] ?? "chronological";
-            const described = result.splits.map((split, index) => ({ split, index, info: describeSplit(result, split.blockId, split.stepId, split.round) }));
+            const described = result.splits.map((split, index) => ({ split, index, info: describeSplit(result, split) }));
             const groups = Array.from(described.reduce((map, item) => {
               const key = `${item.split.blockId}::${item.split.stepId}`;
               const group = map.get(key) ?? { key, title: item.info.stepTitle, detail: item.info.detail, blockTitle: item.info.blockTitle, isEmom: item.info.isEmom, items: [] as typeof described };
