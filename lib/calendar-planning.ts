@@ -37,6 +37,40 @@ export type ScheduleMovePlan =
       suggestedDate?: string;
     };
 
+export type ProgramCalendarChoice = {
+  id: string;
+  name: string;
+  stored: boolean;
+};
+
+export function listProgramCalendarChoices(
+  programs: TrainingProgram[],
+  schedules: ScheduledWorkout[],
+): ProgramCalendarChoice[] {
+  const choices = programs.map((program) => ({
+    id: program.id,
+    name: program.name,
+    stored: true,
+  }));
+  const knownIds = new Set(choices.map((choice) => choice.id));
+  const orphanIds = Array.from(new Set(
+    schedules
+      .map((schedule) => schedule.programId)
+      .filter((id): id is string => typeof id === "string" && id.length > 0 && !knownIds.has(id)),
+  ));
+
+  return [
+    ...choices,
+    ...orphanIds.map((id, index) => ({
+      id,
+      name: orphanIds.length === 1
+        ? "Program v kalendáři"
+        : `Program v kalendáři ${index + 1}`,
+      stored: false,
+    })),
+  ];
+}
+
 type PlanMoveInput = {
   selectedId: string;
   targetDate: string;

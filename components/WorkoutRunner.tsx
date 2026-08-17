@@ -17,36 +17,11 @@ import {
   type CheckpointRunnerMode,
   type WorkoutCheckpoint,
 } from "@/lib/workout-checkpoint";
-
-type RunnableStep = {
-  blockId: string;
-  stepId: string;
-  blockTitle: string;
-  round: number;
-  roundCount: number;
-  name: string;
-  detail: string;
-  durationSeconds?: number;
-  emomMinute?: number;
-  emomMinutes?: number;
-};
+import { flattenWorkoutTemplate, type RunnableStep } from "@/lib/workout-runner-steps";
 
 type RunnerMode = "overview" | "block-preview" | "block-feedback" | "countdown" | "running" | "finished";
 
 type WorkoutRunnerProps = { template: WorkoutTemplate; scheduledWorkoutId?: string };
-
-function flattenTemplate(template: WorkoutTemplate): RunnableStep[] {
-  return template.blocks.flatMap((block) => {
-    if (block.type === "emom") {
-      if (block.steps.length === 0) return [];
-      return Array.from({ length: block.minutes }, (_, minute) => {
-        const step = block.steps[minute % block.steps.length];
-        return { blockId: block.id, stepId: step.id, blockTitle: block.title, round: minute + 1, roundCount: block.minutes, name: step.name, detail: step.detail, durationSeconds: 60, emomMinute: minute + 1, emomMinutes: block.minutes };
-      });
-    }
-    return Array.from({ length: block.repeat }, (_, round) => block.steps.map((step) => ({ blockId: block.id, stepId: step.id, blockTitle: block.title, round: round + 1, roundCount: block.repeat, name: step.name, detail: step.detail }))).flat();
-  });
-}
 
 function formatClock(milliseconds: number) {
   const totalSeconds = Math.max(0, Math.floor(milliseconds / 1000));
@@ -113,7 +88,7 @@ function WorkoutOutline({ template, activeBlockId }: { template: WorkoutTemplate
 
 export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutRunnerProps) {
   const router = useRouter();
-  const steps = useMemo(() => flattenTemplate(template), [template]);
+  const steps = useMemo(() => flattenWorkoutTemplate(template), [template]);
   const workoutKey = useMemo(() => makeWorkoutKey(template.id, scheduledWorkoutId), [scheduledWorkoutId, template.id]);
   const [mode, setMode] = useState<RunnerMode>("overview");
   const [paused, setPaused] = useState(false);
@@ -615,7 +590,7 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
           <h1 className="runner-main-title mt-3 text-[clamp(2.25rem,10vw,3.75rem)] font-black leading-[0.95]">{currentStep.name}</h1>
           {currentStep.detail && <p className="runner-step-detail mx-auto mt-2 max-w-sm text-lg font-semibold leading-6 text-zinc-300">{currentStep.detail}</p>}
           <div className="mt-4 font-mono text-5xl font-black tracking-tight">{formatClock(shownTime)}</div>
-          <p className="mt-1 text-sm text-zinc-500">{paused ? "Časovač je pozastavený" : currentStep.durationSeconds ? "Zbývá v minutě" : "Čas aktuálního úseku"}</p>
+          <p className="mt-1 text-sm text-zinc-500">{paused ? "Časovač je pozastavený" : currentStep.kind === "rest" ? "Zbývá do dalšího kola" : currentStep.durationSeconds ? "Zbývá v minutě" : "Čas aktuálního úseku"}</p>
           <button type="button" onClick={togglePause} aria-pressed={paused} className="ui-choice mx-auto mt-3 min-h-11 rounded-full px-5 text-sm">{paused ? "Pokračovat" : "Pauza"}</button>
           <div className="runner-next-card ui-inset mt-4 flex items-center justify-between gap-3 px-4 py-3 text-left">
             <div className="min-w-0"><p className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">Následuje</p><p className="mt-0.5 truncate font-black">{nextStep ? nextStep.blockId === currentStep.blockId ? nextStep.name : `Hodnocení bloku ${currentStep.blockTitle}` : `Hodnocení bloku ${currentStep.blockTitle}`}</p></div>
@@ -623,7 +598,7 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
           </div>
           <div className="mt-3 h-1 overflow-hidden rounded-full bg-elevated"><div className="h-full rounded-full bg-accent transition-[width] duration-200" style={{ width: `${((currentIndex + 1) / steps.length) * 100}%` }} /></div>
         </section>
-        <button type="button" onClick={advanceManual} disabled={paused} className="ui-button ui-button-primary min-h-13 w-full text-lg">{currentIndex === steps.length - 1 ? "Dokončit blok →" : currentStep.durationSeconds ? "Přeskočit minutu →" : "Hotovo →"}</button>
+        <button type="button" onClick={advanceManual} disabled={paused} className="ui-button ui-button-primary min-h-13 w-full text-lg">{currentIndex === steps.length - 1 ? "Dokončit blok →" : currentStep.kind === "rest" ? "Přeskočit odpočinek →" : currentStep.durationSeconds ? "Přeskočit minutu →" : "Hotovo →"}</button>
         {(checkpointFailed || recoveryNotice) && <LocalSaveStatus failed={checkpointFailed} notice={recoveryNotice} />}
       </div>
 

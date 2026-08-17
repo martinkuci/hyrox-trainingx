@@ -342,6 +342,14 @@ html {
   text-decoration: line-through;
 }
 
+.ui-calendar-item[data-selected="true"] {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #090b0d;
+  box-shadow: 0 0 0 2px rgb(190 242 100 / 0.32), 0 0 18px rgb(190 242 100 / 0.18);
+  text-decoration: none;
+}
+
 .ui-field {
   width: 100%;
   min-height: 3.25rem;
