@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import CloudSyncProvider from "@/components/CloudSyncProvider";
+import OnboardingGuide from "@/components/OnboardingGuide";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -32,7 +33,10 @@ export default function RootLayout({
   return (
     <html lang="cs" className="h-full antialiased">
       <body className="min-h-full">
-        <CloudSyncProvider>{children}</CloudSyncProvider>
+        <CloudSyncProvider>
+          <OnboardingGuide />
+          {children}
+        </CloudSyncProvider>
       </body>
     </html>
   );
