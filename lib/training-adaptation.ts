@@ -1,5 +1,7 @@
 import type {
+  HyroxData,
   ScheduledWorkout,
+  TrainingAdaptationDecision,
   TrainingAdaptationDirection,
   WorkoutMetadata,
   WorkoutResult,
@@ -23,6 +25,17 @@ type AdaptationInput = {
 };
 
 type LoadSignal = "high" | "target" | "low";
+
+const categoryLabels: Record<WorkoutMetadata["category"], string> = {
+  "base-engine": "aerobního základu",
+  "base-builder": "techniky a přechodů",
+  strength: "síly",
+  threshold: "prahového běhu",
+  "race-simulation": "závodní simulace",
+  "long-engine": "dlouhé vytrvalosti",
+  recovery: "regenerace",
+  mixed: "kombinovaného tréninku",
+};
 
 function validRpe(value: number) {
   return Number.isFinite(value) && value >= 1 && value <= 10;
@@ -121,7 +134,7 @@ export function buildTrainingAdaptation({
     if (previousComparable && previousMetadata && loadSignal(previousComparable, previousMetadata) === "low") {
       direction = "increase";
       title = "Můžeš zkusit o stupeň výš";
-      rationale = `Dva poslední tréninky kategorie ${metadata.category} byly lehčí než jejich cílové RPE.`;
+      rationale = `Dva poslední tréninky zaměřené na ${categoryLabels[metadata.category]} byly lehčí než jejich cílové RPE.`;
     } else {
       title = "Ještě jeden kontrolní trénink";
       rationale = `RPE ${latest.rpe} bylo pod cílem ${metadata.targetRpeMin}–${metadata.targetRpeMax}. Pro bezpečné zvýšení obtížnosti počkáme na druhý podobný výsledek.`;
@@ -160,5 +173,47 @@ export function buildTrainingAdaptation({
     targetScheduleId: target.id,
     currentTemplateId: currentTemplate.id,
     recommendedTemplateId: alternative.id,
+  };
+}
+
+export function applyTrainingAdaptationDecision(
+  data: HyroxData,
+  resultId: string,
+  decision: TrainingAdaptationDecision,
+): { ok: boolean; data: HyroxData } {
+  const result = data.results.find((item) => item.id === resultId);
+  const schedule = data.scheduledWorkouts.find((item) => item.id === decision.scheduleId);
+  const original = data.templates.find((template) => template.id === decision.originalTemplateId);
+  const recommended = data.templates.find((template) => template.id === decision.recommendedTemplateId);
+  const expectedDifficultyChange = decision.direction === "increase" ? 1 : -1;
+  const validAlternative = Boolean(
+    original?.metadata &&
+    recommended?.metadata &&
+    original.metadata.category === recommended.metadata.category &&
+    recommended.metadata.difficultyLevel - original.metadata.difficultyLevel === expectedDifficultyChange,
+  );
+
+  if (
+    !result || result.adaptationDecision ||
+    !schedule || schedule.status !== "planned" || schedule.originalTemplateId ||
+    schedule.templateId !== decision.originalTemplateId ||
+    !validAlternative
+  ) {
+    return { ok: false, data };
+  }
+
+  return {
+    ok: true,
+    data: {
+      ...data,
+      scheduledWorkouts: decision.status === "accepted"
+        ? data.scheduledWorkouts.map((item) => item.id === schedule.id
+          ? { ...item, templateId: decision.recommendedTemplateId, originalTemplateId: decision.originalTemplateId }
+          : item)
+        : data.scheduledWorkouts,
+      results: data.results.map((item) => item.id === resultId
+        ? { ...item, adaptationDecision: decision }
+        : item),
+    },
   };
 }

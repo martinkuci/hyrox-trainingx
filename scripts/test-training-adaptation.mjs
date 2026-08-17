@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildTrainingAdaptation } from "../lib/training-adaptation.ts";
+import { applyTrainingAdaptationDecision, buildTrainingAdaptation } from "../lib/training-adaptation.ts";
 
 function template(id, difficulty, category = "strength") {
   return {
@@ -65,6 +65,24 @@ test("one overly hard result proposes the next lighter workout in the same categ
   assert.equal(recommendation.recommendedTemplateId, "strength-1");
 });
 
+test("very hard block feedback can propose a lighter workout even when total RPE is on target", () => {
+  const hardBlocks = {
+    ...result("hard-blocks", 7, "2026-08-18T19:00:00.000Z"),
+    blockFeedbacks: [
+      { blockId: "one", rating: 1 },
+      { blockId: "two", rating: 2 },
+    ],
+  };
+  const recommendation = buildTrainingAdaptation({
+    results: [hardBlocks],
+    templates,
+    scheduledWorkouts: schedules,
+  });
+
+  assert.equal(recommendation.direction, "reduce");
+  assert.equal(recommendation.recommendedTemplateId, "strength-1");
+});
+
 test("one easy result does not increase difficulty", () => {
   const recommendation = buildTrainingAdaptation({
     results: [result("easy", 4, "2026-08-18T19:00:00.000Z")],
@@ -116,4 +134,53 @@ test("dismissed or accepted latest result does not create another recommendation
   };
 
   assert.equal(buildTrainingAdaptation({ results: [decided], templates, scheduledWorkouts: schedules }), null);
+});
+
+test("accepting a valid recommendation changes schedule and result atomically", () => {
+  const sourceResult = result("hard", 9, "2026-08-18T19:00:00.000Z");
+  const data = {
+    version: 1,
+    templates,
+    scheduledWorkouts: schedules,
+    results: [sourceResult],
+    weeklyPlans: [],
+    trainingPrograms: [],
+  };
+  const decision = {
+    status: "accepted",
+    direction: "reduce",
+    scheduleId: "next-strength",
+    originalTemplateId: "strength-2",
+    recommendedTemplateId: "strength-1",
+    decidedAt: "2026-08-18T20:00:00.000Z",
+  };
+  const applied = applyTrainingAdaptationDecision(data, sourceResult.id, decision);
+
+  assert.equal(applied.ok, true);
+  assert.equal(applied.data.scheduledWorkouts.find((item) => item.id === "next-strength").templateId, "strength-1");
+  assert.equal(applied.data.scheduledWorkouts.find((item) => item.id === "next-strength").originalTemplateId, "strength-2");
+  assert.deepEqual(applied.data.results[0].adaptationDecision, decision);
+});
+
+test("a stale recommendation cannot overwrite a manually changed schedule", () => {
+  const sourceResult = result("hard", 9, "2026-08-18T19:00:00.000Z");
+  const data = {
+    version: 1,
+    templates,
+    scheduledWorkouts: schedules.map((schedule) => schedule.id === "next-strength" ? { ...schedule, templateId: "strength-1" } : schedule),
+    results: [sourceResult],
+    weeklyPlans: [],
+    trainingPrograms: [],
+  };
+  const applied = applyTrainingAdaptationDecision(data, sourceResult.id, {
+    status: "accepted",
+    direction: "reduce",
+    scheduleId: "next-strength",
+    originalTemplateId: "strength-2",
+    recommendedTemplateId: "strength-1",
+    decidedAt: "2026-08-18T20:00:00.000Z",
+  });
+
+  assert.equal(applied.ok, false);
+  assert.equal(applied.data, data);
 });
