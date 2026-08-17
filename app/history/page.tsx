@@ -11,8 +11,9 @@ import {
   buildComparableWorkouts,
   buildTrainingPeriodComparison,
   buildWeeklyActivity,
+  buildWorkoutBenchmarks,
 } from "@/lib/training-insights";
-import type { CategoryInsight, ComparableWorkout, TrainingPeriodComparison, WeeklyActivity } from "@/lib/training-insights";
+import type { CategoryInsight, ComparableWorkout, TrainingPeriodComparison, WeeklyActivity, WorkoutBenchmark } from "@/lib/training-insights";
 import type { StepSplit, WorkoutCategory, WorkoutResult } from "@/lib/types";
 
 const insightPeriods = [4, 8, 12] as const;
@@ -66,8 +67,13 @@ export default function HistoryPage() {
       categories: buildCategoryInsights(data.results, data.templates, now, insightPeriod),
       weeks: buildWeeklyActivity(data.results, now, insightPeriod),
       comparisons: buildComparableWorkouts(data.results),
+      benchmarks: buildWorkoutBenchmarks(data.results),
     };
   }, [data.results, data.templates, insightPeriod, ready]);
+  const benchmarkResultIds = useMemo(
+    () => new Set(insights?.benchmarks.flatMap((benchmark) => benchmark.bestResultIds) ?? []),
+    [insights?.benchmarks],
+  );
 
   function describeSplit(result: WorkoutResult, split: StepSplit) {
     const template = data.templates.find((item) => item.id === result.templateId);
@@ -106,6 +112,7 @@ export default function HistoryPage() {
             categories={insights.categories}
             weeks={insights.weeks}
             comparisons={insights.comparisons}
+            benchmarks={insights.benchmarks}
             onPeriodChange={setInsightPeriod}
           />
         )}
@@ -136,7 +143,7 @@ export default function HistoryPage() {
             return (
               <article key={result.id} className="ui-card overflow-hidden">
                 <div className="p-6">
-                  <div className="flex items-start justify-between gap-4"><div><p className="text-sm font-bold text-accent">{new Intl.DateTimeFormat("cs-CZ", { dateStyle: "medium", timeStyle: "short" }).format(new Date(result.completedAt))}</p><h2 className="mt-1 text-2xl font-black">{result.workoutTitle}</h2></div><div className="flex shrink-0 flex-col items-end gap-2">{result.source === "screenshot" ? <span className="ui-chip ui-chip-accent">Screenshot</span> : result.sourceImageName ? <span className="ui-chip border-sky-400/20 bg-sky-400/10 text-sky-300">Data doplněna</span> : null}<span className="ui-chip text-sm">RPE {result.rpe}</span></div></div>
+                  <div className="flex items-start justify-between gap-4"><div><p className="text-sm font-bold text-accent">{new Intl.DateTimeFormat("cs-CZ", { dateStyle: "medium", timeStyle: "short" }).format(new Date(result.completedAt))}</p><h2 className="mt-1 text-2xl font-black">{result.workoutTitle}</h2></div><div className="flex shrink-0 flex-col items-end gap-2">{benchmarkResultIds.has(result.id) && <span className="ui-chip ui-chip-accent">Nejkratší čas</span>}{result.source === "screenshot" ? <span className="ui-chip ui-chip-accent">Screenshot</span> : result.sourceImageName ? <span className="ui-chip border-sky-400/20 bg-sky-400/10 text-sky-300">Data doplněna</span> : null}<span className="ui-chip text-sm">RPE {result.rpe}</span></div></div>
                   <div className="ui-inset mt-5 flex items-end justify-between p-4"><div><p className="text-sm text-zinc-400">Celkový čas</p><p className="mt-1 font-mono text-3xl font-black">{formatDuration(result.durationSeconds)}</p></div><span className="text-sm text-zinc-500">{result.splits.length} úseků</span></div>
                   {result.metrics && Object.values(result.metrics).some((value) => value !== undefined) && <div className="mt-4 grid grid-cols-2 gap-2">{result.metrics.averageHeartRate !== undefined && <ResultMetric label="Průměrný tep" value={result.metrics.averageHeartRate + " bpm"} />}{result.metrics.maxHeartRate !== undefined && <ResultMetric label="Maximální tep" value={result.metrics.maxHeartRate + " bpm"} />}{result.metrics.calories !== undefined && <ResultMetric label="Kalorie" value={result.metrics.calories + " kcal"} />}{result.metrics.distanceKm !== undefined && <ResultMetric label="Vzdálenost" value={result.metrics.distanceKm.toLocaleString("cs-CZ", { maximumFractionDigits: 2 }) + " km"} />}{result.metrics.watchDurationSeconds !== undefined && <ResultMetric label="Čas podle hodinek" value={formatDuration(result.metrics.watchDurationSeconds)} />}</div>}
                   {result.weights && <div className="mt-4"><p className="text-xs font-bold uppercase tracking-wider text-zinc-500">Váhy</p><p className="mt-1 text-zinc-200">{result.weights}</p></div>}
@@ -177,6 +184,7 @@ function TrainingInsights({
   categories,
   weeks,
   comparisons,
+  benchmarks,
   onPeriodChange,
 }: {
   period: TrainingPeriodComparison;
@@ -184,6 +192,7 @@ function TrainingInsights({
   categories: CategoryInsight[];
   weeks: WeeklyActivity[];
   comparisons: ComparableWorkout[];
+  benchmarks: WorkoutBenchmark[];
   onPeriodChange: (weeks: (typeof insightPeriods)[number]) => void;
 }) {
   const maxWeeklyDuration = Math.max(...weeks.map((week) => week.durationSeconds), 1);
@@ -286,6 +295,28 @@ function TrainingInsights({
         )}
       </section>
 
+      <section className="ui-card ui-card-accent p-5 sm:p-6" aria-labelledby="benchmarks-title">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-accent">Fáze 4C</p>
+            <h2 id="benchmarks-title" className="mt-1 text-xl font-black">Osobní benchmarky</h2>
+          </div>
+          <span className="ui-chip ui-chip-accent">Stejná verze</span>
+        </div>
+        {benchmarks.length === 0 ? (
+          <div className="ui-feedback mt-5 text-sm leading-6">
+            Benchmark se objeví po druhém platném dokončení stejné verze tréninku.
+          </div>
+        ) : (
+          <div className="mt-5 space-y-3">
+            {benchmarks.map((benchmark) => <WorkoutBenchmarkCard key={benchmark.key} benchmark={benchmark} />)}
+          </div>
+        )}
+        <p className="mt-4 text-xs leading-5 text-zinc-500">
+          Nejkratší čas je pouze osobní záznam. Nezohledňuje podmínky, změnu zátěže ani kvalitu provedení.
+        </p>
+      </section>
+
       <section className="ui-card p-5 sm:p-6" aria-labelledby="comparisons-title">
         <p className="text-xs font-black uppercase tracking-[0.2em] text-accent">Vývoj výkonu</p>
         <h2 id="comparisons-title" className="mt-1 text-xl font-black">Opakované tréninky</h2>
@@ -303,6 +334,45 @@ function TrainingInsights({
       </section>
     </div>
   );
+}
+
+function WorkoutBenchmarkCard({ benchmark }: { benchmark: WorkoutBenchmark }) {
+  const status = benchmark.latestStatus === "new-best"
+    ? `Nové minimum ${formatSignedPercent(benchmark.latestDifferencePercent)}`
+    : benchmark.latestStatus === "matched-best"
+      ? "Vyrovnané minimum"
+      : `${formatSignedPercent(benchmark.latestDifferencePercent)} nad minimem`;
+
+  return (
+    <article className="ui-inset p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="font-black text-zinc-100">{benchmark.title}</h3>
+          <p className="mt-1 text-xs text-zinc-500">
+            {benchmark.workoutCode && benchmark.templateVersion
+              ? `${benchmark.workoutCode} · verze ${benchmark.templateVersion}`
+              : "Stejná původní šablona"}
+          </p>
+        </div>
+        <span className={`ui-chip shrink-0 ${benchmark.latestStatus === "new-best" ? "ui-chip-accent" : ""}`}>
+          {benchmark.attemptCount}×
+        </span>
+      </div>
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        <ResultMetric label="Nejkratší čas" value={formatDuration(benchmark.bestDurationSeconds)} />
+        <ResultMetric label="Poslední pokus" value={formatDuration(benchmark.latestDurationSeconds)} />
+      </div>
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs">
+        <span className="font-bold text-accent">{status}</span>
+        <span className="text-zinc-500">poprvé {formatShortDate(benchmark.bestCompletedAt)}</span>
+      </div>
+    </article>
+  );
+}
+
+function formatSignedPercent(value: number) {
+  if (value === 0) return "0 %";
+  return `${value > 0 ? "+" : "−"}${Math.abs(value).toLocaleString("cs-CZ")} %`;
 }
 
 function InsightMetric({ label, value, comparison }: { label: string; value: string; comparison?: string }) {
