@@ -2,9 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { listProgramCalendarChoices } from "../lib/calendar-planning.ts";
 import {
+  countdownCueSecond,
   flattenWorkoutTemplate,
   timedRestDurationSeconds,
 } from "../lib/workout-runner-steps.ts";
+import { TRAINING_CATALOG } from "../lib/training-catalog.ts";
 
 function templateWith(block) {
   return {
@@ -44,6 +46,44 @@ test("délku odpočinku načte ze sekund i minut", () => {
   assert.equal(timedRestDurationSeconds({ id: "1", name: "Odpočinek", detail: "90 sekund" }), 90);
   assert.equal(timedRestDurationSeconds({ id: "2", name: "2 min pauza", detail: "" }), 120);
   assert.equal(timedRestDurationSeconds({ id: "3", name: "2 min svižná chůze", detail: "" }), undefined);
+});
+
+test("časuje také aktivní zotavení v intervalových blocích", () => {
+  assert.equal(timedRestDurationSeconds({ id: "1", name: "90 s lehký klus", detail: "Srovnej dech." }), 90);
+  assert.equal(timedRestDurationSeconds({ id: "2", name: "2 min lehký klus", detail: "Aktivní zotavení." }), 120);
+  assert.equal(timedRestDurationSeconds({ id: "3", name: "90 s easy", detail: "Recovery." }), 90);
+});
+
+test("všechny časované pauzy a zotavení v katalogu používají intervalový režim", () => {
+  const expected = new Map([
+    ["catalog-base-engine-01", 120],
+    ["catalog-strength-01", 90],
+    ["catalog-strength-02", 120],
+    ["catalog-strength-03", 180],
+    ["catalog-threshold-01", 90],
+    ["catalog-threshold-02", 120],
+    ["catalog-threshold-03", 90],
+  ]);
+
+  for (const [templateId, durationSeconds] of expected) {
+    const template = TRAINING_CATALOG.find((item) => item.id === templateId);
+    assert.ok(template, `Chybí šablona ${templateId}`);
+    const mainBlock = template.blocks.find((block) => block.id.endsWith("-main"));
+    assert.ok(mainBlock?.type === "manual", `Chybí manuální hlavní blok ${templateId}`);
+    const rests = flattenWorkoutTemplate(template).filter(
+      (step) => step.blockId === mainBlock.id && step.kind === "rest",
+    );
+    assert.equal(rests.length, mainBlock.repeat - 1, templateId);
+    assert.ok(rests.every((step) => step.durationSeconds === durationSeconds), templateId);
+  }
+});
+
+test("zvukový signál se aktivuje jen v posledních třech sekundách", () => {
+  assert.equal(countdownCueSecond(60, 56_000), undefined);
+  assert.equal(countdownCueSecond(60, 56_500), 3);
+  assert.equal(countdownCueSecond(60, 57_200), 2);
+  assert.equal(countdownCueSecond(60, 58_100), 1);
+  assert.equal(countdownCueSecond(60, 60_000), undefined);
 });
 
 test("běžný manuální blok se nezmění", () => {

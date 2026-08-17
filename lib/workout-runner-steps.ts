@@ -1,5 +1,10 @@
 import type { WorkoutStep, WorkoutTemplate } from "./types";
 
+const DIACRITICS_PATTERN = /[\u0300-\u036f]/g;
+const RECOVERY_PATTERN = /\b(odpocinek|odpocinku|pauza|rest|recovery|recover|zotaveni)\b|srovnej dech|vydychej/;
+const MINUTES_PATTERN = /(\d+(?:[.,]\d+)?)\s*(?:min|minuta|minuty|minut)\b/;
+const SECONDS_PATTERN = /(\d+(?:[.,]\d+)?)\s*(?:s|sec|sek|sekunda|sekundy|sekund)\b/;
+
 export type RunnableStep = {
   blockId: string;
   stepId: string;
@@ -17,21 +22,28 @@ export type RunnableStep = {
 function normalized(value: string) {
   return value
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
+    .replace(DIACRITICS_PATTERN, "")
     .toLowerCase();
 }
 
 export function timedRestDurationSeconds(step: WorkoutStep) {
   const text = normalized(`${step.name} ${step.detail}`);
-  if (!/\b(odpocinek|odpocinku|pauza|rest)\b/.test(text)) return undefined;
+  if (!RECOVERY_PATTERN.test(text)) return undefined;
 
-  const minutes = text.match(/(\d+(?:[.,]\d+)?)\s*(?:min|minuta|minuty|minut)\b/);
+  const minutes = text.match(MINUTES_PATTERN);
   if (minutes) return Math.max(1, Math.round(Number(minutes[1].replace(",", ".")) * 60));
 
-  const seconds = text.match(/(\d+(?:[.,]\d+)?)\s*(?:s|sec|sek|sekunda|sekundy|sekund)\b/);
+  const seconds = text.match(SECONDS_PATTERN);
   if (seconds) return Math.max(1, Math.round(Number(seconds[1].replace(",", "."))));
 
   return undefined;
+}
+
+export function countdownCueSecond(durationSeconds: number, elapsedMilliseconds: number) {
+  const remainingMilliseconds = durationSeconds * 1000 - elapsedMilliseconds;
+  if (remainingMilliseconds <= 0) return undefined;
+  const remainingSeconds = Math.floor(remainingMilliseconds / 1000);
+  return remainingSeconds >= 1 && remainingSeconds <= 3 ? remainingSeconds : undefined;
 }
 
 export function flattenWorkoutTemplate(template: WorkoutTemplate): RunnableStep[] {
