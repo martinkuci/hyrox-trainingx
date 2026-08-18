@@ -56,15 +56,14 @@ Screenshot se používá pouze jako dočasný vstup. Aplikace uloží až hodnot
 ## Kontroly před odesláním
 
 ```bash
-npm run lint
-npm run build
+npm run release:check
 ```
 
-Po změně UI zkontroluj mobilní odsazení, jedinou hlavičku stránky a případnou kolizi se sticky nebo fixed navigací.
+Příkaz ve stejném pořadí spustí lint, všechny automatické testy a produkční build. Stejnou kontrolu používá GitHub CI. Před vydáním verze 1.0 navíc dokonči ruční mobilní scénáře v [`docs/RELEASE_CHECKLIST.md`](docs/RELEASE_CHECKLIST.md).
 
 ## GitHub workflow
 
-Aktuální práce probíhá na větvi `feature/screenshot-result-import`.
+Aktuální feature větev je vždy uvedena v [`docs/CURRENT_TASK.md`](docs/CURRENT_TASK.md).
 
 1. Každý commit obsahuje jeden malý logický krok.
 2. Otevři draft pull request do `main`.
