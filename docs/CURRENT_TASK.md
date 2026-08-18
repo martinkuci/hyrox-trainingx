@@ -2,38 +2,41 @@
 
 ## Feature větev
 
-`agent/release-readiness-5a`
+`agent/release-1-0`
 
 ## Cíl změny
 
-Připravit jednoznačnou a opakovatelnou release kontrolu před verzí 1.0. Vývojář i GitHub CI musí jedním příkazem ověřit lint, všechny automatické testy a produkční build; ruční mobilní kontrola musí mít společný checklist a jasná pravidla pro blokování vydání.
+Připravit finálního kandidáta verze 1.0.0 po dokončené release bráně 5A. Závěrečná fáze spojí regresní ověření 5B s přípravou vydání 5C, aniž by měnila formát uložených dat nebo přidávala nový produktový rozsah.
 
-## Rozsah fáze 5A
+## Rozsah závěrečné fáze 5B–5C
 
-- zavést společný `npm test`, který spustí všechny testovací soubory projektu,
-- zavést jediný příkaz `npm run release:check` pro lint, testy a produkční build,
-- používat stejný release příkaz v GitHub CI na pull requestech i podporovaných větvích,
-- sepsat ruční mobilní checklist celého toku od naplánování po historii výsledku,
-- zahrnout obnovu rozpracovaného tréninku, časované režimy, dřívější dokončení, kalendář, zálohu a obnovu dat,
-- definovat závažnost chyb a podmínky, které vydání verze 1.0 blokují,
-- aktualizovat roadmapu o navazující kroky 5B a 5C.
+- spustit kompletní release gate a automatizovanou regresi hlavních veřejných tras,
+- ověřit mobilní vykreslení, navigaci, formuláře a absenci frameworkového chybového překryvu,
+- znovu ověřit bezpečný export a import dat automatickými testy,
+- nastavit aplikační verzi na `1.0.0` v balíčku a sdílené konstantě,
+- zobrazit číslo verze v nápovědě a připojit jej k připravenému e-mailu podpory,
+- připravit release notes s rozsahem, známými omezeními a postupem bezpečné aktualizace,
+- označit roadmapu jako release candidate; finální stav „released“ přijde až po sloučení a tagu,
+- připravit draft pull request a Vercel Preview k poslednímu potvrzení.
 
 ## Akceptační kritéria
 
-- `npm test` spustí každý soubor `scripts/test-*.mjs` právě jednou,
-- `npm run release:check` skončí chybou při selhání lintu, testu nebo produkčního buildu,
-- GitHub CI používá stejný příkaz jako lokální release kontrola,
-- CI se spouští pro pull request do `main` a pro změny na `main`, `feature/**` a `agent/**`,
-- checklist rozlišuje automatické kontroly, ruční mobilní scénáře a kontrolu nasazení,
-- kritická chyba, ztráta dat, bezpečnostní problém nebo neúspěšná automatická kontrola jednoznačně blokují vydání,
-- dokumentace neprohlašuje verzi 1.0 za vydanou před dokončením ručního ověření,
-- stávající data ani chování aplikace se touto fází nemění.
+- `package.json`, `package-lock.json` a zobrazená verze se shodují na `1.0.0`,
+- e-mail podpory obsahuje verzi aplikace bez změny uživatelovy zprávy,
+- hlavní trasy `/`, `/plan`, `/workouts`, `/history`, `/account` a `/help` se načtou na mobilním viewportu,
+- prohlížečová kontrola nenajde prázdnou stránku ani Next.js chybový překryv,
+- všech 57 stávajících testů a nové testy verze projdou,
+- produkční build a GitHub CI projdou bez chyby,
+- Vercel Preview je `READY` a odpovídá přesnému commitu kandidáta,
+- nejsou nalezené otevřené P0 ani P1 blokátory,
+- stávající lokální data, zálohy a checkpointy zůstávají zpětně kompatibilní,
+- verze není označena tagem ani vydána do produkce bez potvrzení uživatele.
 
 ## Mimo rozsah
 
-- samotné označení a vydání verze 1.0,
-- změna uživatelského rozhraní nebo tréninkové logiky,
-- automatizované end-to-end ovládání Safari na fyzickém iPhonu,
-- opravy nově nalezených produktových chyb; ty budou řešeny samostatně ve fázi 5B,
+- nové funkce mimo schválený rozsah verze 1.0,
+- změna tréninkové logiky nebo schématu uložených dat,
+- tvrzení, že automatizovaný prohlížeč nahrazuje kontrolu na fyzickém iPhonu,
+- automatické sloučení do `main`, vytvoření tagu nebo GitHub Release,
 - strukturovaný model vah a opakování z přeskočené fáze 4B,
 - nové účty, sociální funkce, předplatné nebo veřejné žebříčky.
