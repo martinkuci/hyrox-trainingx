@@ -2,6 +2,8 @@
 
 Mobilně orientovaná webová aplikace pro plánování HYROX tréninků, programový kalendář, časovač, historii výsledků a import údajů ze screenshotů.
 
+Aktuální kandidát vydání: **1.0.0**. Přehled změn a známých omezení je v [`docs/RELEASE_NOTES_1.0.0.md`](docs/RELEASE_NOTES_1.0.0.md).
+
 ## Funkce první verze
 
 - knihovna a JSON import tréninků,
@@ -22,6 +24,7 @@ Screenshot se používá pouze jako dočasný vstup. Aplikace uloží až hodnot
 - lokální úložiště v prohlížeči,
 - Firebase Authentication a Firestore REST API,
 - OpenAI Responses API pro rozpoznání screenshotu,
+- Resend pro serverové odeslání hlášení podpory,
 - GitHub a Vercel.
 
 ## Lokální spuštění
@@ -50,8 +53,11 @@ Screenshot se používá pouze jako dočasný vstup. Aplikace uloží až hodnot
 | `NEXT_PUBLIC_FIREBASE_PROJECT_ID` | Firestore synchronizace | ano pro cloud |
 | `OPENAI_API_KEY` | serverové rozpoznání screenshotu | ano pro AI import |
 | `OPENAI_VISION_MODEL` | model pro rozpoznání; výchozí `gpt-5.6-luna` | ne |
+| `RESEND_API_KEY` | serverové odeslání formuláře podpory | ano pro kontakt podpory |
+| `SUPPORT_EMAIL_TO` | neveřejná cílová schránka podpory | ano pro kontakt podpory |
+| `SUPPORT_EMAIL_FROM` | ověřený odesílatel v Resend | ano pro kontakt podpory |
 
-`OPENAI_API_KEY` nikdy nevkládej do proměnné začínající `NEXT_PUBLIC_` ani do repozitáře.
+`OPENAI_API_KEY`, `RESEND_API_KEY`, `SUPPORT_EMAIL_TO` ani `SUPPORT_EMAIL_FROM` nikdy nevkládej do proměnné začínající `NEXT_PUBLIC_` nebo do repozitáře. Pro produkční odesílání ověř v Resend vlastní doménu; testovací odesílatel Resend může posílat pouze na adresu vlastníka účtu.
 
 ## Kontroly před odesláním
 
@@ -82,3 +88,5 @@ Pravidla projektu jsou v `AGENTS.md` a složce `docs`.
 6. Každý pull request následně získá vlastní Preview deployment. Merge do `main` spustí produkční deployment.
 
 Po změně environment variables spusť nový deployment; staré nasazení je automaticky nepřevezme.
+
+Formulář podpory přijímá nejvýše jednu přílohu PNG, JPG, WebP nebo PDF do 4 MB. Příloha se neukládá do aplikační databáze, ale je předána službě Resend a doručena do nastavené schránky podpory.

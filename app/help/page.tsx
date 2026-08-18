@@ -1,15 +1,16 @@
 "use client";
 
-import { type FormEvent, useState } from "react";
+import { type ChangeEvent, type FormEvent, useRef, useState } from "react";
 import { PlanningShell } from "@/components/planning/PlanningShell";
 import { loadCloudUser, requestPasswordReset } from "@/lib/firebase-rest";
 import {
-  SUPPORT_EMAIL,
+  SUPPORT_ATTACHMENT_ACCEPT,
   SUPPORT_TYPES,
-  buildSupportMailto,
   type SupportType,
+  validateSupportAttachment,
 } from "@/lib/help-support";
 import { openOnboarding } from "@/lib/onboarding-state";
+import { APP_VERSION } from "@/lib/app-version.mjs";
 
 const faqItems = [
   {
@@ -53,6 +54,15 @@ export default function HelpPage() {
   } | null>(null);
   const [supportType, setSupportType] = useState<SupportType>("technical");
   const [supportMessage, setSupportMessage] = useState("");
+  const [supportReplyEmail, setSupportReplyEmail] = useState(() => loadCloudUser()?.email ?? "");
+  const [supportFile, setSupportFile] = useState<File | null>(null);
+  const [supportBusy, setSupportBusy] = useState(false);
+  const [supportStatus, setSupportStatus] = useState<{
+    tone: "success" | "danger";
+    text: string;
+  } | null>(null);
+  const supportFileInput = useRef<HTMLInputElement>(null);
+  const supportSubmissionId = useRef<string | null>(null);
 
   async function resetPassword(event: FormEvent) {
     event.preventDefault();
@@ -74,9 +84,80 @@ export default function HelpPage() {
     }
   }
 
-  function contactSupport(event: FormEvent) {
+  function chooseSupportFile(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0] ?? null;
+    setSupportStatus(null);
+    if (!file) {
+      setSupportFile(null);
+      return;
+    }
+
+    const error = validateSupportAttachment(file);
+    if (error) {
+      setSupportFile(null);
+      event.target.value = "";
+      setSupportStatus({ tone: "danger", text: error });
+      return;
+    }
+
+    setSupportFile(file);
+  }
+
+  function removeSupportFile() {
+    setSupportFile(null);
+    setSupportStatus(null);
+    if (supportFileInput.current) supportFileInput.current.value = "";
+  }
+
+  async function contactSupport(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    window.location.assign(buildSupportMailto(supportType, supportMessage));
+    setSupportStatus(null);
+
+    const formData = new FormData(event.currentTarget);
+    supportSubmissionId.current ??= crypto.randomUUID();
+    formData.set("submissionId", supportSubmissionId.current);
+
+    setSupportBusy(true);
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 20_000);
+    try {
+      const response = await fetch("/api/support", {
+        method: "POST",
+        body: formData,
+        headers: { Accept: "application/json" },
+        signal: controller.signal,
+      });
+
+      const result = await response.json().catch(() => null) as { error?: unknown } | null;
+      if (!response.ok) {
+        throw new Error(
+          typeof result?.error === "string"
+            ? result.error
+            : "Hlášení se nepodařilo odeslat. Zkus to znovu později.",
+        );
+      }
+
+      setSupportMessage("");
+      setSupportFile(null);
+      supportSubmissionId.current = null;
+      if (supportFileInput.current) supportFileInput.current.value = "";
+      setSupportStatus({
+        tone: "success",
+        text: "Hlášení bylo odesláno podpoře. Děkujeme za zpětnou vazbu.",
+      });
+    } catch (reason) {
+      setSupportStatus({
+        tone: "danger",
+        text: reason instanceof DOMException && reason.name === "AbortError"
+          ? "Odesílání trvá příliš dlouho. Zkontroluj připojení a zkus to znovu."
+          : reason instanceof Error
+            ? reason.message
+            : "Hlášení se nepodařilo odeslat. Zkus to znovu později.",
+      });
+    } finally {
+      window.clearTimeout(timeout);
+      setSupportBusy(false);
+    }
   }
 
   return (
@@ -150,14 +231,18 @@ export default function HelpPage() {
           <p className="text-xs font-black uppercase tracking-[0.2em] text-accent">Napiš tvůrci</p>
           <h2 id="contact-title" className="mt-2 text-2xl font-black">Pomoc a zpětná vazba</h2>
           <p className="mt-2 text-sm leading-6 text-zinc-400">
-            Zpráva se otevře v tvé e-mailové aplikaci a odešle na {SUPPORT_EMAIL}. Před odesláním ji můžeš upravit.
+            Hlášení odešleme přímo z aplikace. Adresa podpory se nezobrazuje; kontaktní e-mail pro odpověď je volitelný.
           </p>
           <form onSubmit={contactSupport} className="mt-5">
             <label htmlFor="support-type" className="block text-sm font-bold">Typ zprávy</label>
             <select
               id="support-type"
+              name="type"
               value={supportType}
-              onChange={(event) => setSupportType(event.target.value as SupportType)}
+              onChange={(event) => {
+                setSupportType(event.target.value as SupportType);
+                setSupportStatus(null);
+              }}
               className="ui-field mt-2"
             >
               {SUPPORT_TYPES.map((item) => (
@@ -168,19 +253,85 @@ export default function HelpPage() {
             <label htmlFor="support-message" className="mt-5 block text-sm font-bold">Zpráva</label>
             <textarea
               id="support-message"
+              name="message"
               required
               minLength={5}
+              maxLength={4_000}
               rows={5}
               value={supportMessage}
-              onChange={(event) => setSupportMessage(event.target.value)}
+              onChange={(event) => {
+                setSupportMessage(event.target.value);
+                setSupportStatus(null);
+              }}
               placeholder="Popiš problém, dotaz nebo nápad…"
               className="ui-field mt-2 min-h-32 resize-y p-4"
             />
-            <button className="ui-button ui-button-primary mt-4 w-full">
-              Připravit e-mail
+
+            <label htmlFor="support-reply-email" className="mt-5 block text-sm font-bold">
+              Kontaktní e-mail (volitelný)
+            </label>
+            <input
+              id="support-reply-email"
+              name="replyEmail"
+              type="email"
+              maxLength={254}
+              autoComplete="email"
+              value={supportReplyEmail}
+              onChange={(event) => {
+                setSupportReplyEmail(event.target.value);
+                setSupportStatus(null);
+              }}
+              placeholder="kam můžeme odpovědět"
+              className="ui-field mt-2"
+            />
+
+            <label htmlFor="support-file" className="mt-5 block text-sm font-bold">Příloha (volitelná)</label>
+            <input
+              ref={supportFileInput}
+              id="support-file"
+              name="attachment"
+              type="file"
+              accept={SUPPORT_ATTACHMENT_ACCEPT}
+              onChange={chooseSupportFile}
+              className="ui-field mt-2 file:mr-3 file:rounded-lg file:border-0 file:bg-accent file:px-3 file:py-2 file:text-sm file:font-black file:text-black"
+            />
+            <p className="mt-2 text-xs leading-5 text-zinc-500">
+              Jeden obrázek PNG, JPG nebo WebP, případně PDF do 4 MB. Příloha se neukládá do profilu ani historie; bude odeslána externí e-mailovou službou do schránky podpory.
+            </p>
+            {supportFile ? (
+              <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-black/20 px-4 py-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-bold text-zinc-100">{supportFile.name}</p>
+                  <p className="mt-0.5 text-xs text-zinc-500">{(supportFile.size / 1024 / 1024).toFixed(1)} MB</p>
+                </div>
+                <button type="button" onClick={removeSupportFile} className="min-h-11 shrink-0 px-2 text-sm font-bold text-zinc-300 underline underline-offset-4">
+                  Odebrat
+                </button>
+              </div>
+            ) : null}
+
+            <div className="hidden" aria-hidden="true">
+              <label htmlFor="support-website">Web</label>
+              <input id="support-website" name="website" type="text" tabIndex={-1} autoComplete="off" />
+            </div>
+
+            <button disabled={supportBusy} className="ui-button ui-button-primary mt-4 w-full">
+              {supportBusy ? "Odesílám…" : "Odeslat hlášení"}
             </button>
+            {supportStatus ? (
+              <div
+                className={`ui-feedback mt-4 ${supportStatus.tone === "success" ? "ui-feedback-success" : "ui-feedback-danger"}`}
+                role={supportStatus.tone === "danger" ? "alert" : "status"}
+                aria-live="polite"
+              >
+                <p className="text-sm font-bold leading-6">{supportStatus.text}</p>
+              </div>
+            ) : null}
           </form>
         </section>
+        <p className="pb-2 text-center text-xs font-bold text-zinc-600">
+          HYROX Training · verze {APP_VERSION}
+        </p>
       </div>
     </PlanningShell>
   );
