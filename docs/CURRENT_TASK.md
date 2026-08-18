@@ -2,11 +2,11 @@
 
 ## Feature větev
 
-`agent/release-1-0`
+`agent/v1-0-complete-test`
 
 ## Cíl změny
 
-Připravit finálního kandidáta verze 1.0.0 po dokončené release bráně 5A. Závěrečná fáze spojí regresní ověření 5B s přípravou vydání 5C a doplní poslední schválenou úpravu nápovědy: přímé odeslání dotazu nebo hlášení chyby včetně volitelného screenshotu či PDF na podporu. Adresa podpory ani přístupový klíč e-mailové služby nesmí být součástí klientské aplikace. Formát uložených tréninkových dat se nemění.
+Sjednotit celý kandidát verze 1.0.0 do jedné nové testovací větve, protože poslední ruční Vercel deployment omylem znovu nasadil starší stav větve `main`. Základem nové větve je kompletní release commit obsahující všechny dokončené fáze i přímé odeslání dotazu nebo hlášení chyby včetně volitelného screenshotu či PDF. Adresa podpory ani přístupový klíč e-mailové služby nesmí být součástí klientské aplikace. Formát uložených tréninkových dat se nemění.
 
 ## Rozsah závěrečné fáze 5B–5C
 
