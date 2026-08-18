@@ -39,9 +39,13 @@ Improve useful statistics, progress comparison, workout metadata, splits, RPE, w
 
 ## Phase 5 - Version 1.0
 
+Status: release candidate 1.0.0
+
 Release when the app is stable on mobile, core flows are tested, data can be exported and restored, and no critical issue remains.
 
 ### Phase 5A - Release gate
+
+Status: complete
 
 - Run lint, every automated test, and the production build through one shared command.
 - Keep GitHub CI aligned with the local release check.
@@ -49,11 +53,15 @@ Release when the app is stable on mobile, core flows are tested, data can be exp
 
 ### Phase 5B - Mobile regression and blocker fixes
 
+Status: final regression
+
 - Complete the release checklist on a real phone and a clean test data set.
 - Record reproducible failures with severity and fix every release blocker.
 - Repeat affected scenarios after each fix without changing the planned version 1.0 scope.
 
 ### Phase 5C - Version 1.0 release
+
+Status: release candidate; awaiting final approval, merge, and tag
 
 - Complete final production smoke checks and data backup verification.
 - Confirm that the automated gate passes and no release blocker remains.
