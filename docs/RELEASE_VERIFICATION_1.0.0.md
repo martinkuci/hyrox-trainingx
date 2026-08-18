@@ -2,7 +2,7 @@
 
 - Datum automatizované kontroly: 18. srpna 2026
 - Větev: `agent/release-1-0`
-- Ověřený kód kandidáta: `cd0dbc7` a jeho předchozí commity vůči `main`
+- Ověřený obsah: aplikační změny kandidáta ve větvi před přidáním tohoto protokolu
 
 ## Výsledek
 
