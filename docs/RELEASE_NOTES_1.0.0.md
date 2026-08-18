@@ -31,8 +31,9 @@ Verze 1.0.0 uzavírá první stabilní rozsah aplikace od plánování tréninku
 - obnova dat je zablokovaná během aktivního tréninku,
 - starší uložená data zůstávají zpětně kompatibilní,
 - release gate kontroluje lint, všechny automatické testy a produkční build,
-- číslo verze je viditelné v Nápovědě a připojuje se k e-mailu podpory.
-- příloha podpory se pouze předá systémové nabídce Sdílet a aplikace ji neukládá ani nenahrává na server.
+- číslo verze je viditelné v Nápovědě a připojuje se k hlášení podpory,
+- hlášení lze odeslat přímo z aplikace bez otevření e-mailového klienta; příjemce a přístupové údaje zůstávají pouze na serveru,
+- volitelná příloha podpory do 4 MB se neukládá do profilu, historie ani aplikační databáze, ale je předána externí e-mailové službě a doručena do schránky podpory.
 
 ## Známá omezení
 
@@ -40,8 +41,8 @@ Verze 1.0.0 uzavírá první stabilní rozsah aplikace od plánování tréninku
 - zvuk upozornění respektuje omezení hlasitosti, tichého režimu a přehrávání médií v iOS,
 - cloudová synchronizace vyžaduje nakonfigurovaný Firebase projekt a připojení k internetu,
 - rozpoznání screenshotu vyžaduje nakonfigurovaný serverový API klíč a uživatelskou kontrolu výsledku,
-- aplikace neposkytuje zdravotní diagnózu ani predikci závodního výkonu.
-- odeslání přílohy závisí na podpoře systémového sdílení souborů v použitém prohlížeči; jinak ji uživatel přidá do připraveného e-mailu ručně.
+- aplikace neposkytuje zdravotní diagnózu ani predikci závodního výkonu,
+- formulář podpory vyžaduje nakonfigurovaný Resend účet a ověřeného odesílatele; přílohy jsou omezené na 4 MB.
 
 ## Bezpečná aktualizace
 
