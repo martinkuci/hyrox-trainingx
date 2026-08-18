@@ -1,13 +1,17 @@
 "use client";
 
-import { type FormEvent, useState } from "react";
+import { type ChangeEvent, type FormEvent, useRef, useState } from "react";
 import { PlanningShell } from "@/components/planning/PlanningShell";
 import { loadCloudUser, requestPasswordReset } from "@/lib/firebase-rest";
 import {
   SUPPORT_EMAIL,
+  SUPPORT_ATTACHMENT_ACCEPT,
   SUPPORT_TYPES,
   buildSupportMailto,
+  buildSupportShareText,
+  supportSubject,
   type SupportType,
+  validateSupportAttachment,
 } from "@/lib/help-support";
 import { openOnboarding } from "@/lib/onboarding-state";
 import { APP_VERSION } from "@/lib/app-version.mjs";
@@ -54,6 +58,14 @@ export default function HelpPage() {
   } | null>(null);
   const [supportType, setSupportType] = useState<SupportType>("technical");
   const [supportMessage, setSupportMessage] = useState("");
+  const [supportFile, setSupportFile] = useState<File | null>(null);
+  const [supportBusy, setSupportBusy] = useState(false);
+  const [supportStatus, setSupportStatus] = useState<{
+    tone: "success" | "danger";
+    text: string;
+    allowMailFallback?: boolean;
+  } | null>(null);
+  const supportFileInput = useRef<HTMLInputElement>(null);
 
   async function resetPassword(event: FormEvent) {
     event.preventDefault();
@@ -75,9 +87,71 @@ export default function HelpPage() {
     }
   }
 
-  function contactSupport(event: FormEvent) {
+  function chooseSupportFile(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0] ?? null;
+    setSupportStatus(null);
+    if (!file) {
+      setSupportFile(null);
+      return;
+    }
+
+    const error = validateSupportAttachment(file);
+    if (error) {
+      setSupportFile(null);
+      event.target.value = "";
+      setSupportStatus({ tone: "danger", text: error });
+      return;
+    }
+
+    setSupportFile(file);
+  }
+
+  function removeSupportFile() {
+    setSupportFile(null);
+    setSupportStatus(null);
+    if (supportFileInput.current) supportFileInput.current.value = "";
+  }
+
+  async function contactSupport(event: FormEvent) {
     event.preventDefault();
-    window.location.assign(buildSupportMailto(supportType, supportMessage));
+    setSupportStatus(null);
+
+    if (!supportFile) {
+      window.location.assign(buildSupportMailto(supportType, supportMessage));
+      return;
+    }
+
+    const files = [supportFile];
+    if (!navigator.share || !navigator.canShare?.({ files })) {
+      setSupportStatus({
+        tone: "danger",
+        text: "Tento prohlížeč neumí předat vybraný soubor do e-mailu. Otevři připravený e-mail a přílohu v něm přidej ručně.",
+        allowMailFallback: true,
+      });
+      return;
+    }
+
+    setSupportBusy(true);
+    try {
+      await navigator.share({
+        title: supportSubject(supportType),
+        text: buildSupportShareText(supportMessage),
+        files,
+      });
+      setSupportStatus({
+        tone: "success",
+        text: `Hlášení se souborem bylo předáno vybrané aplikaci. Pokud jsi zvolil(a) Mail, zkontroluj příjemce ${SUPPORT_EMAIL} a dokonči odeslání.`,
+      });
+    } catch (reason) {
+      if (reason instanceof DOMException && reason.name === "AbortError") return;
+      setSupportStatus({
+        tone: "danger",
+        text: "Soubor se nepodařilo sdílet. Zkus to znovu, nebo jej přidej ručně do připraveného e-mailu.",
+        allowMailFallback: true,
+      });
+    } finally {
+      setSupportBusy(false);
+    }
   }
 
   return (
@@ -151,7 +225,7 @@ export default function HelpPage() {
           <p className="text-xs font-black uppercase tracking-[0.2em] text-accent">Napiš tvůrci</p>
           <h2 id="contact-title" className="mt-2 text-2xl font-black">Pomoc a zpětná vazba</h2>
           <p className="mt-2 text-sm leading-6 text-zinc-400">
-            Zpráva se otevře v tvé e-mailové aplikaci a odešle na {SUPPORT_EMAIL}. Před odesláním ji můžeš upravit.
+            Bez přílohy se zpráva otevře v e-mailu. Se screenshotem nebo PDF použije telefon systémovou nabídku Sdílet; vyber Mail a odešli zprávu na {SUPPORT_EMAIL}.
           </p>
           <form onSubmit={contactSupport} className="mt-5">
             <label htmlFor="support-type" className="block text-sm font-bold">Typ zprávy</label>
@@ -177,9 +251,56 @@ export default function HelpPage() {
               placeholder="Popiš problém, dotaz nebo nápad…"
               className="ui-field mt-2 min-h-32 resize-y p-4"
             />
-            <button className="ui-button ui-button-primary mt-4 w-full">
-              Připravit e-mail
+
+            <label htmlFor="support-file" className="mt-5 block text-sm font-bold">Příloha (volitelná)</label>
+            <input
+              ref={supportFileInput}
+              id="support-file"
+              type="file"
+              accept={SUPPORT_ATTACHMENT_ACCEPT}
+              onChange={chooseSupportFile}
+              className="ui-field mt-2 file:mr-3 file:rounded-lg file:border-0 file:bg-accent file:px-3 file:py-2 file:text-sm file:font-black file:text-black"
+            />
+            <p className="mt-2 text-xs leading-5 text-zinc-500">
+              Jeden obrázek PNG, JPG nebo WebP, případně PDF do 10 MB. Soubor se v aplikaci ani na serveru neukládá.
+            </p>
+            {supportFile ? (
+              <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-black/20 px-4 py-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-bold text-zinc-100">{supportFile.name}</p>
+                  <p className="mt-0.5 text-xs text-zinc-500">{(supportFile.size / 1024 / 1024).toFixed(1)} MB</p>
+                </div>
+                <button type="button" onClick={removeSupportFile} className="min-h-11 shrink-0 px-2 text-sm font-bold text-zinc-300 underline underline-offset-4">
+                  Odebrat
+                </button>
+              </div>
+            ) : null}
+
+            <button disabled={supportBusy} className="ui-button ui-button-primary mt-4 w-full">
+              {supportBusy
+                ? "Otevírám sdílení…"
+                : supportFile
+                  ? "Sdílet hlášení se souborem"
+                  : "Připravit e-mail"}
             </button>
+            {supportStatus ? (
+              <div
+                className={`ui-feedback mt-4 ${supportStatus.tone === "success" ? "ui-feedback-success" : "ui-feedback-danger"}`}
+                role={supportStatus.tone === "danger" ? "alert" : "status"}
+                aria-live="polite"
+              >
+                <p className="text-sm font-bold leading-6">{supportStatus.text}</p>
+                {supportStatus.allowMailFallback ? (
+                  <button
+                    type="button"
+                    onClick={() => window.location.assign(buildSupportMailto(supportType, supportMessage))}
+                    className="ui-button ui-button-outline mt-3 w-full"
+                  >
+                    Otevřít e-mail bez přílohy
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
           </form>
         </section>
         <p className="pb-2 text-center text-xs font-bold text-zinc-600">

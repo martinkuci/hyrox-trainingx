@@ -21,7 +21,7 @@ Verze 1.0.0 uzavírá první stabilní rozsah aplikace od plánování tréninku
 - JSON záloha a bezpečná obnova s náhledem obsahu,
 - volitelný účet a synchronizace přes Firebase,
 - import výsledků ze screenshotu s kontrolou před uložením,
-- úvod aplikace, FAQ, reset hesla a kontakt podpory.
+- úvod aplikace, FAQ, reset hesla a kontakt podpory s volitelným screenshotem nebo PDF.
 
 ## Stabilita a ochrana dat
 
@@ -32,6 +32,7 @@ Verze 1.0.0 uzavírá první stabilní rozsah aplikace od plánování tréninku
 - starší uložená data zůstávají zpětně kompatibilní,
 - release gate kontroluje lint, všechny automatické testy a produkční build,
 - číslo verze je viditelné v Nápovědě a připojuje se k e-mailu podpory.
+- příloha podpory se pouze předá systémové nabídce Sdílet a aplikace ji neukládá ani nenahrává na server.
 
 ## Známá omezení
 
@@ -40,6 +41,7 @@ Verze 1.0.0 uzavírá první stabilní rozsah aplikace od plánování tréninku
 - cloudová synchronizace vyžaduje nakonfigurovaný Firebase projekt a připojení k internetu,
 - rozpoznání screenshotu vyžaduje nakonfigurovaný serverový API klíč a uživatelskou kontrolu výsledku,
 - aplikace neposkytuje zdravotní diagnózu ani predikci závodního výkonu.
+- odeslání přílohy závisí na podpoře systémového sdílení souborů v použitém prohlížeči; jinak ji uživatel přidá do připraveného e-mailu ručně.
 
 ## Bezpečná aktualizace
 
