@@ -13,12 +13,12 @@ Automatizovaná část release gate prošla. Nebyl nalezen žádný automaticky 
 | Kontrola | Výsledek | Důkaz |
 | --- | --- | --- |
 | ESLint | prošlo | celý repozitář bez chyby |
-| Automatické testy | prošlo | 58 z 58 testů |
+| Automatické testy | prošlo | 63 z 63 testů |
 | Záloha a obnova | prošlo | platná záloha, starší formát, strukturované režimy i odmítnutí neplatných dat |
 | TypeScript | prošlo | součást produkčního buildu |
-| Next.js produkční build | prošlo | 17 vygenerovaných tras, žádná chyba sestavení |
+| Next.js produkční build | prošlo | 18 vygenerovaných tras včetně `/api/support`, žádná chyba sestavení |
 | Shoda verze | prošlo | `package.json`, `package-lock.json` a aplikace používají `1.0.0` |
-| E-mail podpory | prošlo | k tělu zprávy se připojí `Verze 1.0.0` |
+| Formulář podpory | prošlo | serverová validace typu, limitu 4 MB, signatury přílohy, kontaktního e-mailu a textu s `Verze 1.0.0` |
 | Kontrola tajných klíčů | prošlo | nenalezen běžný vzor API klíče ani soukromého klíče v commitovaných zdrojích |
 
 ## Produkční server a hlavní trasy
@@ -47,6 +47,7 @@ Serverové HTML neobsahovalo Next.js chybový překryv. Stránka `/help` obsahov
 
 - [ ] Otevřít Vercel Preview na fyzickém iPhonu v Safari.
 - [ ] Ověřit, že hlavní navigace nepřekrývá obsah a Nápověda dole ukazuje verzi 1.0.0.
+- [ ] Po konfiguraci Resend odeslat z Nápovědy jedno hlášení bez přílohy a jedno s obrázkem do 4 MB; ověřit doručení i možnost odpovědět na volitelný kontaktní e-mail.
 - [ ] Orientačně otevřít Dnes, Plán, Trénovat, Výsledky a Profil.
 - [ ] Potvrdit, že stávající lokální tréninky, kalendář a historie zůstaly zachované.
 - [ ] Po potvrzení sloučit pull request do `main`, ověřit produkční deployment a vytvořit tag `v1.0.0`.

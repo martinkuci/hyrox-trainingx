@@ -40,7 +40,7 @@ Připravit finálního kandidáta verze 1.0.0 po dokončené release bráně 5A.
 - příloha se neukládá do `localStorage`, Firestore ani aplikační databáze,
 - hlavní trasy `/`, `/plan`, `/workouts`, `/history`, `/account` a `/help` se načtou na mobilním viewportu,
 - prohlížečová kontrola nenajde prázdnou stránku ani Next.js chybový překryv,
-- všech 57 stávajících testů a nové testy verze projdou,
+- všechny stávající testy a nové testy verze projdou,
 - produkční build a GitHub CI projdou bez chyby,
 - Vercel Preview je `READY` a odpovídá přesnému commitu kandidáta,
 - nejsou nalezené otevřené P0 ani P1 blokátory,
