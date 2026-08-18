@@ -19,7 +19,7 @@ test("vytvoří bezpečný mailto odkaz s adresou, předmětem a zprávou", () =
   assert.equal(url.pathname, SUPPORT_EMAIL);
   assert.equal(url.searchParams.get("subject"), "[HYROX Training] Nápad na zlepšení");
   assert.match(url.searchParams.get("body"), /^Přidejte tmavší mapu\./);
-  assert.match(url.searchParams.get("body"), /Odesláno z aplikace HYROX Training$/);
+  assert.match(url.searchParams.get("body"), /Odesláno z aplikace HYROX Training\nVerze 1\.0\.0$/);
 });
 
 test("prázdnou zprávu nezamění za typ dotazu", () => {

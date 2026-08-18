@@ -10,6 +10,7 @@ import {
   type SupportType,
 } from "@/lib/help-support";
 import { openOnboarding } from "@/lib/onboarding-state";
+import { APP_VERSION } from "@/lib/app-version.mjs";
 
 const faqItems = [
   {
@@ -181,6 +182,9 @@ export default function HelpPage() {
             </button>
           </form>
         </section>
+        <p className="pb-2 text-center text-xs font-bold text-zinc-600">
+          HYROX Training · verze {APP_VERSION}
+        </p>
       </div>
     </PlanningShell>
   );

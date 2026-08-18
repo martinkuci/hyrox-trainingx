@@ -1,3 +1,5 @@
+import { APP_VERSION } from "./app-version.mjs";
+
 export const SUPPORT_EMAIL = "martin.kuci@gmail.com";
 
 export const SUPPORT_TYPES = [
@@ -31,6 +33,7 @@ export function buildSupportMailto(type: SupportType, message: string) {
     "",
     "---",
     "Odesláno z aplikace HYROX Training",
+    `Verze ${APP_VERSION}`,
   ].join("\n");
   const params = new URLSearchParams({
     subject: supportSubject(type),
