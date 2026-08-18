@@ -2,38 +2,39 @@
 
 ## Feature větev
 
-`agent/advanced-training-insights-4a`
+`agent/personal-benchmarks-4c`
 
 ## Cíl změny
 
-Rozšířit výsledky o dlouhodobý, ale stále srozumitelný přehled skutečně uložených tréninků. Uživatel si zvolí období a uvidí změnu proti bezprostředně předcházejícímu stejně dlouhému období, rozložení podle typu tréninku a vývoj opakovaných jednotek.
+Zpřehlednit osobní benchmarky u opakovaných tréninků. Aplikace ukáže nejkratší zaznamenaný čas, poslední pokus a počet platných pokusů pouze tehdy, když jsou výsledky skutečně srovnatelné.
 
-## Rozsah fáze 4A
+## Rozsah fáze 4C
 
-- nabídnout období 4, 8 a 12 týdnů,
-- porovnat počet tréninků, celkový čas a průměrné RPE s předchozím stejně dlouhým obdobím,
-- u každé metriky jasně rozlišit růst, pokles a nedostatek srovnávacích dat,
-- zobrazit rozložení tréninků podle kategorie z uloženého metadata snapshotu nebo aktuální šablony,
-- u kategorií uvést počet jednotek, celkový čas, průměrné RPE a soulad s cílovým RPE,
-- zachovat dosavadní týdenní aktivitu a srovnání opakovaných tréninků,
-- nepovažovat vyšší objem, nižší čas ani nižší RPE automaticky za lepší výsledek,
-- zachovat výsledky bez metadat a starší uložená data.
+- seskupit výsledky podle kódu a verze tréninku; bez těchto údajů použít pouze stejnou šablonu,
+- vytvořit benchmark až po nejméně dvou platných dokončeních stejné jednotky,
+- zobrazit nejkratší zaznamenaný čas, datum, poslední čas a počet pokusů,
+- rozlišit nový nejkratší čas, vyrovnání nejkratšího času a výsledek nad osobním minimem,
+- zvýraznit benchmarkový výsledek také v příslušné kartě historie,
+- zachovat stávající trendy 4A a srovnání posledních pokusů,
+- vysvětlit, že čas nezohledňuje změnu zátěže, podmínek ani provedení,
+- nic nezapisovat do výsledků ani programu.
 
 ## Akceptační kritéria
 
-- výpočty jsou deterministické a testovatelné bez sítě,
-- aktuální a předchozí období se nepřekrývají a mají stejnou délku,
-- budoucí, neplatné a mimo období uložené výsledky neovlivní souhrn,
-- chybějící nebo neplatné RPE se nezapočítá do průměru,
-- výsledek bez kategorie zůstane v celkovém souhrnu a zobrazí se jako „Ostatní“,
-- přepnutí období nezmění ani neuloží uživatelská data,
+- benchmark je deterministický a testovatelný bez sítě,
+- různé verze stejného kódu se nespojí,
+- stejný název bez shodného identifikátoru výsledky nespojí,
+- neplatný čas nebo datum se do benchmarku nezapočítá,
+- při shodném čase se zobrazí vyrovnání, nikoli nový rekord,
+- starší výsledky bez kódu a verze lze porovnat jen v rámci stejného ID šablony,
+- pořadí benchmarků vychází z data posledního platného pokusu,
 - rozhraní zůstane čitelné a ovladatelné na telefonu,
 - lint, TypeScript, produkční build a cílené testy projdou.
 
 ## Mimo rozsah
 
-- zdravotní hodnocení, diagnóza, predikce únavy nebo rizika zranění,
-- automatická změna programu na základě statistik,
-- nové ukládání biometrických údajů,
-- strukturovaný model vah a opakování; ten patří do samostatné navazující fáze,
-- sdílení výsledků, žebříčky a porovnávání s ostatními uživateli.
+- zdravotní nebo výkonnostní diagnóza a predikce výsledku závodu,
+- automatická změna programu,
+- porovnávání rozdílných verzí, zátěží nebo pouze podobně pojmenovaných tréninků,
+- strukturovaný model vah a opakování z přeskočené fáze 4B,
+- sdílení benchmarků, veřejné žebříčky a porovnávání s ostatními uživateli.

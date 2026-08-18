@@ -49,6 +49,23 @@ export type ComparableWorkout = {
   }>;
 };
 
+export type WorkoutBenchmark = {
+  key: string;
+  title: string;
+  workoutCode: string | null;
+  templateVersion: number | null;
+  attemptCount: number;
+  latestResultId: string;
+  latestCompletedAt: string;
+  latestDurationSeconds: number;
+  bestResultIds: string[];
+  bestCompletedAt: string;
+  bestDurationSeconds: number;
+  referenceDurationSeconds: number;
+  latestDifferencePercent: number;
+  latestStatus: "new-best" | "matched-best" | "above-best";
+};
+
 function validDate(value: string) {
   const timestamp = Date.parse(value);
   return Number.isFinite(timestamp) ? timestamp : null;
@@ -225,6 +242,20 @@ function comparisonKey(result: WorkoutResult) {
   return result.templateId ? `template:${result.templateId}` : null;
 }
 
+function benchmarkIdentity(result: WorkoutResult) {
+  const workoutCode = result.workoutCode ?? result.metadataSnapshot?.workoutCode;
+  const templateVersion = result.templateVersion ?? result.metadataSnapshot?.templateVersion;
+  if (workoutCode && Number.isInteger(templateVersion) && Number(templateVersion) > 0) {
+    return {
+      key: `code:${workoutCode}:v${templateVersion}`,
+      workoutCode,
+      templateVersion: Number(templateVersion),
+    };
+  }
+  if (!result.templateId) return null;
+  return { key: `template:${result.templateId}`, workoutCode: null, templateVersion: null };
+}
+
 export function buildComparableWorkouts(
   results: readonly WorkoutResult[],
   limit = 3,
@@ -269,5 +300,60 @@ export function buildComparableWorkouts(
       }];
     })
     .sort((a, b) => b.latestCompletedAt.localeCompare(a.latestCompletedAt))
+    .slice(0, Math.max(0, Math.floor(limit)));
+}
+
+export function buildWorkoutBenchmarks(
+  results: readonly WorkoutResult[],
+  limit = 4,
+): WorkoutBenchmark[] {
+  const groups = new Map<string, { identity: NonNullable<ReturnType<typeof benchmarkIdentity>>; results: WorkoutResult[] }>();
+
+  for (const result of results) {
+    const identity = benchmarkIdentity(result);
+    if (!identity || validDate(result.completedAt) === null || !validDuration(result)) continue;
+    const group = groups.get(identity.key) ?? { identity, results: [] };
+    group.results.push(result);
+    groups.set(identity.key, group);
+  }
+
+  return [...groups.values()]
+    .flatMap(({ identity, results: group }) => {
+      const sorted = [...group].sort((left, right) => right.completedAt.localeCompare(left.completedAt));
+      if (sorted.length < 2) return [];
+      const latest = sorted[0];
+      const previousBest = Math.min(...sorted.slice(1).map((result) => result.durationSeconds));
+      const bestDurationSeconds = Math.min(latest.durationSeconds, previousBest);
+      const bestResults = sorted
+        .filter((result) => result.durationSeconds === bestDurationSeconds)
+        .sort((left, right) => left.completedAt.localeCompare(right.completedAt));
+      const latestStatus: WorkoutBenchmark["latestStatus"] = latest.durationSeconds < previousBest
+        ? "new-best"
+        : latest.durationSeconds === previousBest
+          ? "matched-best"
+          : "above-best";
+      const referenceDurationSeconds = latestStatus === "new-best" ? previousBest : bestDurationSeconds;
+      const latestDifferencePercent = Math.round(
+        ((latest.durationSeconds - referenceDurationSeconds) / referenceDurationSeconds) * 1000,
+      ) / 10;
+
+      return [{
+        key: identity.key,
+        title: latest.workoutTitle,
+        workoutCode: identity.workoutCode,
+        templateVersion: identity.templateVersion,
+        attemptCount: sorted.length,
+        latestResultId: latest.id,
+        latestCompletedAt: latest.completedAt,
+        latestDurationSeconds: latest.durationSeconds,
+        bestResultIds: bestResults.map((result) => result.id),
+        bestCompletedAt: bestResults[0].completedAt,
+        bestDurationSeconds,
+        referenceDurationSeconds,
+        latestDifferencePercent,
+        latestStatus,
+      }];
+    })
+    .sort((left, right) => right.latestCompletedAt.localeCompare(left.latestCompletedAt))
     .slice(0, Math.max(0, Math.floor(limit)));
 }
