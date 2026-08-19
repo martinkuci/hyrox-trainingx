@@ -58,9 +58,12 @@ export default function ProgramsPage() {
   );
   const locationOptions = [...savedLocationOptions, ...quickLocationOptions];
   const selectedLocations = locationOptions.filter((location) => locationIds.includes(location.id));
-  const compatibleTemplates = data.templates.filter((template) =>
-    selectedLocations.some((location) => templateFitsEquipment(template, location.equipment)),
-  );
+  const locationFlexible = selectedLocations.length === 0;
+  const compatibleTemplates = locationFlexible
+    ? data.templates
+    : data.templates.filter((template) =>
+        selectedLocations.some((location) => templateFitsEquipment(template, location.equipment)),
+      );
 
   const totalUnits = duration * frequency;
   const assigned = weeks.flatMap((week) => week.sessions).filter((session) => session.templateId).length;
@@ -101,6 +104,11 @@ export default function ProgramsPage() {
     resetGeneratedProgram();
   }
 
+  function useFlexibleLocation() {
+    setLocationIds([]);
+    resetGeneratedProgram();
+  }
+
   function toggleLocation(locationId: ScheduledTrainingLocation) {
     setLocationIds((current) =>
       current.includes(locationId)
@@ -110,9 +118,13 @@ export default function ProgramsPage() {
     resetGeneratedProgram();
   }
 
+  function selectCreatedLocation(locationId: ScheduledTrainingLocation) {
+    setLocationIds((current) => current.includes(locationId) ? current : [...current, locationId]);
+    resetGeneratedProgram();
+  }
+
   function generateProgram() {
     if (!data.templates.length) return setMessage("Nejdřív je potřeba mít alespoň jeden trénink v knihovně.");
-    if (selectedLocations.length === 0) return setMessage("Vyber alespoň jedno konkrétní místo nebo rychlé prostředí, kde můžeš trénovat.");
     const generated = buildProgramWeeks({
       templates: data.templates,
       duration,
@@ -127,10 +139,14 @@ export default function ProgramsPage() {
     });
     setWeeks(generated);
     const generatedAssigned = generated.flatMap((week) => week.sessions).filter((session) => session.templateId).length;
+    if (generatedAssigned !== totalUnits) {
+      setMessage(`Vygenerováno ${generatedAssigned} z ${totalUnits} jednotek. Ve zvolených místech není pro všechny sloty dostupná kompatibilní šablona.`);
+      return;
+    }
     setMessage(
-      generatedAssigned === totalUnits
-        ? `Program je připravený: ${duration} týdnů a ${totalUnits} jednotek podle cíle, fáze a vybavení ve vybraných místech.`
-        : `Vygenerováno ${generatedAssigned} z ${totalUnits} jednotek. Pro zbývající sloty není ve zvolených místech dostupná kompatibilní šablona.`,
+      locationFlexible
+        ? `Program je připravený: ${duration} týdnů a ${totalUnits} jednotek. Místo zatím neomezujeme a vybereš ho až podle situace.`
+        : `Program je připravený: ${duration} týdnů a ${totalUnits} jednotek podle cíle, fáze a vybavení ve vybraných místech.`,
     );
   }
 
@@ -147,6 +163,17 @@ export default function ProgramsPage() {
 
     const template = data.templates.find((item) => item.id === templateId);
     if (!template) return;
+
+    if (locationFlexible) {
+      setWeeks((current) => current.map((week, index) => index === weekIndex ? {
+        ...week,
+        sessions: week.sessions.map((session, i) => i === sessionIndex
+          ? { ...session, templateId, trainingLocation: undefined }
+          : session),
+      } : week));
+      return;
+    }
+
     const location = findCompatibleLocationForTemplate(
       template,
       selectedLocations.map((item) => ({ id: item.id, equipment: item.equipment })),
@@ -167,15 +194,17 @@ export default function ProgramsPage() {
   function saveAndSchedule() {
     if (!weeks.length) return setMessage("Nejdřív vygeneruj program.");
     if (preview.length !== totalUnits || assigned !== totalUnits) {
-      return setMessage("Program zatím nemá kompatibilní trénink pro každý slot. Uprav dostupná místa nebo výběr jednotek.");
+      return setMessage("Program zatím nemá trénink pro každý slot. Uprav výběr jednotek nebo dostupná místa.");
     }
     const name = `${goalLabels[goal]} · ${duration} týdnů · ${frequency}× týdně`;
     const program = createTrainingProgram({
       code: `PLAN-${Date.now().toString().slice(-6)}`,
       name,
-      description: `Úroveň ${level}, ${frequency} tréninků týdně. Automaticky sestaveno podle cíle, dostupnosti a vybavení ve zvolených místech.`,
+      description: locationFlexible
+        ? `Úroveň ${level}, ${frequency} tréninků týdně. Program je sestavený podle cíle a progresivních fází; místo se volí až podle situace u konkrétní jednotky.`
+        : `Úroveň ${level}, ${frequency} tréninků týdně. Automaticky sestaveno podle cíle, dostupnosti a vybavení ve zvolených místech.`,
       weeks,
-      trainingLocationIds: locationIds,
+      trainingLocationIds: locationIds.length ? locationIds : undefined,
     });
     const items: NewScheduledWorkout[] = preview.map(({ session, week, date }) => ({
       templateId: session.templateId as string,
@@ -189,11 +218,20 @@ export default function ProgramsPage() {
     }));
     scheduleMany(items);
     setWeeks([]);
-    setMessage(`Hotovo. Program je uložený a ${items.length} tréninků bylo vloženo do kalendáře včetně doporučeného místa.`);
+    setMessage(
+      locationFlexible
+        ? `Hotovo. Program je uložený a ${items.length} tréninků je v kalendáři. Konkrétní místo můžeš doplnit až před tréninkem.`
+        : `Hotovo. Program je uložený a ${items.length} tréninků bylo vloženo do kalendáře včetně doporučeného místa.`,
+    );
   }
 
   return (
-    <PlanningShell eyebrow="Plán" title="Nový tréninkový program" description="Vyber cíl, délku, frekvenci, dostupné dny a konkrétní místa. Enginn sestaví program sám a jednotlivé tréninky můžeš řešit až v den, kdy je opravdu potřebuješ." backHref="/plan">
+    <PlanningShell
+      eyebrow="Plán"
+      title="Nový tréninkový program"
+      description="Vyber cíl, délku a dny. Místo můžeš zadat teď, nebo ho nechat úplně otevřené a rozhodnout se až před konkrétním tréninkem."
+      backHref="/plan"
+    >
       <section className="ui-card ui-card-accent p-5 sm:p-6">
         <p className="text-xs font-black uppercase tracking-[0.2em] text-accent">1 · Cíl a úroveň</p>
         <div className="mt-4 grid grid-cols-2 gap-3">{(Object.entries(goalLabels) as [Goal, string][]).map(([value, label]) => <button key={value} type="button" aria-pressed={goal === value} onClick={() => { setGoal(value); resetGeneratedProgram(); }} className="ui-choice justify-start p-4 text-left">{label}</button>)}</div>
@@ -209,63 +247,80 @@ export default function ProgramsPage() {
       </section>
 
       <section className="ui-card mt-6 p-5 sm:p-6">
-        <p className="text-xs font-black uppercase tracking-[0.2em] text-accent">3 · Dostupnost</p>
+        <p className="text-xs font-black uppercase tracking-[0.2em] text-accent">3 · Dny a místo</p>
         <label className="mt-4 block"><span className="text-sm font-bold text-zinc-300">Začátek programu</span><input type="date" value={startDate} min={dateKey(new Date())} onChange={(e) => { setStartDate(e.target.value); resetGeneratedProgram(); }} className="ui-field mt-2 text-base" /></label>
         <div className="mt-4 grid grid-cols-7 gap-1.5 sm:gap-2">{weekdays.map((day) => <button key={day.value} type="button" aria-pressed={trainingDays.includes(day.value)} onClick={() => toggleDay(day.value)} className="ui-choice min-w-0 px-1 py-3 text-sm">{day.label}</button>)}</div>
         <p className="mt-3 text-center text-sm text-zinc-500">Vybráno {trainingDays.length} z {frequency} dnů</p>
 
-        <div className="mt-6">
-          <p className="text-sm font-bold text-zinc-300">Moje konkrétní místa</p>
-          <p className="mt-1 text-xs leading-5 text-zinc-500">Fitka se vybírají jen z tvých uložených profilů, takže generátor respektuje jejich skutečné vybavení.</p>
-          {savedLocationOptions.length > 0 ? (
-            <div className="mt-3 grid gap-2 sm:grid-cols-2">
-              {savedLocationOptions.map((location) => (
+        <div className="mt-6 border-t border-white/8 pt-5">
+          <p className="text-sm font-bold text-zinc-300">Kde budeš trénovat?</p>
+          <p className="mt-1 text-xs leading-5 text-zinc-500">Nemusíš to vědět dopředu. Místo lze změnit i těsně před konkrétní jednotkou.</p>
+
+          <button
+            type="button"
+            aria-pressed={locationFlexible}
+            onClick={useFlexibleLocation}
+            className="ui-choice mt-3 w-full justify-start p-4 text-left"
+          >
+            <span>
+              <strong className="block">Rozhodnu až v den tréninku</strong>
+              <span className="mt-1 block text-xs font-normal leading-5 text-zinc-500">Enginn teď sestaví nejlepší program bez omezení konkrétním fitkem. Později vybereš místo a případná varianta se přizpůsobí.</span>
+            </span>
+          </button>
+
+          {savedLocationOptions.length > 0 && (
+            <div className="mt-4">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-zinc-500">Moje místa</p>
+              <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                {savedLocationOptions.map((location) => (
+                  <button
+                    key={location.id}
+                    type="button"
+                    aria-pressed={locationIds.includes(location.id)}
+                    onClick={() => toggleLocation(location.id)}
+                    className="ui-choice justify-start p-3 text-left"
+                  >
+                    <span>
+                      <strong className="block text-sm">{location.label}</strong>
+                      <span className="mt-0.5 block text-xs font-normal text-zinc-500">{location.description}</span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="mt-4">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-zinc-500">Rychlá prostředí</p>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              {quickLocationOptions.map((location) => (
                 <button
                   key={location.id}
                   type="button"
                   aria-pressed={locationIds.includes(location.id)}
                   onClick={() => toggleLocation(location.id)}
-                  className="ui-choice justify-start p-4 text-left"
+                  className="ui-choice justify-start p-3 text-left"
                 >
                   <span>
-                    <strong className="block">{location.label}</strong>
-                    <span className="mt-1 block text-xs font-normal text-zinc-500">{location.description}</span>
+                    <strong className="block text-sm">{location.label}</strong>
+                    <span className="mt-0.5 block text-xs font-normal text-zinc-500">{location.description}</span>
                   </span>
                 </button>
               ))}
             </div>
-          ) : (
-            <p className="ui-feedback mt-3 text-sm">Pro trénink ve fitku si níže nejdřív ulož konkrétní místo a jeho vybavení.</p>
-          )}
-        </div>
-
-        <div className="mt-5 border-t border-white/8 pt-5">
-          <p className="text-sm font-bold text-zinc-300">Rychlá prostředí</p>
-          <p className="mt-1 text-xs leading-5 text-zinc-500">Použij například pro běh venku nebo domácí minimum bez ukládání konkrétního místa.</p>
-          <div className="mt-3 grid gap-2 sm:grid-cols-2">
-            {quickLocationOptions.map((location) => (
-              <button
-                key={location.id}
-                type="button"
-                aria-pressed={locationIds.includes(location.id)}
-                onClick={() => toggleLocation(location.id)}
-                className="ui-choice justify-start p-4 text-left"
-              >
-                <span>
-                  <strong className="block">{location.label}</strong>
-                  <span className="mt-1 block text-xs font-normal text-zinc-500">{location.description}</span>
-                </span>
-              </button>
-            ))}
           </div>
-        </div>
 
-        <p className="mt-4 text-center text-sm text-zinc-500">Vybráno {selectedLocations.length} míst. Každá jednotka musí být kompletně proveditelná alespoň v jednom z nich.</p>
+          <p className="mt-4 text-center text-sm text-zinc-500">
+            {locationFlexible
+              ? "Místo je otevřené. Program nebude blokovaný vybavením, které zatím neznáš."
+              : `Vybráno ${selectedLocations.length} míst. Každá jednotka bude proveditelná alespoň v jednom z nich.`}
+          </p>
+        </div>
       </section>
 
-      <TrainingLocationManager />
+      <TrainingLocationManager onLocationCreated={(location) => selectCreatedLocation(location.id)} />
 
-      <button type="button" onClick={generateProgram} className={`ui-button ui-button-lg mt-6 w-full ${weeks.length > 0 ? "ui-button-accent" : "ui-button-primary"}`}>Vygenerovat program</button>
+      <button type="button" onClick={generateProgram} className={`ui-button ui-button-lg mt-5 w-full ${weeks.length > 0 ? "ui-button-accent" : "ui-button-primary"}`}>Vygenerovat program</button>
       {message && <p role="status" className="ui-feedback ui-feedback-success mt-4 text-center text-sm font-bold">{message}</p>}
 
       {weeks.length > 0 && (
@@ -276,10 +331,18 @@ export default function ProgramsPage() {
               <div>
                 <h2 className="text-2xl font-black">{duration} týdnů · {assigned} jednotek</h2>
                 <p className="mt-2 text-sm leading-6 text-zinc-400">
-                  Enginn už rozložil intenzitu, fáze i dostupná místa. Jednotlivé workouty nemusíš teď ručně kontrolovat.
+                  {locationFlexible
+                    ? "Enginn rozložil intenzitu a fáze. Místo zatím zůstává otevřené a vyřešíš ho až podle reality daného dne."
+                    : "Enginn už rozložil intenzitu, fáze i dostupná místa. Jednotlivé workouty nemusíš teď ručně kontrolovat."}
                 </p>
               </div>
               <span className="ui-chip ui-chip-accent shrink-0">{frequency}× týdně</span>
+            </div>
+            <div className="ui-inset mt-4 p-3 text-sm">
+              <span className="font-bold text-zinc-300">Místo: </span>
+              <span className="text-zinc-400">
+                {locationFlexible ? "rozhodneš později" : selectedLocations.map((location) => location.label).join(", ")}
+              </span>
             </div>
             <button type="button" onClick={saveAndSchedule} className="ui-button ui-button-primary ui-button-lg mt-5 w-full">
               Uložit program a vložit do kalendáře
@@ -321,12 +384,14 @@ export default function ProgramsPage() {
                             ))}
                           </select>
 
-                          {location && (
+                          {location ? (
                             <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-accent/20 bg-accent-soft px-3 py-2">
                               <span className="text-xs font-bold text-zinc-300">Doporučené místo</span>
                               <span className="text-xs font-black text-accent">{location.label}</span>
                             </div>
-                          )}
+                          ) : locationFlexible ? (
+                            <div className="mt-3 rounded-xl border border-white/8 bg-black/15 px-3 py-2 text-xs text-zinc-500">Místo vybereš později</div>
+                          ) : null}
 
                           {template && (
                             <details className="mt-3 rounded-xl border border-white/8 bg-black/15 p-3">
