@@ -79,6 +79,12 @@ export default function Home() {
   const upcomingTemplate = upcomingSchedule
     ? data.templates.find((template) => template.id === upcomingSchedule.templateId)
     : undefined;
+  const upcomingProgram = upcomingSchedule?.programId
+    ? data.trainingPrograms.find((program) => program.id === upcomingSchedule.programId)
+    : undefined;
+  const upcomingWeek = upcomingSchedule?.programWeek
+    ? upcomingProgram?.weeks.find((week) => week.weekNumber === upcomingSchedule.programWeek)
+    : undefined;
   const customLocations = data.trainingLocations ?? [];
   const todayLocation = todaySchedule?.trainingLocation
     ? resolveTrainingLocation(todaySchedule.trainingLocation, customLocations)
@@ -313,9 +319,18 @@ export default function Home() {
                         <span key={label} className="ui-chip">{label}</span>
                       ))}
                     </div>
+                    <div className="mt-4 border-t border-white/8 pt-4">
+                      <TrainingLocationSelector
+                        schedule={upcomingSchedule}
+                        template={upcomingTemplate}
+                        phase={upcomingWeek?.phase}
+                        returnTo="/"
+                        label="Místo nejbližšího tréninku"
+                      />
+                    </div>
                   </div>
-                  <Link href={`/calendar/program?scheduleId=${upcomingSchedule.id}`} className="ui-button ui-button-primary mt-5 w-full">
-                    Detail / změnit místo
+                  <Link href={`/calendar/program?scheduleId=${upcomingSchedule.id}`} className="ui-button ui-button-outline mt-5 w-full">
+                    Detail / další úpravy tréninku
                   </Link>
                 </>
               ) : (
