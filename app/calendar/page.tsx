@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { PlanningShell } from "@/components/planning/PlanningShell";
 import { ScheduledWorkoutContextCard } from "@/components/planning/ScheduledWorkoutContextCard";
+import { TrainingLocationManager } from "@/components/planning/TrainingLocationManager";
 import { useHyroxData } from "@/hooks/useHyroxData";
 import type {
   NewScheduledWorkout,
@@ -269,6 +270,8 @@ export default function CalendarPage() {
         {planMessage && <p role="status" className="ui-feedback mt-4 text-center text-sm font-semibold">{planMessage}</p>}
       </section>
 
+      <TrainingLocationManager />
+
       <div className="mt-8 flex items-center justify-between gap-4"><h2 className="text-2xl font-black">Naplánované dny</h2><span className="text-sm text-zinc-500">{items.length} položek</span></div>
       {!ready && <div className="ui-card mt-4 h-40 animate-pulse" />}
       {ready && items.length === 0 && <section className="ui-card mt-4 border-dashed p-7 text-center text-zinc-400">Kalendář je zatím prázdný.</section>}
@@ -283,6 +286,7 @@ export default function CalendarPage() {
               item={item}
               template={template}
               templates={data.templates}
+              locations={data.trainingLocations ?? []}
               onUpdate={(updates) => updateScheduledWorkout(item.id, updates)}
               onDelete={() => setPendingDelete(item)}
             />
