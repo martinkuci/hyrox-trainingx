@@ -1,6 +1,10 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 import { cookies } from "next/headers";
-import { mapStravaActivities, parseStravaScopes } from "./strava";
+import {
+  STRAVA_REQUESTED_SCOPES,
+  mapStravaActivities,
+  parseStravaScopes,
+} from "./strava";
 
 export const STRAVA_TOKEN_COOKIE = "enginn-strava-token-v1";
 export const STRAVA_STATE_COOKIE = "enginn-strava-state-v1";
@@ -172,7 +176,7 @@ export function buildStravaAuthorizationUrl({
   url.searchParams.set("redirect_uri", resolveStravaRedirectUri(request));
   url.searchParams.set("response_type", "code");
   url.searchParams.set("approval_prompt", "auto");
-  url.searchParams.set("scope", "read,activity:read_all");
+  url.searchParams.set("scope", STRAVA_REQUESTED_SCOPES.join(","));
   url.searchParams.set("state", state);
   return url.toString();
 }
@@ -265,11 +269,13 @@ async function requestActivities(accessToken: string) {
 export async function fetchRecentStravaActivities(initialToken: StravaTokenBundle) {
   let refreshed = await refreshStravaToken(initialToken);
   let token = refreshed.token;
+  let tokenChanged = refreshed.refreshed;
   let response = await requestActivities(token.accessToken);
 
   if (response.status === 401) {
     refreshed = await refreshStravaToken(token, true);
     token = refreshed.token;
+    tokenChanged = true;
     response = await requestActivities(token.accessToken);
   }
   if (!response.ok) throw new Error(`Strava activities request failed with ${response.status}.`);
@@ -277,7 +283,7 @@ export async function fetchRecentStravaActivities(initialToken: StravaTokenBundl
   const importedAt = new Date().toISOString();
   return {
     token,
-    tokenChanged: token.accessToken !== initialToken.accessToken || token.refreshToken !== initialToken.refreshToken,
+    tokenChanged,
     importedAt,
     activities: mapStravaActivities(await response.json(), importedAt),
   };
