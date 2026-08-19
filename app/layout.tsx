@@ -5,15 +5,22 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "HYROX Training",
-    template: "%s · HYROX Training",
+    default: "Enginn",
+    template: "%s · Enginn",
   },
-  description: "Tréninkový plán, časovač a deník pro HYROX.",
-  applicationName: "HYROX Training",
+  description: "Tréninkový plán, časovač a deník pro tvůj hybridní trénink.",
+  applicationName: "Enginn",
+  icons: {
+    icon: [
+      { url: "/brand/enginn-app-icon.svg", type: "image/svg+xml" },
+      { url: "/brand/enginn-icon-192.png", sizes: "192x192", type: "image/png" },
+    ],
+    apple: [{ url: "/brand/enginn-icon-180.png", sizes: "180x180", type: "image/png" }],
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "HYROX Training",
+    title: "Enginn",
   },
 };
 

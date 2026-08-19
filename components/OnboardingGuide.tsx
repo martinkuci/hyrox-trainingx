@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { EnginnMark, EnginnWordmark } from "@/components/EnginnBrand";
 import {
   ONBOARDING_OPEN_EVENT,
   completeOnboarding,
@@ -11,9 +12,9 @@ import {
 const steps = [
   {
     eyebrow: "Vítej",
-    title: "HYROX v kostce",
+    title: "Hybridní trénink v kostce",
     description:
-      "HYROX kombinuje běžecké úseky s funkčními stanovišti. Aplikace ti pomůže přípravu rozdělit do jasných tréninků a sledovat, jak je zvládáš.",
+      "Hybridní trénink kombinuje běh, sílu a kondici. Enginn ti pomůže přípravu rozdělit do jasných jednotek a sledovat, jak je zvládáš.",
     points: ["Běh a funkční síla", "Trénink podle vlastní úrovně", "Důraz na tempo a pravidelnost"],
   },
   {
@@ -88,8 +89,9 @@ export default function OnboardingGuide() {
         className="ui-card ui-card-accent my-auto max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto p-5 text-white shadow-[0_28px_90px_rgba(0,0,0,0.55)] sm:p-7"
       >
         <div className="flex items-center justify-between gap-4">
-          <div className="grid min-h-12 place-items-center rounded-2xl bg-accent px-3 text-sm font-black tracking-[0.16em] text-[var(--accent-contrast)]" aria-hidden="true">
-            HYROX
+          <div className="flex min-h-12 items-center gap-3" role="img" aria-label="Enginn">
+            <EnginnMark className="size-12" priority />
+            <EnginnWordmark className="h-5 w-auto" priority />
           </div>
           <button
             type="button"

@@ -12,9 +12,9 @@ import {
 } from "../lib/help-support.ts";
 
 test("použije správný předmět pro každý typ dotazu", () => {
-  assert.equal(supportSubject("technical"), "[HYROX Training] Technická pomoc");
-  assert.equal(supportSubject("idea"), "[HYROX Training] Nápad na zlepšení");
-  assert.equal(supportSubject("question"), "[HYROX Training] Obecný dotaz");
+  assert.equal(supportSubject("technical"), "[Enginn] Technická pomoc");
+  assert.equal(supportSubject("idea"), "[Enginn] Nápad na zlepšení");
+  assert.equal(supportSubject("question"), "[Enginn] Obecný dotaz");
 });
 
 test("povolí jen známé typy hlášení", () => {
@@ -81,6 +81,6 @@ test("text pro podporu obsahuje typ, kontakt, zprávu a verzi bez příjemce", (
   assert.match(body, /^Typ: Technická pomoc/);
   assert.match(body, /Kontaktní e-mail: martin@example\.com/);
   assert.match(body, /Po klepnutí se obrazovka zavře\./);
-  assert.match(body, /Odesláno z aplikace HYROX Training\nVerze 1\.0\.0$/);
+  assert.match(body, /Odesláno z aplikace Enginn\nVerze 1\.0\.0$/);
   assert.doesNotMatch(body, /Příjemce podpory/);
 });

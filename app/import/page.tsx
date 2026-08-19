@@ -9,15 +9,15 @@ import type { NewWorkoutTemplate, WorkoutBlock, WorkoutStep } from "@/lib/types"
 import { categoryLabel, normalizeMetadata } from "@/lib/workout-metadata";
 
 const sampleWorkout = {
-  title: "HYROX Engine EMOM 42",
-  description: "Kondiční HYROX trénink zaměřený na práci pod únavou, přechody a udržení tempa.",
+  title: "Hybrid Engine EMOM 42",
+  description: "Kondiční hybridní trénink zaměřený na práci pod únavou, přechody a udržení tempa.",
   durationMinutes: 42,
-  tags: ["hyrox", "emom", "běh", "wall-ball", "burpee", "row"],
+  tags: ["hybrid", "emom", "běh", "wall-ball", "burpee", "row"],
   metadata: {
-    workoutCode: "HYX-001",
+    workoutCode: "EGN-001",
     templateVersion: 1,
     category: "base-engine",
-    goal: "Udržet stabilní tempo při kombinaci běhu a HYROX stanovišť.",
+    goal: "Udržet stabilní tempo při kombinaci běhu a funkčních disciplín.",
     targetRpeMin: 7,
     targetRpeMax: 8,
     expectedDurationMin: 40,
@@ -33,7 +33,7 @@ const sampleWorkout = {
       { name: "400 m lehký běh", detail: "Klidné tempo" }, { name: "Air squat", detail: "10 opakování" },
       { name: "Burpee", detail: "8 opakování" }, { name: "Výpady", detail: "10 opakování" }, { name: "Plank", detail: "30 sekund" }
     ] },
-    { type: "emom", title: "HYROX EMOM", minutes: 24, steps: [
+    { type: "emom", title: "Hybrid EMOM", minutes: 24, steps: [
       { name: "Wall ball", detail: "12 opakování" }, { name: "Burpee broad jump", detail: "10 opakování" },
       { name: "Row", detail: "12/10 cal" }, { name: "Goblet squat", detail: "12 opakování" },
       { name: "Běh", detail: "200 m" }, { name: "Odpočinek", detail: "Zbytek minuty" }

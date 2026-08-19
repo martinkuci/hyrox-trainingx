@@ -1,8 +1,8 @@
-# HYROX Training — projekt
+# Enginn — projekt
 
 ## Cíl
 
-Mobilně orientovaná webová aplikace pro plánování HYROX tréninků, práci s tréninkovými programy, přesouvání jednotek v kalendáři a ukládání výsledků.
+Mobilně orientovaná webová aplikace pro plánování hybridních tréninků, práci s tréninkovými programy, přesouvání jednotek v kalendáři a ukládání výsledků.
 
 ## Uživatel a hlavní scénáře
 

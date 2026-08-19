@@ -14,7 +14,7 @@ const weekdays = [
 const defaultDayOrder = [1, 2, 3, 4, 5, 6, 0];
 
 const goalLabels: Record<Goal, string> = {
-  race: "Příprava na HYROX",
+  race: "Příprava na hybridní závod",
   fitness: "Celková kondice",
   run: "Zlepšit běh",
   strength: "Zlepšit sílu",

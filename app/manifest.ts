@@ -2,9 +2,9 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "HYROX Training",
-    short_name: "HYROX",
-    description: "Tréninkový plán, časovač a deník pro HYROX.",
+    name: "Enginn",
+    short_name: "Enginn",
+    description: "Tréninkový plán, časovač a deník pro tvůj hybridní trénink.",
     start_url: "/",
     display: "standalone",
     background_color: "#09090b",
@@ -12,9 +12,16 @@ export default function manifest(): MetadataRoute.Manifest {
     lang: "cs",
     icons: [
       {
-        src: "/favicon.ico",
-        sizes: "any",
-        type: "image/x-icon",
+        src: "/brand/enginn-icon-192.png",
+        sizes: "192x192",
+        type: "image/png",
+        purpose: "any",
+      },
+      {
+        src: "/brand/enginn-icon-512.png",
+        sizes: "512x512",
+        type: "image/png",
+        purpose: "any",
       },
     ],
   };

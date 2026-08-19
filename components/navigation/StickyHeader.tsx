@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { EnginnMark, EnginnWordmark } from "@/components/EnginnBrand";
 import { useCloudSyncState } from "@/hooks/useCloudSyncState";
 
 type Props = {
@@ -39,8 +40,8 @@ export function StickyHeader({ title, fallbackHref = "/" }: Props) {
     >
       <div className="mx-auto grid h-[4.25rem] w-full max-w-2xl grid-cols-3 items-center px-4 sm:px-6">
         {pathname === "/" ? (
-          <Link href="/" className="grid size-10 place-items-center rounded-xl bg-accent font-black text-zinc-950" aria-label="Dnes">
-            H
+          <Link href="/" className="grid size-11 place-items-center rounded-xl" aria-label="Enginn – dnes">
+            <EnginnMark className="size-10" priority />
           </Link>
         ) : (
           <button
@@ -57,11 +58,10 @@ export function StickyHeader({ title, fallbackHref = "/" }: Props) {
 
         <Link
           href="/"
-          className="flex min-h-11 items-center justify-self-center rounded-xl px-3 text-xs font-black uppercase tracking-[0.22em] text-white"
-          aria-label="HYROX Training – domů"
+          className="flex min-h-11 items-center justify-self-center rounded-xl px-2"
+          aria-label="Enginn – domů"
         >
-          <span className="mr-2 h-4 w-1 rounded-full bg-accent" aria-hidden="true" />
-          HYROX
+          <EnginnWordmark className="h-[1.15rem] w-auto" priority />
         </Link>
 
         <Link

@@ -66,7 +66,7 @@ const phaseFocus: Record<ProgramPhase, string> = {
   base: "Aerobní základ, technika a silová příprava",
   build: "Vyšší výkon a pracovní kapacita",
   deload: "Nižší objem, lehká intenzita a regenerace",
-  specific: "HYROX tempo, přechody a závodní specifika",
+  specific: "Cílové závodní tempo, přechody a specifické disciplíny",
   taper: "Snížený objem a zachování ostrosti",
 };
 

@@ -17,17 +17,17 @@ export const SUPPORT_TYPES = [
   {
     value: "technical",
     label: "Technická pomoc",
-    subject: "[HYROX Training] Technická pomoc",
+    subject: "[Enginn] Technická pomoc",
   },
   {
     value: "idea",
     label: "Nápad na zlepšení",
-    subject: "[HYROX Training] Nápad na zlepšení",
+    subject: "[Enginn] Nápad na zlepšení",
   },
   {
     value: "question",
     label: "Obecný dotaz",
-    subject: "[HYROX Training] Obecný dotaz",
+    subject: "[Enginn] Obecný dotaz",
   },
 ] as const;
 
@@ -122,7 +122,7 @@ export function buildSupportEmailText({
     message.trim(),
     "",
     "---",
-    "Odesláno z aplikace HYROX Training",
+    "Odesláno z aplikace Enginn",
     `Verze ${APP_VERSION}`,
   ].join("\n");
 }

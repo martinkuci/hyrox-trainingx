@@ -77,7 +77,7 @@ Status: confirmed by product owner
 
 ### Phase 6B - Brand identity
 
-Status: complete; awaiting visual approval
+Status: approved and connected to the application
 
 - Define Enginn positioning, logo, app icon, palette and product language.
 - Separate visible brand references from legacy technical identifiers.
@@ -85,8 +85,8 @@ Status: complete; awaiting visual approval
 
 ### Phase 6C - Technical rebrand
 
-- Replace public metadata, navigation, onboarding and support copy.
-- Rename public workout content without breaking stored history or backup compatibility.
+- Replace public metadata, navigation, onboarding and support copy. — complete
+- Rename public workout content without breaking stored history or backup compatibility. — complete
 - Configure the new deployment name and domain with redirects from the old address.
 
 ## Phase 7 - General hybrid training

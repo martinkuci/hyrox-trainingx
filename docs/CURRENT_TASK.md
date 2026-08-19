@@ -6,38 +6,36 @@
 
 ## Fáze
 
-Enginn 1B — vizuální identita, ikony a terminologie.
+Enginn 1B — zapojení schválené identity do aplikace.
 
 ## Cíl změny
 
-Připravit schválený brand systém pro přechod z HYROX Training na Enginn, aniž by se v této fázi měnila produkční metadata, tréninková logika nebo uložená data. Výstup musí být použitelný jako jednoznačný podklad pro technický rebranding v následující fázi.
+Zapojit schválený brand systém Enginn do veřejného rozhraní, metadat a instalované PWA. Odstranit veřejné odkazy na původní značku a současně zachovat kompatibilitu uložených dat, záloh a historických výsledků.
 
 ## Rozsah
 
-- definovat správný zápis názvu, pozici značky, tón komunikace a hlavní produktový popis,
-- navrhnout vektorovou značku a varianty pro navigaci, favicon, PWA a dokumentaci,
-- zachovat současný tmavý vizuální základ a limetkovou akcentní barvu kvůli kontinuitě produktu,
-- vytvořit terminologickou mapu pro nahrazení viditelných odkazů na HYROX,
-- oddělit veřejné názvy od legacy technických identifikátorů, které musí zůstat kompatibilní,
-- připravit mapu použití assetů pro následnou fázi technického rebrandingu,
-- aktualizovat roadmapu po vydání stabilní verze 1.0.0.
+- zobrazit symbol a wordmark Enginn v hlavní navigaci, onboardingu, aktivním tréninku a souhrnu,
+- změnit metadata, manifest, favicon a PWA ikony na Enginn,
+- přepsat veřejné texty podpory, programu, importu a vestavěného katalogu na obecný hybridní trénink,
+- změnit veřejné kódy vestavěných tréninků z `HYX` na `EGN`,
+- povýšit katalog tak, aby se nové veřejné názvy propsaly do neupravených vestavěných šablon,
+- zachovat legacy storage keys, TypeScript názvy, ID šablon, Firebase konfiguraci a formát zálohy,
+- aktualizovat dokumentaci a automatické testy.
 
 ## Akceptační kritéria
 
-- existuje jednoznačný brand dokument s pravidly názvu, barev, loga a textového tónu,
-- existuje samostatná vektorová značka, app ikona a horizontální wordmark,
-- jsou připravené rastrové ikony 180, 192 a 512 px,
-- značka je čitelná na tmavém i průhledném pozadí a nepoužívá chráněné prvky HYROX,
-- terminologická mapa rozlišuje značku, obecný sportovní obsah a legacy datové identifikátory,
-- žádný existující storage key, typ, ID tréninku ani formát zálohy se v této fázi nemění,
-- lint, automatické testy a produkční build zůstávají beze změny funkční.
+- veřejné rozhraní, metadata a PWA používají pouze značku Enginn,
+- nové logo je čitelné v horní navigaci i aktivním tréninku a zachovává funkci minimalizace,
+- noví uživatelé i neupravené vestavěné šablony dostanou obecné hybridní názvosloví,
+- uživatelsky upravené šablony, historické výsledky a zálohy se nepřepisují,
+- žádný existující storage key, typ, ID tréninku ani formát zálohy se nemění,
+- lint, automatické testy a produkční build projdou.
 
 ## Mimo rozsah
 
-- změna viditelných textů a metadat produkční aplikace,
 - změna názvu Vercel nebo Firebase projektu,
 - připojení nové domény,
-- přejmenování existujících tréninků a datových ID,
+- přejmenování legacy datových ID a historických výsledků,
 - změna generátoru programu, knihovny cviků nebo onboardingového toku,
 - změna verze aplikace,
-- sloučení do `main` bez uživatelského schválení návrhu identity.
+- sloučení do `main` bez uživatelského otestování náhledu.

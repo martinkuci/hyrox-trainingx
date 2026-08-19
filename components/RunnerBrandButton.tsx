@@ -1,3 +1,5 @@
+import { EnginnWordmark } from "@/components/EnginnBrand";
+
 type Props = {
   onClick: () => void;
 };
@@ -7,11 +9,11 @@ export default function RunnerBrandButton({ onClick }: Props) {
     <button
       type="button"
       onClick={onClick}
-      className="grid min-h-11 min-w-20 place-items-center rounded-xl px-3 text-xs font-black tracking-[0.2em] text-accent transition active:bg-accent-soft"
+      className="grid min-h-11 min-w-24 place-items-center rounded-xl px-3 transition active:bg-accent-soft"
       aria-label="Minimalizovat trénink"
       title="Minimalizovat trénink"
     >
-      HYROX
+      <EnginnWordmark className="h-[1.05rem] w-auto" />
     </button>
   );
 }
