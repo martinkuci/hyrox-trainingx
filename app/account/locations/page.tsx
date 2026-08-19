@@ -1,27 +1,22 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { PlanningShell } from "@/components/planning/PlanningShell";
 import { TrainingLocationManager } from "@/components/planning/TrainingLocationManager";
 import { useHyroxData } from "@/hooks/useHyroxData";
 import { planTrainingLocationChange } from "@/lib/training-location-change";
 import type { TrainingLocationProfile } from "@/lib/types";
 
-export default function TrainingLocationsPage() {
+function TrainingLocationsContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { data, updateScheduledWorkout } = useHyroxData();
-  const [startOpen, setStartOpen] = useState(false);
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    setStartOpen(params.get("new") === "1");
-  }, []);
+  const startOpen = searchParams.get("new") === "1";
 
   function handleLocationCreated(location: TrainingLocationProfile) {
-    const params = new URLSearchParams(window.location.search);
-    const scheduleId = params.get("scheduleId");
-    const returnTo = params.get("returnTo");
+    const scheduleId = searchParams.get("scheduleId");
+    const returnTo = searchParams.get("returnTo");
     if (!scheduleId) return;
 
     const schedule = data.scheduledWorkouts.find((item) => item.id === scheduleId);
@@ -54,6 +49,15 @@ export default function TrainingLocationsPage() {
   }
 
   return (
+    <TrainingLocationManager
+      startOpen={startOpen}
+      onLocationCreated={handleLocationCreated}
+    />
+  );
+}
+
+export default function TrainingLocationsPage() {
+  return (
     <PlanningShell
       eyebrow="Profil"
       title="Tréninková místa"
@@ -61,10 +65,9 @@ export default function TrainingLocationsPage() {
       backHref="/account"
     >
       <div className="mx-auto max-w-2xl">
-        <TrainingLocationManager
-          startOpen={startOpen}
-          onLocationCreated={handleLocationCreated}
-        />
+        <Suspense fallback={<section className="ui-card mt-5 h-40 animate-pulse" aria-label="Načítám tréninková místa" />}>
+          <TrainingLocationsContent />
+        </Suspense>
       </div>
     </PlanningShell>
   );
