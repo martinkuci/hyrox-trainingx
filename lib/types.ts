@@ -78,6 +78,7 @@ export type TrainingProgram = {
 };
 
 export type ScheduledWorkoutStatus = "planned" | "completed" | "skipped";
+export type ScheduledTrainingLocation = "outdoor" | "home" | "standard-gym" | "hybrid-gym";
 export type ScheduledWorkout = {
   id: string;
   templateId: string;
@@ -85,6 +86,7 @@ export type ScheduledWorkout = {
   date: string;
   time: string;
   status: ScheduledWorkoutStatus;
+  trainingLocation?: ScheduledTrainingLocation;
   programId?: string;
   programWeek?: number;
   programSessionId?: string;
