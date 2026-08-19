@@ -15,6 +15,7 @@ export const DEFAULT_HYROX_DATA: HyroxData = {
   results: [],
   weeklyPlans: [],
   trainingPrograms: [],
+  trainingLocations: [],
 };
 
 export function createDefaultHyroxData(): HyroxData {
