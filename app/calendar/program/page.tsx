@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { PlanningShell } from "@/components/planning/PlanningShell";
 import { StatusBadge } from "@/components/planning/StatusBadge";
@@ -17,7 +17,16 @@ import {
   type ScheduleMoveFailure,
   type ScheduleMoveScope,
 } from "@/lib/calendar-planning";
-import type { ScheduledWorkout } from "@/lib/types";
+import {
+  EQUIPMENT_LABELS,
+  TRAINING_LOCATION_PRESETS,
+  findLocationAlternatives,
+  requiredEquipmentForTemplate,
+  resolveTrainingLocation,
+  templateFitsLocation,
+  workoutContentSummary,
+} from "@/lib/training-context";
+import type { ScheduledTrainingLocation, ScheduledWorkout } from "@/lib/types";
 
 const weekdayLabels = ["Po", "Út", "St", "Čt", "Pá", "So", "Ne"];
 
@@ -81,6 +90,8 @@ export default function LiveProgramCalendarPage() {
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [pendingCollision, setPendingCollision] = useState<PendingCollision | null>(null);
   const [pendingSkip, setPendingSkip] = useState<ScheduledWorkout | null>(null);
+  const queryHandledRef = useRef(false);
+  const customLocations = useMemo(() => data.trainingLocations ?? [], [data.trainingLocations]);
 
   const programChoices = useMemo(
     () => listProgramCalendarChoices(data.trainingPrograms, data.scheduledWorkouts),
@@ -109,11 +120,33 @@ export default function LiveProgramCalendarPage() {
   const originalTemplate = selected?.originalTemplateId
     ? data.templates.find((item) => item.id === selected.originalTemplateId)
     : undefined;
+  const selectedLocation = selected?.trainingLocation;
+  const selectedLocationProfile = selectedLocation
+    ? resolveTrainingLocation(selectedLocation, customLocations)
+    : null;
+  const selectedEquipment = selectedTemplate ? requiredEquipmentForTemplate(selectedTemplate) : [];
+  const selectedContent = selectedTemplate ? workoutContentSummary(selectedTemplate) : [];
+  const selectedFitsLocation = selectedTemplate && selectedLocation
+    ? templateFitsLocation(selectedTemplate, selectedLocation, customLocations)
+    : true;
+  const alternatives = useMemo(
+    () => selectedTemplate && selectedLocation
+      ? findLocationAlternatives({
+          current: selectedTemplate,
+          templates: data.templates,
+          location: selectedLocation,
+          customLocations,
+        })
+      : [],
+    [customLocations, data.templates, selectedLocation, selectedTemplate],
+  );
   const shorterVariants = useMemo(
     () => selectedTemplate && !originalTemplate
-      ? findShorterWorkoutVariants(selectedTemplate, data.templates)
+      ? findShorterWorkoutVariants(selectedTemplate, data.templates).filter((variant) =>
+          !selectedLocation || templateFitsLocation(variant, selectedLocation, customLocations),
+        )
       : [],
-    [data.templates, originalTemplate, selectedTemplate],
+    [customLocations, data.templates, originalTemplate, selectedLocation, selectedTemplate],
   );
 
   const cells = monthCells(month);
@@ -122,6 +155,19 @@ export default function LiveProgramCalendarPage() {
   const completed = programSchedules.filter((item) => item.status === "completed").length;
   const planned = programSchedules.filter((item) => item.status === "planned").length;
   const skipped = programSchedules.filter((item) => item.status === "skipped").length;
+
+  useEffect(() => {
+    if (!ready || queryHandledRef.current || typeof window === "undefined") return;
+    queryHandledRef.current = true;
+    const requestedId = new URLSearchParams(window.location.search).get("scheduleId");
+    if (!requestedId) return;
+    const schedule = data.scheduledWorkouts.find((item) => item.id === requestedId);
+    if (!schedule) return;
+    if (schedule.programId) setProgramId(schedule.programId);
+    setSelectedId(schedule.id);
+    setTargetDate(schedule.date);
+    setMonth(parseCalendarDate(schedule.date));
+  }, [data.scheduledWorkouts, ready]);
 
   function schedulesForDate(key: string) {
     return schedulesByDate.filter((item) => item.date === key);
@@ -143,6 +189,33 @@ export default function LiveProgramCalendarPage() {
       .filter((item) => item.programId === nextProgramId)
       .sort((left, right) => left.date.localeCompare(right.date))[0];
     if (firstSchedule) setMonth(parseCalendarDate(firstSchedule.date));
+  }
+
+  function changeSelectedLocation(nextLocation: ScheduledTrainingLocation) {
+    if (!selected || !selectedTemplate) return;
+    const profile = resolveTrainingLocation(nextLocation, customLocations);
+    const fits = templateFitsLocation(selectedTemplate, nextLocation, customLocations);
+    updateScheduledWorkout(selected.id, { trainingLocation: nextLocation });
+    setFeedback({
+      tone: fits ? "success" : "warning",
+      text: fits
+        ? `Místo změněno na ${profile?.label ?? "vybrané místo"}. Trénink je zde proveditelný.`
+        : `Místo změněno na ${profile?.label ?? "vybrané místo"}, ale pro aktuální trénink tam chybí vybavení. Vyber kompatibilní alternativu.`,
+    });
+  }
+
+  function changeSelectedWorkout(templateId: string) {
+    if (!selected || !templateId || !selectedLocation) return;
+    const candidate = data.templates.find((item) => item.id === templateId);
+    if (!candidate || !templateFitsLocation(candidate, selectedLocation, customLocations)) return;
+    updateScheduledWorkout(selected.id, {
+      templateId: candidate.id,
+      originalTemplateId: selected.originalTemplateId ?? selected.templateId,
+    });
+    setFeedback({
+      tone: "success",
+      text: `Trénink změněn na ${candidate.title}. Místo zůstává stejné.`,
+    });
   }
 
   function applyMove(
@@ -224,7 +297,7 @@ export default function LiveProgramCalendarPage() {
 
   function selectShorterVariant(templateId: string) {
     if (!selected || !selectedTemplate) return;
-    const variant = data.templates.find((item) => item.id === templateId);
+    const variant = shorterVariants.find((item) => item.id === templateId);
     if (!variant || variant.durationMinutes >= selectedTemplate.durationMinutes) return;
     updateScheduledWorkout(selected.id, {
       templateId: variant.id,
@@ -249,7 +322,7 @@ export default function LiveProgramCalendarPage() {
     <PlanningShell
       eyebrow="Plán"
       title="Kalendář programu"
-      description="Přesuň jednotku, uprav zbytek programu nebo zvol kratší trénink podle času, který dnes máš."
+      description="Přesuň jednotku, zkontroluj obsah a vybavení nebo změň místo a trénink podle toho, kde dnes skutečně budeš cvičit."
       backHref="/plan"
     >
       <section className="ui-card p-5 sm:p-6">
@@ -388,6 +461,26 @@ export default function LiveProgramCalendarPage() {
             <StatusBadge status={selected.status} />
           </div>
 
+          <details className="ui-inset mt-4 p-4" open>
+            <summary className="cursor-pointer list-none font-black">Obsah a potřebné vybavení</summary>
+            <p className="mt-2 text-sm leading-6 text-zinc-400">{selectedTemplate.description}</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {selectedEquipment.length === 0 ? (
+                <span className="ui-chip">Bez speciálního vybavení</span>
+              ) : selectedEquipment.map((equipmentId) => (
+                <span key={equipmentId} className="ui-chip">{EQUIPMENT_LABELS[equipmentId]}</span>
+              ))}
+            </div>
+            <div className="mt-4 space-y-2">
+              {selectedContent.map((block) => (
+                <div key={block.id} className="border-t border-white/10 pt-2 first:border-0 first:pt-0">
+                  <p className="text-sm font-bold text-white">{block.title}</p>
+                  <p className="mt-1 text-xs leading-5 text-zinc-400">{block.detail}</p>
+                </div>
+              ))}
+            </div>
+          </details>
+
           {originalTemplate && (
             <div className="ui-feedback ui-feedback-warning mt-4 text-sm">
               <p className="font-bold">Používáš upravenou variantu programu.</p>
@@ -400,6 +493,59 @@ export default function LiveProgramCalendarPage() {
 
           {selected.status === "planned" && (
             <>
+              <div className="mt-5 border-t border-white/8 pt-5">
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-zinc-500">Místo a varianta</p>
+                <label className="mt-3 block">
+                  <span className="text-sm font-bold text-zinc-300">Kde budu cvičit</span>
+                  <select
+                    value={selectedLocation ?? ""}
+                    onChange={(event) => {
+                      if (event.target.value) changeSelectedLocation(event.target.value as ScheduledTrainingLocation);
+                    }}
+                    className="ui-field mt-2"
+                  >
+                    <option value="" disabled>Místo neurčeno</option>
+                    <optgroup label="Rychlé profily">
+                      {Object.entries(TRAINING_LOCATION_PRESETS).map(([value, preset]) => (
+                        <option key={value} value={value}>{preset.label}</option>
+                      ))}
+                    </optgroup>
+                    {customLocations.length > 0 && (
+                      <optgroup label="Moje místa">
+                        {customLocations.map((location) => (
+                          <option key={location.id} value={location.id}>{location.name}</option>
+                        ))}
+                      </optgroup>
+                    )}
+                  </select>
+                </label>
+                {selectedLocationProfile && (
+                  <p className="mt-2 text-xs leading-5 text-zinc-500">{selectedLocationProfile.description}</p>
+                )}
+                {!selectedFitsLocation && (
+                  <p className="ui-feedback ui-feedback-warning mt-3 text-sm font-bold">
+                    Na tomto místě chybí část vybavení pro aktuální trénink. Změň trénink nebo vyber jiné místo.
+                  </p>
+                )}
+                {selectedLocation && (
+                  <label className="mt-4 block">
+                    <span className="text-sm font-bold text-zinc-300">Změnit trénink podle tohoto místa</span>
+                    <select
+                      value=""
+                      onChange={(event) => changeSelectedWorkout(event.target.value)}
+                      className="ui-field mt-2"
+                    >
+                      <option value="">Vybrat kompatibilní alternativu</option>
+                      {alternatives.map((candidate) => (
+                        <option key={candidate.id} value={candidate.id}>
+                          {candidate.title} · {candidate.durationMinutes} min
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+              </div>
+
               <div className="mt-5 border-t border-white/8 pt-5">
                 <p className="text-xs font-black uppercase tracking-[0.18em] text-zinc-500">Změnit termín</p>
                 <label className="mt-3 block">
@@ -458,7 +604,7 @@ export default function LiveProgramCalendarPage() {
                       >
                         <span className="min-w-0">
                           <span className="block truncate font-bold">{variant.title}</span>
-                          <span className="mt-0.5 block text-xs text-zinc-500">Stejný tréninkový cíl</span>
+                          <span className="mt-0.5 block text-xs text-zinc-500">Stejný tréninkový cíl · kompatibilní s vybraným místem</span>
                         </span>
                         <span className="ui-chip ui-chip-accent shrink-0">{variant.durationMinutes} min</span>
                       </button>
