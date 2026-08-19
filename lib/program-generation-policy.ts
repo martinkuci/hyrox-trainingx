@@ -3,7 +3,7 @@ import {
   inferTemplateDisciplineIds,
   type DisciplineId,
   type TrainingFocus,
-} from "./training-domain";
+} from "./training-domain.ts";
 
 export type ProgramGoal = "race" | "fitness" | "run" | "strength";
 export type ProgramLevel = 1 | 2 | 3;
