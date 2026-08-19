@@ -12,13 +12,13 @@ import {
   type ProgramGoal,
   type ProgramLevel,
   type SessionBlueprint,
-} from "./program-generation-policy";
+} from "./program-generation-policy.ts";
 import {
   findCompatibleLocationForTemplate,
   templateFitsEquipment,
-} from "./training-context";
+} from "./training-context.ts";
 
-export type { ProgramGoal, ProgramLevel } from "./program-generation-policy";
+export type { ProgramGoal, ProgramLevel } from "./program-generation-policy.ts";
 
 export type ProgramTrainingLocation = {
   id: ScheduledTrainingLocation;
