@@ -2,6 +2,9 @@ import { createDefaultHyroxData } from "./default-data";
 import { upgradeCatalogTemplates } from "./catalog-migration";
 import { applyTrainingAdaptationDecision } from "./training-adaptation";
 import type {
+  HealthActivity,
+  HealthDataStore,
+  HealthProviderId,
   HyroxData,
   NewScheduledWorkout,
   NewTrainingLocationProfile,
@@ -22,6 +25,7 @@ import type { ScheduledWorkoutUpdate } from "./calendar-planning";
 export const HYROX_STORAGE_KEY = "hyrox-data-v1";
 export const LEGACY_RESULTS_KEY = "hyrox-results";
 export const HYROX_DATA_EVENT = "hyrox-data-change";
+const HEALTH_ACTIVITY_LIMIT_PER_PROVIDER = 200;
 
 function makeId(prefix: string) {
   const value =
@@ -52,6 +56,21 @@ function normalizeTemplates(data: Partial<HyroxData>, fallback: HyroxData) {
   return upgradeCatalogTemplates(stored, storedCatalogVersion, fallback.templates, currentCatalogVersion);
 }
 
+function normalizeHealthData(data: Partial<HyroxData>, fallback: HyroxData): HealthDataStore {
+  const stored = data.healthData;
+  const fallbackHealth = fallback.healthData ?? { activities: [], samples: [], lastSyncedAt: {} };
+  if (!stored || typeof stored !== "object") return fallbackHealth;
+
+  return {
+    activities: Array.isArray(stored.activities) ? stored.activities : [],
+    samples: Array.isArray(stored.samples) ? stored.samples : [],
+    lastSyncedAt:
+      stored.lastSyncedAt && typeof stored.lastSyncedAt === "object"
+        ? stored.lastSyncedAt
+        : {},
+  };
+}
+
 function normalize(value: unknown): HyroxData {
   const fallback = createDefaultHyroxData();
   if (!value || typeof value !== "object") return fallback;
@@ -72,6 +91,7 @@ function normalize(value: unknown): HyroxData {
     trainingLocations: Array.isArray(data.trainingLocations)
       ? data.trainingLocations
       : [],
+    healthData: normalizeHealthData(data, fallback),
   };
 }
 
@@ -333,6 +353,44 @@ export function decideTrainingAdaptation(resultId: string, decision: TrainingAda
 export function deleteResult(id: string) {
   updateData((data) => ({ ...data, results: data.results.filter((result) => result.id !== id) }));
   return true;
+}
+
+export function mergeHealthActivities(
+  provider: HealthProviderId,
+  activities: HealthActivity[],
+  syncedAt = new Date().toISOString(),
+) {
+  const incoming = activities.filter((activity) => activity.provider === provider);
+  updateData((data) => {
+    const healthData = data.healthData ?? { activities: [], samples: [], lastSyncedAt: {} };
+    const providerActivities = new Map(
+      healthData.activities
+        .filter((activity) => activity.provider === provider)
+        .map((activity) => [activity.externalId, activity]),
+    );
+    for (const activity of incoming) providerActivities.set(activity.externalId, activity);
+
+    const mergedProviderActivities = [...providerActivities.values()]
+      .sort((left, right) => right.startedAt.localeCompare(left.startedAt))
+      .slice(0, HEALTH_ACTIVITY_LIMIT_PER_PROVIDER);
+    const otherProviderActivities = healthData.activities.filter(
+      (activity) => activity.provider !== provider,
+    );
+
+    return {
+      ...data,
+      healthData: {
+        ...healthData,
+        activities: [...mergedProviderActivities, ...otherProviderActivities]
+          .sort((left, right) => right.startedAt.localeCompare(left.startedAt)),
+        lastSyncedAt: {
+          ...(healthData.lastSyncedAt ?? {}),
+          [provider]: syncedAt,
+        },
+      },
+    };
+  });
+  return incoming.length;
 }
 
 export function resetHyroxData() {
