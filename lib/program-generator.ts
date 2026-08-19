@@ -4,9 +4,15 @@ import type {
   WorkoutCategory,
   WorkoutTemplate,
 } from "./types";
+import {
+  getSessionBlueprints,
+  scoreTemplateForBlueprint,
+  type ProgramGoal,
+  type ProgramLevel,
+  type SessionBlueprint,
+} from "./program-generation-policy";
 
-export type ProgramGoal = "race" | "fitness" | "run" | "strength";
-export type ProgramLevel = 1 | 2 | 3;
+export type { ProgramGoal, ProgramLevel } from "./program-generation-policy";
 
 type BuildProgramInput = {
   templates: WorkoutTemplate[];
@@ -19,40 +25,6 @@ type BuildProgramInput = {
 };
 
 const weekdayOrder = [1, 2, 3, 4, 5, 6, 0];
-
-const patterns: Record<
-  ProgramGoal,
-  Record<ProgramPhase, WorkoutCategory[]>
-> = {
-  race: {
-    base: ["base-engine", "strength", "base-builder", "long-engine", "recovery"],
-    build: ["threshold", "strength", "base-engine", "mixed", "long-engine"],
-    deload: ["recovery", "base-engine", "strength", "mixed", "long-engine"],
-    specific: ["race-simulation", "threshold", "strength", "mixed", "long-engine"],
-    taper: ["recovery", "base-engine", "race-simulation", "threshold", "mixed"],
-  },
-  fitness: {
-    base: ["base-engine", "strength", "base-builder", "long-engine", "recovery"],
-    build: ["mixed", "strength", "threshold", "base-engine", "long-engine"],
-    deload: ["recovery", "base-engine", "strength", "mixed", "long-engine"],
-    specific: ["mixed", "threshold", "strength", "long-engine", "race-simulation"],
-    taper: ["recovery", "base-engine", "mixed", "strength", "threshold"],
-  },
-  run: {
-    base: ["base-engine", "strength", "base-builder", "long-engine", "recovery"],
-    build: ["threshold", "base-engine", "strength", "long-engine", "mixed"],
-    deload: ["recovery", "base-engine", "strength", "mixed", "long-engine"],
-    specific: ["threshold", "long-engine", "mixed", "strength", "race-simulation"],
-    taper: ["recovery", "base-engine", "threshold", "mixed", "strength"],
-  },
-  strength: {
-    base: ["strength", "base-engine", "base-builder", "recovery", "long-engine"],
-    build: ["strength", "mixed", "threshold", "base-engine", "long-engine"],
-    deload: ["recovery", "strength", "base-engine", "mixed", "long-engine"],
-    specific: ["strength", "race-simulation", "mixed", "threshold", "long-engine"],
-    taper: ["recovery", "base-engine", "strength", "mixed", "threshold"],
-  },
-};
 
 export const phaseLabels: Record<ProgramPhase, string> = {
   base: "Základ",
@@ -92,10 +64,19 @@ function templateDifficulty(template: WorkoutTemplate) {
   return template.metadata?.difficultyLevel ?? 1;
 }
 
-function orderedPool(templates: WorkoutTemplate[]) {
+function orderedPool(
+  templates: WorkoutTemplate[],
+  session: SessionBlueprint,
+) {
   return [...templates].sort((left, right) => {
+    const policyScore =
+      scoreTemplateForBlueprint(right, session) -
+      scoreTemplateForBlueprint(left, session);
+    if (policyScore !== 0) return policyScore;
+
     const difficulty = templateDifficulty(right) - templateDifficulty(left);
     if (difficulty !== 0) return difficulty;
+
     const leftCode = left.metadata?.workoutCode ?? left.title;
     const rightCode = right.metadata?.workoutCode ?? right.title;
     return leftCode.localeCompare(rightCode, "cs");
@@ -104,7 +85,7 @@ function orderedPool(templates: WorkoutTemplate[]) {
 
 function chooseTemplate(
   templates: WorkoutTemplate[],
-  category: WorkoutCategory,
+  session: SessionBlueprint,
   maxDifficulty: ProgramLevel,
   cursor: number,
   usedTemplateIds: Set<string>,
@@ -113,7 +94,7 @@ function chooseTemplate(
     (template) => templateDifficulty(template) <= maxDifficulty,
   );
   const inCategory = eligible.filter(
-    (template) => template.metadata?.category === category,
+    (template) => template.metadata?.category === session.category,
   );
   const unusedInCategory = inCategory.filter(
     (template) => !usedTemplateIds.has(template.id),
@@ -129,6 +110,7 @@ function chooseTemplate(
         : inCategory.length
           ? inCategory
           : eligible,
+    session,
   );
   return pool.length ? pool[cursor % pool.length] : undefined;
 }
@@ -160,7 +142,7 @@ export function buildProgramWeeks({
   return Array.from({ length: safeDuration }, (_, index) => {
     const weekNumber = index + 1;
     const phase = phaseForWeek(weekNumber, safeDuration);
-    const categories = patterns[goal][phase].slice(0, safeFrequency);
+    const sessions = getSessionBlueprints(goal, phase, safeFrequency);
     const maxDifficulty = difficultyForPhase(phase, level);
     const usedTemplateIds = new Set<string>();
 
@@ -169,26 +151,27 @@ export function buildProgramWeeks({
       title: `Týden ${weekNumber}`,
       phase,
       focus: phaseFocus[phase],
-      sessions: categories.map((category, sessionIndex) => {
-        const cursor = categoryCursors.get(category) ?? 0;
+      sessions: sessions.map((session, sessionIndex) => {
+        const cursor = categoryCursors.get(session.category) ?? 0;
         const template = chooseTemplate(
           templates,
-          category,
+          session,
           maxDifficulty,
           cursor,
           usedTemplateIds,
         );
-        categoryCursors.set(category, cursor + 1);
+        categoryCursors.set(session.category, cursor + 1);
         if (template) usedTemplateIds.add(template.id);
 
         return {
           id: makeSessionId(),
           weekday: trainingDays[sessionIndex] as 0 | 1 | 2 | 3 | 4 | 5 | 6,
-          time: sessionIndex === safeFrequency - 1 && safeFrequency >= 3
-            ? "09:00"
-            : "18:00",
+          time:
+            sessionIndex === safeFrequency - 1 && safeFrequency >= 3
+              ? "09:00"
+              : "18:00",
           templateId: template?.id ?? null,
-          note: `${phaseLabels[phase]} · ${template?.metadata?.category ?? category}`,
+          note: `${phaseLabels[phase]} · ${template?.metadata?.category ?? session.category}`,
         };
       }),
     };
