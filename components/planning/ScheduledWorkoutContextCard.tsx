@@ -19,6 +19,9 @@ import type {
   WorkoutTemplate,
 } from "@/lib/types";
 
+const quickLocationIds: ScheduledTrainingLocation[] = ["outdoor", "home"];
+const legacyGenericLocationIds: ScheduledTrainingLocation[] = ["standard-gym", "hybrid-gym"];
+
 function dateLabel(value: string) {
   return new Intl.DateTimeFormat("cs-CZ", {
     weekday: "long",
@@ -111,18 +114,23 @@ export function ScheduledWorkoutContextCard({
             onChange={(event) => changeLocation(event.target.value as ScheduledTrainingLocation)}
             className="ui-field mt-2 px-3 py-3 text-sm"
           >
-            <optgroup label="Rychlé profily">
-              {Object.entries(TRAINING_LOCATION_PRESETS).map(([value, preset]) => (
-                <option key={value} value={value}>{preset.label}</option>
-              ))}
-            </optgroup>
+            {legacyGenericLocationIds.includes(location) && (
+              <optgroup label="Původní obecný profil">
+                <option value={location}>{TRAINING_LOCATION_PRESETS[location as "standard-gym" | "hybrid-gym"].label}</option>
+              </optgroup>
+            )}
             {locations.length > 0 && (
-              <optgroup label="Moje místa">
+              <optgroup label="Moje konkrétní místa">
                 {locations.map((custom) => (
                   <option key={custom.id} value={custom.id}>{custom.name}</option>
                 ))}
               </optgroup>
             )}
+            <optgroup label="Rychlá prostředí">
+              {quickLocationIds.map((value) => (
+                <option key={value} value={value}>{TRAINING_LOCATION_PRESETS[value as "outdoor" | "home"].label}</option>
+              ))}
+            </optgroup>
           </select>
         </label>
         <label>
@@ -142,6 +150,11 @@ export function ScheduledWorkoutContextCard({
         </label>
       </div>
       <p className="mt-2 text-xs text-zinc-500">{locationProfile.description}</p>
+      {legacyGenericLocationIds.includes(location) && item.status === "planned" && (
+        <p className="ui-feedback ui-feedback-warning mt-3 text-sm">
+          Tato jednotka ještě používá obecný profil fitka. Pro přesné plánování ji přepni na konkrétní uložené místo.
+        </p>
+      )}
       {!fitsLocation && item.status === "planned" && (
         <p className="ui-feedback ui-feedback-warning mt-3 text-sm font-bold">
           Na tomto místě chybí část vybavení pro aktuální trénink. Vyber kompatibilní alternativu nebo jiné místo.
