@@ -41,6 +41,14 @@ function isOptionalId(value: unknown) {
   return value === null || value === undefined || hasText(value);
 }
 
+function isOptionalFiniteNumber(value: unknown) {
+  return value === undefined || isFiniteNumber(value);
+}
+
+function validIsoDate(value: unknown) {
+  return hasText(value) && !Number.isNaN(Date.parse(value));
+}
+
 function validStep(value: unknown) {
   return (
     isRecord(value) &&
@@ -102,8 +110,7 @@ function validAdaptationDecision(value: unknown) {
     hasText(value.scheduleId) &&
     hasText(value.originalTemplateId) &&
     hasText(value.recommendedTemplateId) &&
-    hasText(value.decidedAt) &&
-    !Number.isNaN(Date.parse(value.decidedAt))
+    validIsoDate(value.decidedAt)
   );
 }
 
@@ -158,6 +165,66 @@ function validTrainingLocation(value: unknown) {
   );
 }
 
+const healthProviders = ["strava", "apple-health", "health-connect"];
+const healthMetrics = [
+  "resting-heart-rate",
+  "heart-rate-variability",
+  "sleep-duration",
+  "sleep-score",
+  "steps",
+  "active-energy",
+  "weight",
+];
+
+function validHealthActivity(value: unknown) {
+  return (
+    isRecord(value) &&
+    hasText(value.id) &&
+    healthProviders.includes(String(value.provider)) &&
+    hasText(value.externalId) &&
+    hasText(value.title) &&
+    hasText(value.sportType) &&
+    validIsoDate(value.startedAt) &&
+    isFiniteNumber(value.durationSeconds) &&
+    value.durationSeconds >= 0 &&
+    isOptionalFiniteNumber(value.movingDurationSeconds) &&
+    isOptionalFiniteNumber(value.distanceKm) &&
+    isOptionalFiniteNumber(value.elevationGainMeters) &&
+    isOptionalFiniteNumber(value.averageHeartRate) &&
+    isOptionalFiniteNumber(value.maxHeartRate) &&
+    isOptionalFiniteNumber(value.calories) &&
+    isOptionalFiniteNumber(value.averageWatts) &&
+    (value.sourceDevice === undefined || typeof value.sourceDevice === "string") &&
+    (value.trainer === undefined || typeof value.trainer === "boolean") &&
+    (value.manual === undefined || typeof value.manual === "boolean") &&
+    validIsoDate(value.importedAt)
+  );
+}
+
+function validHealthMetricSample(value: unknown) {
+  return (
+    isRecord(value) &&
+    hasText(value.id) &&
+    healthProviders.includes(String(value.provider)) &&
+    healthMetrics.includes(String(value.metric)) &&
+    validIsoDate(value.measuredAt) &&
+    isFiniteNumber(value.value) &&
+    hasText(value.unit) &&
+    validIsoDate(value.importedAt)
+  );
+}
+
+function validHealthData(value: unknown) {
+  if (!isRecord(value)) return false;
+  if (!Array.isArray(value.activities) || !value.activities.every(validHealthActivity)) return false;
+  if (!Array.isArray(value.samples) || !value.samples.every(validHealthMetricSample)) return false;
+  if (value.lastSyncedAt === undefined) return true;
+  if (!isRecord(value.lastSyncedAt)) return false;
+  return Object.entries(value.lastSyncedAt).every(
+    ([provider, date]) => healthProviders.includes(provider) && validIsoDate(date),
+  );
+}
+
 function validateCollections(value: unknown): asserts value is HyroxData {
   if (!isRecord(value) || value.version !== 1) {
     throw new Error("Soubor neobsahuje podporovaná data aplikace Enginn verze 1.");
@@ -184,6 +251,10 @@ function validateCollections(value: unknown): asserts value is HyroxData {
     if (!Array.isArray(value.trainingLocations) || !value.trainingLocations.every(validTrainingLocation)) {
       throw new Error("Kolekce „trainingLocations“ obsahuje neplatnou položku.");
     }
+  }
+
+  if (value.healthData !== undefined && !validHealthData(value.healthData)) {
+    throw new Error("Health & Activity data v záloze obsahují neplatnou položku.");
   }
 
   const templates = value.templates as Record<string, unknown>[];
@@ -258,6 +329,15 @@ function normalizeBackupData(data: HyroxData): HyroxData {
     trainingPrograms: data.trainingPrograms,
     ...(Array.isArray(data.trainingLocations)
       ? { trainingLocations: data.trainingLocations }
+      : {}),
+    ...(data.healthData
+      ? {
+          healthData: {
+            activities: Array.isArray(data.healthData.activities) ? data.healthData.activities : [],
+            samples: Array.isArray(data.healthData.samples) ? data.healthData.samples : [],
+            lastSyncedAt: data.healthData.lastSyncedAt ?? {},
+          },
+        }
       : {}),
   };
 }
