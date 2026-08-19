@@ -6,14 +6,16 @@ import {
   EQUIPMENT_LABELS,
   findLocationAlternatives,
   requiredEquipmentForTemplate,
+  resolveTrainingLocation,
+  templateFitsLocation,
   TRAINING_LOCATION_PRESETS,
   workoutContentSummary,
-  type TrainingLocationPreset,
 } from "@/lib/training-context";
 import type {
   ScheduledTrainingLocation,
   ScheduledWorkout,
   ScheduledWorkoutStatus,
+  TrainingLocationProfile,
   WorkoutTemplate,
 } from "@/lib/types";
 
@@ -30,6 +32,7 @@ type Props = {
   item: ScheduledWorkout;
   template: WorkoutTemplate;
   templates: WorkoutTemplate[];
+  locations: TrainingLocationProfile[];
   onUpdate: (updates: Partial<Omit<ScheduledWorkout, "id">>) => void;
   onDelete: () => void;
 };
@@ -38,13 +41,22 @@ export function ScheduledWorkoutContextCard({
   item,
   template,
   templates,
+  locations,
   onUpdate,
   onDelete,
 }: Props) {
-  const location = (item.trainingLocation ?? "hybrid-gym") as TrainingLocationPreset;
+  const location: ScheduledTrainingLocation = item.trainingLocation ?? "hybrid-gym";
   const equipment = requiredEquipmentForTemplate(template);
   const content = workoutContentSummary(template);
-  const alternatives = findLocationAlternatives({ current: template, templates, location });
+  const alternatives = findLocationAlternatives({
+    current: template,
+    templates,
+    location,
+    customLocations: locations,
+  });
+  const locationProfile = resolveTrainingLocation(location, locations)
+    ?? resolveTrainingLocation("hybrid-gym", locations)!;
+  const fitsLocation = templateFitsLocation(template, location, locations);
 
   function changeLocation(next: ScheduledTrainingLocation) {
     onUpdate({ trainingLocation: next });
@@ -76,8 +88,8 @@ export function ScheduledWorkoutContextCard({
           {equipment.length === 0 ? (
             <span className="ui-chip">Bez speciálního vybavení</span>
           ) : (
-            equipment.map((item) => (
-              <span key={item} className="ui-chip">{EQUIPMENT_LABELS[item]}</span>
+            equipment.map((equipmentId) => (
+              <span key={equipmentId} className="ui-chip">{EQUIPMENT_LABELS[equipmentId]}</span>
             ))
           )}
         </div>
@@ -99,9 +111,18 @@ export function ScheduledWorkoutContextCard({
             onChange={(event) => changeLocation(event.target.value as ScheduledTrainingLocation)}
             className="ui-field mt-2 px-3 py-3 text-sm"
           >
-            {Object.entries(TRAINING_LOCATION_PRESETS).map(([value, preset]) => (
-              <option key={value} value={value}>{preset.label}</option>
-            ))}
+            <optgroup label="Rychlé profily">
+              {Object.entries(TRAINING_LOCATION_PRESETS).map(([value, preset]) => (
+                <option key={value} value={value}>{preset.label}</option>
+              ))}
+            </optgroup>
+            {locations.length > 0 && (
+              <optgroup label="Moje místa">
+                {locations.map((custom) => (
+                  <option key={custom.id} value={custom.id}>{custom.name}</option>
+                ))}
+              </optgroup>
+            )}
           </select>
         </label>
         <label>
@@ -120,7 +141,12 @@ export function ScheduledWorkoutContextCard({
           </select>
         </label>
       </div>
-      <p className="mt-2 text-xs text-zinc-500">{TRAINING_LOCATION_PRESETS[location].description}</p>
+      <p className="mt-2 text-xs text-zinc-500">{locationProfile.description}</p>
+      {!fitsLocation && item.status === "planned" && (
+        <p className="ui-feedback ui-feedback-warning mt-3 text-sm font-bold">
+          Na tomto místě chybí část vybavení pro aktuální trénink. Vyber kompatibilní alternativu nebo jiné místo.
+        </p>
+      )}
 
       <div className="mt-5 grid grid-cols-2 gap-3">
         <label>
