@@ -129,25 +129,19 @@ export default function LiveProgramCalendarPage() {
   const selectedFitsLocation = selectedTemplate && selectedLocation
     ? templateFitsLocation(selectedTemplate, selectedLocation, customLocations)
     : true;
-  const alternatives = useMemo(
-    () => selectedTemplate && selectedLocation
-      ? findLocationAlternatives({
-          current: selectedTemplate,
-          templates: data.templates,
-          location: selectedLocation,
-          customLocations,
-        })
-      : [],
-    [customLocations, data.templates, selectedLocation, selectedTemplate],
-  );
-  const shorterVariants = useMemo(
-    () => selectedTemplate && !originalTemplate
-      ? findShorterWorkoutVariants(selectedTemplate, data.templates).filter((variant) =>
-          !selectedLocation || templateFitsLocation(variant, selectedLocation, customLocations),
-        )
-      : [],
-    [customLocations, data.templates, originalTemplate, selectedLocation, selectedTemplate],
-  );
+  const alternatives = selectedTemplate && selectedLocation
+    ? findLocationAlternatives({
+        current: selectedTemplate,
+        templates: data.templates,
+        location: selectedLocation,
+        customLocations,
+      })
+    : [];
+  const shorterVariants = selectedTemplate && !originalTemplate
+    ? findShorterWorkoutVariants(selectedTemplate, data.templates).filter((variant) =>
+        !selectedLocation || templateFitsLocation(variant, selectedLocation, customLocations),
+      )
+    : [];
 
   const cells = monthCells(month);
   const firstDate = schedulesByDate[0]?.date;
@@ -160,13 +154,21 @@ export default function LiveProgramCalendarPage() {
     if (!ready || queryHandledRef.current || typeof window === "undefined") return;
     queryHandledRef.current = true;
     const requestedId = new URLSearchParams(window.location.search).get("scheduleId");
-    if (!requestedId) return;
-    const schedule = data.scheduledWorkouts.find((item) => item.id === requestedId);
+    const schedule = requestedId
+      ? data.scheduledWorkouts.find((item) => item.id === requestedId)
+      : [...data.scheduledWorkouts]
+          .filter((item) => item.status === "planned" && item.programId)
+          .sort((left, right) => `${left.date}T${left.time}`.localeCompare(`${right.date}T${right.time}`))[0];
     if (!schedule) return;
-    if (schedule.programId) setProgramId(schedule.programId);
-    setSelectedId(schedule.id);
-    setTargetDate(schedule.date);
-    setMonth(parseCalendarDate(schedule.date));
+
+    const timer = window.setTimeout(() => {
+      if (schedule.programId) setProgramId(schedule.programId);
+      setSelectedId(schedule.id);
+      setTargetDate(schedule.date);
+      setMonth(parseCalendarDate(schedule.date));
+    }, 0);
+
+    return () => window.clearTimeout(timer);
   }, [data.scheduledWorkouts, ready]);
 
   function schedulesForDate(key: string) {
