@@ -1,4 +1,4 @@
-# HYROX Training App
+# Enginn App
 
 Read `docs/PROJECT.md`, `docs/CURRENT_TASK.md`, and `docs/ENGINEERING_RULES.md` before editing.
 

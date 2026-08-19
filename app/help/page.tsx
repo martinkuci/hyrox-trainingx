@@ -172,7 +172,7 @@ export default function HelpPage() {
           <p className="text-xs font-black uppercase tracking-[0.2em] text-accent">Začínáme</p>
           <h2 className="mt-2 text-2xl font-black">Jak aplikace funguje</h2>
           <p className="mt-2 text-sm leading-6 text-zinc-400">
-            Znovu si projdi krátké vysvětlení HYROX, plánování, spuštění tréninku a ukládání výsledků.
+            Znovu si projdi krátké vysvětlení hybridního tréninku, plánování, spuštění tréninku a ukládání výsledků.
           </p>
           <button type="button" onClick={openOnboarding} className="ui-button ui-button-primary mt-5 w-full">
             Otevřít úvod aplikace
@@ -330,7 +330,7 @@ export default function HelpPage() {
           </form>
         </section>
         <p className="pb-2 text-center text-xs font-bold text-zinc-600">
-          HYROX Training · verze {APP_VERSION}
+          Enginn · verze {APP_VERSION}
         </p>
       </div>
     </PlanningShell>

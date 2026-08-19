@@ -72,7 +72,7 @@ function EditorContent() {
     <section className="ui-card ui-card-accent mt-6 p-5 sm:p-6">
       <p className="text-xs font-black uppercase tracking-[0.2em] text-accent">Tréninkový profil</p>
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
-        <Field label="Kód tréninku"><input value={metadata.workoutCode} onChange={(e) => setMetadata({ workoutCode: e.target.value })} placeholder="HYX-001" className={inputClass} /></Field>
+        <Field label="Kód tréninku"><input value={metadata.workoutCode} onChange={(e) => setMetadata({ workoutCode: e.target.value })} placeholder="EGN-001" className={inputClass} /></Field>
         <Field label="Verze"><input type="number" min={1} value={metadata.templateVersion} onChange={(e) => setMetadata({ templateVersion: Number(e.target.value) || 1 })} className={inputClass} /></Field>
         <Field label="Kategorie"><select value={metadata.category} onChange={(e) => setMetadata({ category: e.target.value as WorkoutMetadata["category"] })} className={inputClass}>{WORKOUT_CATEGORIES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></Field>
         <Field label="Obtížnost"><select value={metadata.difficultyLevel} onChange={(e) => setMetadata({ difficultyLevel: Number(e.target.value) as 1 | 2 | 3 })} className={inputClass}><option value={1}>Level 1</option><option value={2}>Level 2</option><option value={3}>Level 3</option></select></Field>

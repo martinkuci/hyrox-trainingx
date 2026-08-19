@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 128" role="img" aria-labelledby="title desc">
+  <title id="title">Enginn</title>
+  <desc id="desc">Symbol Enginn a horizontální slovní značka.</desc>
+  <path fill="#BEF264" d="M16 24h80L82 42H40v14h44L70 74H40v12h56l-14 18H16V24Z"/>
+  <text x="126" y="87" fill="#F7F8F4" font-family="Inter, Arial, sans-serif" font-size="66" font-weight="900" letter-spacing="9">ENGINN</text>
+</svg>

@@ -1,6 +1,6 @@
-# HYROX Training
+# Enginn
 
-Mobilně orientovaná webová aplikace pro plánování HYROX tréninků, programový kalendář, časovač, historii výsledků a import údajů ze screenshotů.
+Mobilně orientovaná webová aplikace pro plánování hybridních tréninků, programový kalendář, časovač, historii výsledků a import údajů ze screenshotů.
 
 Aktuální kandidát vydání: **1.0.0**. Přehled změn a známých omezení je v [`docs/RELEASE_NOTES_1.0.0.md`](docs/RELEASE_NOTES_1.0.0.md).
 

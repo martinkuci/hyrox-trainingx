@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { EnginnWordmark } from "@/components/EnginnBrand";
 import { useHyroxData } from "@/hooks/useHyroxData";
 import { blockFeedbackLabel, blockFeedbackToRpe } from "@/lib/block-feedback";
 import type { BlockFeedback, StepSplit, WorkoutTemplate } from "@/lib/types";
@@ -72,7 +73,7 @@ export default function WorkoutResultForm({ template, scheduledWorkoutId, durati
   return (
     <main className="runner-shell safe-screen min-h-dvh px-4 text-white">
       <section className="mx-auto max-w-md">
-        <p className="text-center text-xs font-black tracking-[0.2em] text-accent">HYROX</p>
+        <div className="flex justify-center" role="img" aria-label="Enginn"><EnginnWordmark className="h-[1.1rem] w-auto" /></div>
         <div className="mt-4 flex items-start justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[0.22em] text-accent">Trénink dokončen</p><h1 className="mt-1 text-2xl font-black leading-tight">{template.title}</h1></div>{template.metadata?.workoutCode && <p className="ui-chip ui-chip-accent shrink-0">{template.metadata.workoutCode}-V{template.metadata.templateVersion}</p>}</div>
 
         <div className="ui-card ui-card-accent mt-4 grid grid-cols-[1fr_auto] items-end gap-4 p-5">

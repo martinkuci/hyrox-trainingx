@@ -6,6 +6,7 @@ import type { BlockFeedback, BlockFeedbackRating, StepSplit, WorkoutBlock, Worko
 import BlockFeedbackPrompt from "@/components/BlockFeedbackPrompt";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import RunnerBrandButton from "@/components/RunnerBrandButton";
+import { EnginnWordmark } from "@/components/EnginnBrand";
 import WorkoutRecoveryDialog from "@/components/WorkoutRecoveryDialog";
 import WorkoutResultForm from "@/components/WorkoutResultForm";
 import {
@@ -593,7 +594,7 @@ export default function WorkoutRunner({ template, scheduledWorkoutId }: WorkoutR
   if (mode === "overview") return (
     <main className="runner-shell safe-screen min-h-dvh px-4 text-white">
       <section className="mx-auto w-full max-w-md">
-        <header className="grid grid-cols-[1fr_auto_1fr] items-center"><button type="button" onClick={() => workoutStarted ? setMode("block-preview") : router.back()} className="ui-button ui-button-ghost ui-button-sm -ml-3 justify-self-start">← Zpět</button><span className="text-xs font-black tracking-[0.2em] text-accent">HYROX</span><span /></header>
+        <header className="grid grid-cols-[1fr_auto_1fr] items-center"><button type="button" onClick={() => workoutStarted ? setMode("block-preview") : router.back()} className="ui-button ui-button-ghost ui-button-sm -ml-3 justify-self-start">← Zpět</button><span role="img" aria-label="Enginn"><EnginnWordmark className="h-[1.05rem] w-auto" /></span><span /></header>
         <p className="mt-4 text-xs font-bold uppercase tracking-[0.22em] text-accent">Přehled tréninku</p>
         <h1 className="mt-1 text-3xl font-black leading-tight">{template.title}</h1>
         <p className="mt-2 text-sm leading-5 text-zinc-400">{template.description}</p>

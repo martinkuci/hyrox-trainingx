@@ -176,6 +176,6 @@ test("limits backup uploads to five megabytes", () => {
 test("uses an unambiguous dated filename", () => {
   assert.equal(
     backupFileName(new Date("2026-08-13T21:15:00.000Z")),
-    "hyrox-training-zaloha-2026-08-13.json",
+    "enginn-zaloha-2026-08-13.json",
   );
 });

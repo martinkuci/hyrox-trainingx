@@ -148,7 +148,7 @@ function validProgramWeek(value: unknown) {
 
 function validateCollections(value: unknown): asserts value is HyroxData {
   if (!isRecord(value) || value.version !== 1) {
-    throw new Error("Soubor neobsahuje podporovaná data HYROX Training verze 1.");
+    throw new Error("Soubor neobsahuje podporovaná data aplikace Enginn verze 1.");
   }
 
   const collectionNames = [
@@ -313,5 +313,5 @@ export function assertBackupFileSize(size: number) {
 
 export function backupFileName(now = new Date()) {
   const date = now.toISOString().slice(0, 10);
-  return `hyrox-training-zaloha-${date}.json`;
+  return `enginn-zaloha-${date}.json`;
 }
