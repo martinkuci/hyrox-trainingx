@@ -172,6 +172,16 @@ export default function AccountPage() {
           </Link>
         </section>
         <section className="ui-card mt-6 p-5 sm:p-6">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-accent">Data a integrace</p>
+          <h2 className="mt-2 text-xl font-black">Health & Activity</h2>
+          <p className="mt-2 text-sm leading-6 text-zinc-400">
+            Připoj Stravu a postupně další zdroje jako Apple Health nebo Health Connect pro tep, vzdálenost a recovery data.
+          </p>
+          <Link href="/account/health" className="ui-button ui-button-outline mt-5 w-full">
+            Otevřít Health & Activity
+          </Link>
+        </section>
+        <section className="ui-card mt-6 p-5 sm:p-6">
           <p className="text-xs font-black uppercase tracking-[0.18em] text-accent">Podpora</p>
           <h2 className="mt-2 text-xl font-black">Nápověda a kontakt</h2>
           <p className="mt-2 text-sm leading-6 text-zinc-400">
