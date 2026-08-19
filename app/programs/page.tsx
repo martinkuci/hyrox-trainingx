@@ -6,7 +6,6 @@ import { TrainingLocationManager } from "@/components/planning/TrainingLocationM
 import { useHyroxData } from "@/hooks/useHyroxData";
 import {
   EQUIPMENT_LABELS,
-  TRAINING_LOCATION_PRESETS,
   findCompatibleLocationForTemplate,
   requiredEquipmentForTemplate,
   resolveTrainingLocation,
@@ -26,6 +25,7 @@ const weekdays = [
   { value: 4, label: "Čt" }, { value: 5, label: "Pá" }, { value: 6, label: "So" }, { value: 0, label: "Ne" },
 ] as const;
 const defaultDayOrder = [1, 2, 3, 4, 5, 6, 0];
+const quickEnvironmentIds: ScheduledTrainingLocation[] = ["outdoor", "home"];
 
 const goalLabels: Record<Goal, string> = {
   race: "Příprava na hybridní závod",
@@ -46,17 +46,18 @@ export default function ProgramsPage() {
   const [frequency, setFrequency] = useState(3);
   const [trainingDays, setTrainingDays] = useState<number[]>([1, 3, 6]);
   const [startDate, setStartDate] = useState(() => dateKey(new Date()));
-  const [locationIds, setLocationIds] = useState<ScheduledTrainingLocation[]>(["hybrid-gym"]);
+  const [locationIds, setLocationIds] = useState<ScheduledTrainingLocation[]>([]);
   const [weeks, setWeeks] = useState<ProgramWeek[]>([]);
   const [message, setMessage] = useState("");
 
-  const customLocations = useMemo(() => data.trainingLocations ?? [], [data.trainingLocations]);
-  const locationOptions = useMemo(() => [
-    ...Object.keys(TRAINING_LOCATION_PRESETS).map((id) =>
-      resolveTrainingLocation(id as ScheduledTrainingLocation, customLocations)!,
-    ),
-    ...customLocations.map((location) => resolveTrainingLocation(location.id, customLocations)!),
-  ], [customLocations]);
+  const customLocations = data.trainingLocations ?? [];
+  const savedLocationOptions = customLocations.map((location) =>
+    resolveTrainingLocation(location.id, customLocations)!,
+  );
+  const quickLocationOptions = quickEnvironmentIds.map((id) =>
+    resolveTrainingLocation(id, customLocations)!,
+  );
+  const locationOptions = [...savedLocationOptions, ...quickLocationOptions];
   const selectedLocations = locationOptions.filter((location) => locationIds.includes(location.id));
   const compatibleTemplates = data.templates.filter((template) =>
     selectedLocations.some((location) => templateFitsEquipment(template, location.equipment)),
@@ -97,18 +98,17 @@ export default function ProgramsPage() {
   }
 
   function toggleLocation(locationId: ScheduledTrainingLocation) {
-    setLocationIds((current) => {
-      if (current.includes(locationId)) {
-        return current.length === 1 ? current : current.filter((item) => item !== locationId);
-      }
-      return [...current, locationId];
-    });
+    setLocationIds((current) =>
+      current.includes(locationId)
+        ? current.filter((item) => item !== locationId)
+        : [...current, locationId],
+    );
     setWeeks([]);
   }
 
   function generateProgram() {
     if (!data.templates.length) return setMessage("Nejdřív je potřeba mít alespoň jeden trénink v knihovně.");
-    if (selectedLocations.length === 0) return setMessage("Vyber alespoň jedno místo, kde můžeš trénovat.");
+    if (selectedLocations.length === 0) return setMessage("Vyber alespoň jedno konkrétní místo nebo rychlé prostředí, kde můžeš trénovat.");
     const generated = buildProgramWeeks({
       templates: data.templates,
       duration,
@@ -188,7 +188,7 @@ export default function ProgramsPage() {
   }
 
   return (
-    <PlanningShell eyebrow="Plán" title="Nový tréninkový program" description="Vyber cíl, délku, frekvenci, dostupné dny a místa. Aplikace sestaví jen tréninky, které lze ve zvoleném prostředí skutečně odcvičit." backHref="/plan">
+    <PlanningShell eyebrow="Plán" title="Nový tréninkový program" description="Vyber cíl, délku, frekvenci, dostupné dny a konkrétní místa. Aplikace sestaví jen tréninky, které lze podle skutečné výbavy odcvičit." backHref="/plan">
       <section className="ui-card ui-card-accent p-5 sm:p-6">
         <p className="text-xs font-black uppercase tracking-[0.2em] text-accent">1 · Cíl a úroveň</p>
         <div className="mt-4 grid grid-cols-2 gap-3">{(Object.entries(goalLabels) as [Goal, string][]).map(([value, label]) => <button key={value} type="button" aria-pressed={goal === value} onClick={() => { setGoal(value); setWeeks([]); }} className="ui-choice justify-start p-4 text-left">{label}</button>)}</div>
@@ -209,24 +209,53 @@ export default function ProgramsPage() {
         <div className="mt-4 grid grid-cols-7 gap-1.5 sm:gap-2">{weekdays.map((day) => <button key={day.value} type="button" aria-pressed={trainingDays.includes(day.value)} onClick={() => toggleDay(day.value)} className="ui-choice min-w-0 px-1 py-3 text-sm">{day.label}</button>)}</div>
         <p className="mt-3 text-center text-sm text-zinc-500">Vybráno {trainingDays.length} z {frequency} dnů</p>
 
-        <p className="mt-6 text-sm font-bold text-zinc-300">Kde můžeš během programu trénovat?</p>
-        <div className="mt-3 grid gap-2 sm:grid-cols-2">
-          {locationOptions.map((location) => (
-            <button
-              key={location.id}
-              type="button"
-              aria-pressed={locationIds.includes(location.id)}
-              onClick={() => toggleLocation(location.id)}
-              className="ui-choice justify-start p-4 text-left"
-            >
-              <span>
-                <strong className="block">{location.label}</strong>
-                <span className="mt-1 block text-xs font-normal text-zinc-500">{location.description}</span>
-              </span>
-            </button>
-          ))}
+        <div className="mt-6">
+          <p className="text-sm font-bold text-zinc-300">Moje konkrétní místa</p>
+          <p className="mt-1 text-xs leading-5 text-zinc-500">Fitka se vybírají jen z tvých uložených profilů, takže generátor vždy respektuje jejich skutečné vybavení.</p>
+          {savedLocationOptions.length > 0 ? (
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              {savedLocationOptions.map((location) => (
+                <button
+                  key={location.id}
+                  type="button"
+                  aria-pressed={locationIds.includes(location.id)}
+                  onClick={() => toggleLocation(location.id)}
+                  className="ui-choice justify-start p-4 text-left"
+                >
+                  <span>
+                    <strong className="block">{location.label}</strong>
+                    <span className="mt-1 block text-xs font-normal text-zinc-500">{location.description}</span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="ui-feedback mt-3 text-sm">Pro trénink ve fitku si níže nejdřív ulož konkrétní místo a jeho vybavení.</p>
+          )}
         </div>
-        <p className="mt-3 text-center text-sm text-zinc-500">Vybráno {selectedLocations.length} míst. Každá jednotka musí být kompletně proveditelná alespoň v jednom z nich.</p>
+
+        <div className="mt-5 border-t border-white/8 pt-5">
+          <p className="text-sm font-bold text-zinc-300">Rychlá prostředí</p>
+          <p className="mt-1 text-xs leading-5 text-zinc-500">Použij jen tehdy, když nepotřebuješ ukládat konkrétní místo — například běh venku nebo domácí minimum.</p>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            {quickLocationOptions.map((location) => (
+              <button
+                key={location.id}
+                type="button"
+                aria-pressed={locationIds.includes(location.id)}
+                onClick={() => toggleLocation(location.id)}
+                className="ui-choice justify-start p-4 text-left"
+              >
+                <span>
+                  <strong className="block">{location.label}</strong>
+                  <span className="mt-1 block text-xs font-normal text-zinc-500">{location.description}</span>
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <p className="mt-4 text-center text-sm text-zinc-500">Vybráno {selectedLocations.length} míst. Každá jednotka musí být kompletně proveditelná alespoň v jednom z nich.</p>
       </section>
 
       <TrainingLocationManager />
