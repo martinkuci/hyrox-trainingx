@@ -157,26 +157,25 @@ export function equipmentRequirementsForTemplate(template: WorkoutTemplate): Equ
     const key = requirementKey(requirement);
     if (!requirements.some((item) => requirementKey(item) === key)) requirements.push(requirement);
   };
-
-  const pieces = [
-    template.title,
-    template.description,
-    ...template.tags,
-    ...template.blocks.flatMap((block) => [
-      block.title,
-      ...block.steps.map((step) => `${step.name} ${step.detail}`),
-    ]),
-  ];
-
-  for (const piece of pieces) {
+  const addFromPiece = (piece: string) => {
     const mentions = [...new Set(equipmentMentions(piece))];
-    if (!mentions.length) continue;
+    if (!mentions.length) return;
     const alternative = /(^|\s)(nebo|or)(\s|$)/i.test(piece);
     if (alternative && mentions.length > 1) {
       add(mentions.flatMap(requirementOptions));
     } else {
       for (const mention of mentions) add(requirementOptions(mention));
     }
+  };
+
+  const workoutPieces = template.blocks.flatMap((block) => [
+    block.title,
+    ...block.steps.map((step) => `${step.name} ${step.detail}`),
+  ]);
+  for (const piece of workoutPieces) addFromPiece(piece);
+
+  if (requirements.length === 0) {
+    for (const piece of [template.title, template.description, ...template.tags]) addFromPiece(piece);
   }
 
   const disciplines = inferTemplateDisciplineIds(template);
