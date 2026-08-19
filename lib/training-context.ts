@@ -63,14 +63,47 @@ export const EQUIPMENT_LABELS: Record<EquipmentId, string> = {
   box: "box",
 };
 
-export function requiredEquipmentForTemplate(template: WorkoutTemplate): EquipmentId[] {
-  const disciplines = inferTemplateDisciplineIds(template);
-  const equipment = disciplines.flatMap(
-    (disciplineId) => getTrainingDiscipline(disciplineId)?.equipment ?? [],
-  );
+const EQUIPMENT_ALIASES: Partial<Record<EquipmentId, string[]>> = {
+  "ski-erg": ["skierg", "ski erg", "ski-erg"],
+  sled: ["sled", "saně", "sáně"],
+  rower: ["veslo", "rower", "rowing"],
+  kettlebell: ["kettlebell", "kb "],
+  dumbbell: ["dumbbell", "jednoručk"],
+  sandbag: ["sandbag", "sand bag"],
+  "wall-ball": ["wall ball", "wall-ball", "wallball"],
+  barbell: ["barbell", "deadlift", "back squat", "front squat", "osa", "kotouč"],
+  box: ["box jump", "box step", "step-over", "step over"],
+};
 
-  const unique = [...new Set(equipment)];
-  return unique.filter((item) => item !== "none");
+function templateSearchText(template: WorkoutTemplate) {
+  return [
+    template.title,
+    template.description,
+    ...template.tags,
+    ...template.blocks.flatMap((block) => [
+      block.title,
+      ...block.steps.flatMap((step) => [step.name, step.detail]),
+    ]),
+  ]
+    .join(" ")
+    .toLocaleLowerCase("cs");
+}
+
+export function requiredEquipmentForTemplate(template: WorkoutTemplate): EquipmentId[] {
+  const text = templateSearchText(template);
+  const explicit = (Object.entries(EQUIPMENT_ALIASES) as Array<[EquipmentId, string[]]> )
+    .filter(([, aliases]) => aliases.some((alias) => text.includes(alias)))
+    .map(([equipment]) => equipment);
+
+  const disciplines = inferTemplateDisciplineIds(template);
+  const unambiguous = disciplines.flatMap((disciplineId) => {
+    const options = getTrainingDiscipline(disciplineId)?.equipment ?? [];
+    return options.length === 1 && options[0] !== "none" ? options : [];
+  });
+
+  if (disciplines.includes("run")) unambiguous.push("running");
+
+  return [...new Set([...explicit, ...unambiguous])];
 }
 
 export function templateFitsLocation(
