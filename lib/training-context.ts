@@ -143,7 +143,10 @@ export function requiredEquipmentForTemplate(template: WorkoutTemplate): Equipme
 
 export function templateFitsEquipment(template: WorkoutTemplate, equipment: EquipmentId[]) {
   const available = new Set<EquipmentId>(["none", ...equipment]);
-  return requiredEquipmentForTemplate(template).every((item) => available.has(item));
+  return requiredEquipmentForTemplate(template).every((item) => {
+    if (item === "running") return available.has("running") || available.has("treadmill");
+    return available.has(item);
+  });
 }
 
 export function resolveTrainingLocation(
