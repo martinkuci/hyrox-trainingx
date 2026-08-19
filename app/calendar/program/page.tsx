@@ -18,10 +18,9 @@ import {
   type ScheduleMoveScope,
 } from "@/lib/calendar-planning";
 import {
-  EQUIPMENT_LABELS,
   TRAINING_LOCATION_PRESETS,
+  equipmentRequirementLabelsForTemplate,
   findLocationAlternatives,
-  requiredEquipmentForTemplate,
   resolveTrainingLocation,
   templateFitsLocation,
   workoutContentSummary,
@@ -123,21 +122,27 @@ export default function LiveProgramCalendarPage() {
   const originalTemplate = selected?.originalTemplateId
     ? data.templates.find((item) => item.id === selected.originalTemplateId)
     : undefined;
+  const selectedProgramWeek = selected?.programWeek
+    ? activeProgram?.weeks.find((week) => week.weekNumber === selected.programWeek)
+    : undefined;
+  const selectedPhase = selectedProgramWeek?.phase;
   const selectedLocation = selected?.trainingLocation;
   const selectedLocationProfile = selectedLocation
     ? resolveTrainingLocation(selectedLocation, customLocations)
     : null;
-  const selectedEquipment = selectedTemplate ? requiredEquipmentForTemplate(selectedTemplate) : [];
+  const selectedEquipmentLabels = selectedTemplate ? equipmentRequirementLabelsForTemplate(selectedTemplate) : [];
   const selectedContent = selectedTemplate ? workoutContentSummary(selectedTemplate) : [];
   const selectedFitsLocation = selectedTemplate && selectedLocation
     ? templateFitsLocation(selectedTemplate, selectedLocation, customLocations)
     : true;
-  const alternatives = selectedTemplate && selectedLocation
+  const alternativeAnchor = originalTemplate ?? selectedTemplate;
+  const alternatives = alternativeAnchor && selectedLocation
     ? findLocationAlternatives({
-        current: selectedTemplate,
+        current: alternativeAnchor,
         templates: data.templates,
         location: selectedLocation,
         customLocations,
+        phase: selectedPhase,
       })
     : [];
   const shorterVariants = selectedTemplate && !originalTemplate
@@ -145,6 +150,11 @@ export default function LiveProgramCalendarPage() {
         !selectedLocation || templateFitsLocation(variant, selectedLocation, customLocations),
       )
     : [];
+  const originalFitsSelectedLocation = Boolean(
+    originalTemplate
+    && selectedLocation
+    && templateFitsLocation(originalTemplate, selectedLocation, customLocations),
+  );
 
   const cells = monthCells(month);
   const firstDate = schedulesByDate[0]?.date;
@@ -202,27 +212,72 @@ export default function LiveProgramCalendarPage() {
   function changeSelectedLocation(nextLocation: ScheduledTrainingLocation) {
     if (!selected || !selectedTemplate) return;
     const profile = resolveTrainingLocation(nextLocation, customLocations);
-    const fits = templateFitsLocation(selectedTemplate, nextLocation, customLocations);
+    const locationLabel = profile?.label ?? "vybrané místo";
+
+    if (originalTemplate && templateFitsLocation(originalTemplate, nextLocation, customLocations)) {
+      updateScheduledWorkout(selected.id, {
+        trainingLocation: nextLocation,
+        templateId: originalTemplate.id,
+        originalTemplateId: undefined,
+      });
+      setFeedback({
+        tone: "success",
+        text: `Místo změněno na ${locationLabel}. Původně naplánovaný trénink je zde proveditelný, takže ho Enginn automaticky obnovil.`,
+      });
+      return;
+    }
+
+    if (templateFitsLocation(selectedTemplate, nextLocation, customLocations)) {
+      updateScheduledWorkout(selected.id, { trainingLocation: nextLocation });
+      setFeedback({
+        tone: "success",
+        text: `Místo změněno na ${locationLabel}. Aktuální trénink zde může zůstat beze změny.`,
+      });
+      return;
+    }
+
+    const anchor = originalTemplate ?? selectedTemplate;
+    const bestAlternative = findLocationAlternatives({
+      current: anchor,
+      templates: data.templates,
+      location: nextLocation,
+      customLocations,
+      phase: selectedPhase,
+      limit: 1,
+    })[0];
+
+    if (bestAlternative) {
+      updateScheduledWorkout(selected.id, {
+        trainingLocation: nextLocation,
+        templateId: bestAlternative.id,
+        originalTemplateId: selected.originalTemplateId ?? selected.templateId,
+      });
+      setFeedback({
+        tone: "success",
+        text: `Místo změněno na ${locationLabel}. Původní jednotka tam nejde odcvičit, proto Enginn automaticky vybral ${bestAlternative.title} jako nejbližší variantu pro aktuální fázi programu.`,
+      });
+      return;
+    }
+
     updateScheduledWorkout(selected.id, { trainingLocation: nextLocation });
     setFeedback({
-      tone: fits ? "success" : "warning",
-      text: fits
-        ? `Místo změněno na ${profile?.label ?? "vybrané místo"}. Trénink je zde proveditelný.`
-        : `Místo změněno na ${profile?.label ?? "vybrané místo"}, ale pro aktuální trénink tam chybí vybavení. Vyber kompatibilní alternativu.`,
+      tone: "warning",
+      text: `Místo změněno na ${locationLabel}, ale Enginn v katalogu nenašel kompatibilní variantu pro tuto jednotku. Vyber jiné místo.`,
     });
   }
 
   function changeSelectedWorkout(templateId: string) {
-    if (!selected || !templateId || !selectedLocation) return;
+    if (!selected || !templateId || !selectedLocation || templateId === selected.templateId) return;
     const candidate = data.templates.find((item) => item.id === templateId);
     if (!candidate || !templateFitsLocation(candidate, selectedLocation, customLocations)) return;
+    const originalId = selected.originalTemplateId ?? selected.templateId;
     updateScheduledWorkout(selected.id, {
       templateId: candidate.id,
-      originalTemplateId: selected.originalTemplateId ?? selected.templateId,
+      originalTemplateId: candidate.id === selected.originalTemplateId ? undefined : originalId,
     });
     setFeedback({
       tone: "success",
-      text: `Trénink změněn na ${candidate.title}. Místo zůstává stejné.`,
+      text: `Trénink ručně změněn na ${candidate.title}. Místo zůstává stejné.`,
     });
   }
 
@@ -318,7 +373,7 @@ export default function LiveProgramCalendarPage() {
   }
 
   function restoreOriginalVariant() {
-    if (!selected || !originalTemplate) return;
+    if (!selected || !originalTemplate || !originalFitsSelectedLocation) return;
     updateScheduledWorkout(selected.id, {
       templateId: originalTemplate.id,
       originalTemplateId: undefined,
@@ -331,7 +386,7 @@ export default function LiveProgramCalendarPage() {
       eyebrow="Plán"
       title={focusMode ? "Upravit trénink" : "Kalendář programu"}
       description={focusMode
-        ? "Zkontroluj obsah a vybavení, změň místo nebo vyber kompatibilní variantu pro konkrétní jednotku."
+        ? "Enginn drží záměr programu a podle vybraného místa automaticky volí nejbližší proveditelnou variantu."
         : "Přesuň jednotku, zkontroluj obsah a vybavení nebo změň místo a trénink podle toho, kde dnes skutečně budeš cvičit."}
       backHref="/plan"
     >
@@ -489,10 +544,10 @@ export default function LiveProgramCalendarPage() {
             <summary className="cursor-pointer list-none font-black">Obsah a potřebné vybavení</summary>
             <p className="mt-2 text-sm leading-6 text-zinc-400">{selectedTemplate.description}</p>
             <div className="mt-3 flex flex-wrap gap-2">
-              {selectedEquipment.length === 0 ? (
+              {selectedEquipmentLabels.length === 0 ? (
                 <span className="ui-chip">Bez speciálního vybavení</span>
-              ) : selectedEquipment.map((equipmentId) => (
-                <span key={equipmentId} className="ui-chip">{EQUIPMENT_LABELS[equipmentId]}</span>
+              ) : selectedEquipmentLabels.map((label) => (
+                <span key={label} className="ui-chip">{label}</span>
               ))}
             </div>
             <div className="mt-4 space-y-2">
@@ -507,11 +562,15 @@ export default function LiveProgramCalendarPage() {
 
           {originalTemplate && (
             <div className="ui-feedback ui-feedback-warning mt-4 text-sm">
-              <p className="font-bold">Používáš upravenou variantu programu.</p>
+              <p className="font-bold">Enginn upravil původní jednotku podle dostupného místa.</p>
               <p className="mt-1 text-zinc-300">Původně: {originalTemplate.title} · {originalTemplate.durationMinutes} min</p>
-              <button type="button" onClick={restoreOriginalVariant} className="ui-button ui-button-secondary ui-button-sm mt-3 w-full">
-                Obnovit původně naplánovaný trénink
-              </button>
+              {originalFitsSelectedLocation ? (
+                <button type="button" onClick={restoreOriginalVariant} className="ui-button ui-button-secondary ui-button-sm mt-3 w-full">
+                  Obnovit původně naplánovaný trénink
+                </button>
+              ) : (
+                <p className="mt-2 text-xs text-zinc-400">Původní varianta na aktuálním místě není kompletně proveditelná.</p>
+              )}
             </div>
           )}
 
@@ -558,24 +617,31 @@ export default function LiveProgramCalendarPage() {
                 )}
                 {!selectedFitsLocation && (
                   <p className="ui-feedback ui-feedback-warning mt-3 text-sm font-bold">
-                    Na tomto místě chybí část vybavení pro aktuální trénink. Změň trénink nebo vyber jiné místo.
+                    Pro toto místo zatím není kompatibilní varianta. Vyber jiné místo.
                   </p>
                 )}
                 {selectedLocation && (
                   <label className="mt-4 block">
-                    <span className="text-sm font-bold text-zinc-300">Změnit trénink podle tohoto místa</span>
+                    <span className="text-sm font-bold text-zinc-300">Varianta pro toto místo</span>
                     <select
-                      value=""
+                      value={selectedTemplate.id}
                       onChange={(event) => changeSelectedWorkout(event.target.value)}
                       className="ui-field mt-2"
                     >
-                      <option value="">Vybrat kompatibilní alternativu</option>
-                      {alternatives.map((candidate) => (
-                        <option key={candidate.id} value={candidate.id}>
-                          {candidate.title} · {candidate.durationMinutes} min
-                        </option>
-                      ))}
+                      <option value={selectedTemplate.id}>
+                        {selectedTemplate.title} · {selectedTemplate.durationMinutes} min · aktuálně
+                      </option>
+                      {alternatives
+                        .filter((candidate) => candidate.id !== selectedTemplate.id)
+                        .map((candidate) => (
+                          <option key={candidate.id} value={candidate.id}>
+                            {candidate.title} · {candidate.durationMinutes} min
+                          </option>
+                        ))}
                     </select>
+                    <span className="mt-2 block text-xs leading-5 text-zinc-500">
+                      Enginn mění variantu automaticky jen tehdy, když aktuální workout na zvoleném místě opravdu nejde odcvičit. Tento výběr je pro ruční zásah.
+                    </span>
                   </label>
                 )}
               </div>
