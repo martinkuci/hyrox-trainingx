@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useHyroxData } from "@/hooks/useHyroxData";
 import {
   ALL_TRAINING_EQUIPMENT,
@@ -92,10 +92,6 @@ export function TrainingLocationManager({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editorOpen, setEditorOpen] = useState(startOpen);
   const [message, setMessage] = useState("");
-
-  useEffect(() => {
-    if (startOpen) setEditorOpen(true);
-  }, [startOpen]);
 
   function resetForm(closeEditor = true) {
     setName("");
