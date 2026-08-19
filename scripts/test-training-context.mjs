@@ -65,6 +65,18 @@ test("outdoor preset rejects machine workouts and accepts running/bodyweight", (
   assert.equal(templateFitsLocation(outdoor, "outdoor"), true);
 });
 
+test("generic running can be completed at a custom location with a treadmill", () => {
+  const location = {
+    id: "location-treadmill-gym",
+    name: "Treadmill gym",
+    equipment: ["treadmill"],
+    createdAt: "2026-08-19T00:00:00.000Z",
+    updatedAt: "2026-08-19T00:00:00.000Z",
+  };
+  const runWorkout = template("run", "Run", "base-engine", ["30 min běh"]);
+  assert.equal(templateFitsLocation(runWorkout, location.id, [location]), true);
+});
+
 test("custom location uses only equipment the user kept checked", () => {
   const location = {
     id: "location-test-gym",
