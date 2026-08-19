@@ -1,8 +1,10 @@
 import type {
   EquipmentId,
+  ProgramPhase,
   ScheduledTrainingLocation,
   TrainingLocationPresetId,
   TrainingLocationProfile,
+  WorkoutCategory,
   WorkoutTemplate,
 } from "./types";
 import {
@@ -11,6 +13,7 @@ import {
 } from "./training-domain.ts";
 
 export type TrainingLocationPreset = TrainingLocationPresetId;
+export type EquipmentRequirement = { anyOf: EquipmentId[] };
 
 export const EQUIPMENT_LABELS: Record<EquipmentId, string> = {
   none: "bez vybavení",
@@ -88,6 +91,7 @@ export const TRAINING_LOCATION_PRESETS: Record<
 };
 
 const EQUIPMENT_ALIASES: Partial<Record<EquipmentId, string[]>> = {
+  running: ["běh", "klus", "run", "running"],
   treadmill: ["treadmill", "běžecký pás", "bezecky pas"],
   "ski-erg": ["skierg", "ski erg", "ski-erg"],
   sled: ["sled", "saně", "sáně"],
@@ -108,6 +112,14 @@ const EQUIPMENT_ALIASES: Partial<Record<EquipmentId, string[]>> = {
   "resistance-band": ["resistance band", "banded", "odporov", "guma"],
 };
 
+const PHASE_CATEGORY_ORDER: Record<ProgramPhase, WorkoutCategory[]> = {
+  base: ["base-engine", "strength", "base-builder", "long-engine", "recovery", "mixed", "threshold", "race-simulation"],
+  build: ["threshold", "strength", "mixed", "base-engine", "long-engine", "base-builder", "race-simulation", "recovery"],
+  deload: ["recovery", "base-engine", "strength", "long-engine", "base-builder", "mixed", "threshold", "race-simulation"],
+  specific: ["race-simulation", "mixed", "threshold", "strength", "long-engine", "base-engine", "base-builder", "recovery"],
+  taper: ["recovery", "base-engine", "threshold", "mixed", "strength", "race-simulation", "long-engine", "base-builder"],
+};
+
 function templateSearchText(template: WorkoutTemplate) {
   return [
     template.title,
@@ -122,11 +134,83 @@ function templateSearchText(template: WorkoutTemplate) {
     .toLocaleLowerCase("cs");
 }
 
+function equipmentMentions(text: string) {
+  const normalized = text.toLocaleLowerCase("cs");
+  return (Object.entries(EQUIPMENT_ALIASES) as Array<[EquipmentId, string[]]>)
+    .filter(([, aliases]) => aliases.some((alias) => normalized.includes(alias)))
+    .map(([equipment]) => equipment);
+}
+
+function requirementOptions(equipment: EquipmentId): EquipmentId[] {
+  return equipment === "running" ? ["running", "treadmill"] : [equipment];
+}
+
+function requirementKey(requirement: EquipmentRequirement) {
+  return [...requirement.anyOf].sort().join("|");
+}
+
+export function equipmentRequirementsForTemplate(template: WorkoutTemplate): EquipmentRequirement[] {
+  const requirements: EquipmentRequirement[] = [];
+  const add = (anyOf: EquipmentId[]) => {
+    const requirement = { anyOf: [...new Set(anyOf)] };
+    if (!requirement.anyOf.length || requirement.anyOf.every((item) => item === "none")) return;
+    const key = requirementKey(requirement);
+    if (!requirements.some((item) => requirementKey(item) === key)) requirements.push(requirement);
+  };
+
+  const pieces = [
+    template.title,
+    template.description,
+    ...template.tags,
+    ...template.blocks.flatMap((block) => [
+      block.title,
+      ...block.steps.map((step) => `${step.name} ${step.detail}`),
+    ]),
+  ];
+
+  for (const piece of pieces) {
+    const mentions = [...new Set(equipmentMentions(piece))];
+    if (!mentions.length) continue;
+    const alternative = /(^|\s)(nebo|or)(\s|$)/i.test(piece);
+    if (alternative && mentions.length > 1) {
+      add(mentions.flatMap(requirementOptions));
+    } else {
+      for (const mention of mentions) add(requirementOptions(mention));
+    }
+  }
+
+  const disciplines = inferTemplateDisciplineIds(template);
+  for (const disciplineId of disciplines) {
+    if (disciplineId === "run") {
+      if (!requirements.some((item) => item.anyOf.includes("running") || item.anyOf.includes("treadmill"))) {
+        add(["running", "treadmill"]);
+      }
+      continue;
+    }
+    const options = getTrainingDiscipline(disciplineId)?.equipment ?? [];
+    if (options.length !== 1 || options[0] === "none") continue;
+    const equipment = options[0];
+    if (!requirements.some((item) => item.anyOf.includes(equipment))) add([equipment]);
+  }
+
+  return requirements;
+}
+
+export function equipmentRequirementLabelsForTemplate(template: WorkoutTemplate) {
+  return equipmentRequirementsForTemplate(template).map((requirement) => {
+    if (requirement.anyOf.length === 2 && requirement.anyOf.includes("running") && requirement.anyOf.includes("treadmill")) {
+      return "běh venku / běžecký pás";
+    }
+    return requirement.anyOf.map((item) => EQUIPMENT_LABELS[item]).join(" / ");
+  });
+}
+
 export function requiredEquipmentForTemplate(template: WorkoutTemplate): EquipmentId[] {
   const text = templateSearchText(template);
   const explicit = (Object.entries(EQUIPMENT_ALIASES) as Array<[EquipmentId, string[]]>)
     .filter(([, aliases]) => aliases.some((alias) => text.includes(alias)))
-    .map(([equipment]) => equipment);
+    .map(([equipment]) => equipment)
+    .filter((equipment) => equipment !== "running");
 
   const disciplines = inferTemplateDisciplineIds(template);
   const unambiguous = disciplines.flatMap((disciplineId) => {
@@ -143,10 +227,9 @@ export function requiredEquipmentForTemplate(template: WorkoutTemplate): Equipme
 
 export function templateFitsEquipment(template: WorkoutTemplate, equipment: EquipmentId[]) {
   const available = new Set<EquipmentId>(["none", ...equipment]);
-  return requiredEquipmentForTemplate(template).every((item) => {
-    if (item === "running") return available.has("running") || available.has("treadmill");
-    return available.has(item);
-  });
+  return equipmentRequirementsForTemplate(template).every((requirement) =>
+    requirement.anyOf.some((item) => available.has(item)),
+  );
 }
 
 export function resolveTrainingLocation(
@@ -189,29 +272,37 @@ export function findLocationAlternatives({
   templates,
   location,
   customLocations = [],
+  phase,
   limit = 5,
 }: {
   current: WorkoutTemplate;
   templates: WorkoutTemplate[];
   location: ScheduledTrainingLocation;
   customLocations?: TrainingLocationProfile[];
+  phase?: ProgramPhase;
   limit?: number;
 }) {
   const currentCategory = current.metadata?.category;
   const currentDifficulty = current.metadata?.difficultyLevel ?? 1;
+  const currentProgression = current.metadata?.progressionGroup;
 
   return templates
     .filter((candidate) => candidate.id !== current.id)
     .filter((candidate) => templateFitsLocation(candidate, location, customLocations))
     .map((candidate) => {
-      const categoryPenalty = candidate.metadata?.category === currentCategory ? 0 : 20;
+      const candidateCategory = candidate.metadata?.category;
+      const categoryPenalty = candidateCategory === currentCategory ? 0 : 30;
+      const progressionPenalty = currentProgression && candidate.metadata?.progressionGroup === currentProgression ? 0 : 12;
+      const phaseOrder = phase ? PHASE_CATEGORY_ORDER[phase] : null;
+      const phaseIndex = phaseOrder && candidateCategory ? phaseOrder.indexOf(candidateCategory) : -1;
+      const phasePenalty = phase ? (phaseIndex >= 0 ? phaseIndex * 2 : 20) : 0;
       const difficultyPenalty = Math.abs(
         (candidate.metadata?.difficultyLevel ?? 1) - currentDifficulty,
       ) * 5;
       const durationPenalty = Math.abs(candidate.durationMinutes - current.durationMinutes) / 5;
       return {
         template: candidate,
-        score: categoryPenalty + difficultyPenalty + durationPenalty,
+        score: categoryPenalty + progressionPenalty + phasePenalty + difficultyPenalty + durationPenalty,
       };
     })
     .sort((left, right) => left.score - right.score)
