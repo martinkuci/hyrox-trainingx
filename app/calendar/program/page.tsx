@@ -29,6 +29,8 @@ import {
 import type { ScheduledTrainingLocation, ScheduledWorkout } from "@/lib/types";
 
 const weekdayLabels = ["Po", "Út", "St", "Čt", "Pá", "So", "Ne"];
+const quickLocationIds: ScheduledTrainingLocation[] = ["outdoor", "home"];
+const legacyGenericLocationIds: ScheduledTrainingLocation[] = ["standard-gym", "hybrid-gym"];
 
 type Feedback = {
   tone: "success" | "warning" | "danger";
@@ -90,6 +92,7 @@ export default function LiveProgramCalendarPage() {
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [pendingCollision, setPendingCollision] = useState<PendingCollision | null>(null);
   const [pendingSkip, setPendingSkip] = useState<ScheduledWorkout | null>(null);
+  const [focusMode, setFocusMode] = useState(false);
   const queryHandledRef = useRef(false);
   const customLocations = useMemo(() => data.trainingLocations ?? [], [data.trainingLocations]);
 
@@ -166,6 +169,7 @@ export default function LiveProgramCalendarPage() {
       setSelectedId(schedule.id);
       setTargetDate(schedule.date);
       setMonth(parseCalendarDate(schedule.date));
+      setFocusMode(Boolean(requestedId));
     }, 0);
 
     return () => window.clearTimeout(timer);
@@ -180,6 +184,7 @@ export default function LiveProgramCalendarPage() {
     setTargetDate(schedule.date);
     setPendingCollision(null);
     setFeedback(null);
+    setFocusMode(true);
   }
 
   function changeProgram(nextProgramId: string) {
@@ -187,6 +192,7 @@ export default function LiveProgramCalendarPage() {
     setSelectedId("");
     setPendingCollision(null);
     setFeedback(null);
+    setFocusMode(false);
     const firstSchedule = data.scheduledWorkouts
       .filter((item) => item.programId === nextProgramId)
       .sort((left, right) => left.date.localeCompare(right.date))[0];
@@ -323,8 +329,10 @@ export default function LiveProgramCalendarPage() {
   return (
     <PlanningShell
       eyebrow="Plán"
-      title="Kalendář programu"
-      description="Přesuň jednotku, zkontroluj obsah a vybavení nebo změň místo a trénink podle toho, kde dnes skutečně budeš cvičit."
+      title={focusMode ? "Upravit trénink" : "Kalendář programu"}
+      description={focusMode
+        ? "Zkontroluj obsah a vybavení, změň místo nebo vyber kompatibilní variantu pro konkrétní jednotku."
+        : "Přesuň jednotku, zkontroluj obsah a vybavení nebo změň místo a trénink podle toho, kde dnes skutečně budeš cvičit."}
       backHref="/plan"
     >
       <section className="ui-card p-5 sm:p-6">
@@ -355,6 +363,11 @@ export default function LiveProgramCalendarPage() {
             {formatDate(firstDate, true)} až {formatDate(lastDate, true)}
           </p>
         )}
+        {!focusMode && selected && selectedTemplate && (
+          <button type="button" onClick={() => setFocusMode(true)} className="ui-button ui-button-primary mt-4 w-full">
+            Upravit nejbližší / vybraný trénink
+          </button>
+        )}
       </section>
 
       {feedback && (
@@ -366,73 +379,75 @@ export default function LiveProgramCalendarPage() {
         </p>
       )}
 
-      <section className="ui-card ui-card-accent mt-5 overflow-hidden p-3 sm:p-6">
-        <div className="flex items-center justify-between gap-2 px-1 sm:gap-3">
-          <button
-            type="button"
-            onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))}
-            className="ui-button ui-button-secondary ui-button-icon text-xl"
-            aria-label="Předchozí měsíc"
-          >
-            ‹
-          </button>
-          <div className="min-w-0 text-center">
-            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-accent sm:text-xs">Program</p>
-            <h2 className="mt-1 truncate text-lg font-black capitalize sm:text-xl">
-              {new Intl.DateTimeFormat("cs-CZ", { month: "long", year: "numeric" }).format(month)}
-            </h2>
+      {!focusMode && (
+        <section className="ui-card ui-card-accent mt-5 overflow-hidden p-3 sm:p-6">
+          <div className="flex items-center justify-between gap-2 px-1 sm:gap-3">
+            <button
+              type="button"
+              onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))}
+              className="ui-button ui-button-secondary ui-button-icon text-xl"
+              aria-label="Předchozí měsíc"
+            >
+              ‹
+            </button>
+            <div className="min-w-0 text-center">
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-accent sm:text-xs">Program</p>
+              <h2 className="mt-1 truncate text-lg font-black capitalize sm:text-xl">
+                {new Intl.DateTimeFormat("cs-CZ", { month: "long", year: "numeric" }).format(month)}
+              </h2>
+            </div>
+            <button
+              type="button"
+              onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))}
+              className="ui-button ui-button-secondary ui-button-icon text-xl"
+              aria-label="Následující měsíc"
+            >
+              ›
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))}
-            className="ui-button ui-button-secondary ui-button-icon text-xl"
-            aria-label="Následující měsíc"
-          >
-            ›
-          </button>
-        </div>
 
-        <div className="mt-4 grid grid-cols-7 gap-1 text-center text-[10px] font-black uppercase text-zinc-500 sm:gap-1.5 sm:text-xs">
-          {weekdayLabels.map((label) => <span key={label}>{label}</span>)}
-        </div>
-        <div className="mt-2 grid grid-cols-7 gap-1 sm:gap-1.5">
-          {cells.map((date, index) => {
-            if (!date) return <span key={`empty-${index}`} className="min-h-16" />;
-            const key = calendarDateKey(date);
-            const schedules = schedulesForDate(key);
-            return (
-              <div
-                key={key}
-                className={`min-h-16 min-w-0 rounded-xl border bg-zinc-950 p-1 sm:min-h-20 sm:p-1.5 ${key === calendarDateKey(new Date()) ? "border-accent/60" : "border-zinc-800"}`}
-              >
-                <p className="text-[10px] font-bold text-zinc-500 sm:text-xs">{date.getDate()}</p>
-                <div className="mt-1 space-y-1">
-                  {schedules.map((schedule) => {
-                    const template = data.templates.find((item) => item.id === schedule.templateId);
-                    const label = template?.metadata?.workoutCode ?? template?.title ?? "Trénink";
-                    const isSelected = selectedId === schedule.id;
-                    return (
-                      <button
-                        key={schedule.id}
-                        type="button"
-                        onClick={() => openSchedule(schedule)}
-                        className="ui-calendar-item"
-                        data-status={schedule.status}
-                        data-selected={isSelected}
-                        aria-pressed={isSelected}
-                        aria-label={`${label}, ${formatDate(schedule.date, true)}, ${schedule.status}${isSelected ? ", vybráno pro úpravu" : ""}`}
-                        title={label}
-                      >
-                        <span aria-hidden="true">{isSelected ? `✓ ${label}` : label}</span>
-                      </button>
-                    );
-                  })}
+          <div className="mt-4 grid grid-cols-7 gap-1 text-center text-[10px] font-black uppercase text-zinc-500 sm:gap-1.5 sm:text-xs">
+            {weekdayLabels.map((label) => <span key={label}>{label}</span>)}
+          </div>
+          <div className="mt-2 grid grid-cols-7 gap-1 sm:gap-1.5">
+            {cells.map((date, index) => {
+              if (!date) return <span key={`empty-${index}`} className="min-h-16" />;
+              const key = calendarDateKey(date);
+              const schedules = schedulesForDate(key);
+              return (
+                <div
+                  key={key}
+                  className={`min-h-16 min-w-0 rounded-xl border bg-zinc-950 p-1 sm:min-h-20 sm:p-1.5 ${key === calendarDateKey(new Date()) ? "border-accent/60" : "border-zinc-800"}`}
+                >
+                  <p className="text-[10px] font-bold text-zinc-500 sm:text-xs">{date.getDate()}</p>
+                  <div className="mt-1 space-y-1">
+                    {schedules.map((schedule) => {
+                      const template = data.templates.find((item) => item.id === schedule.templateId);
+                      const label = template?.metadata?.workoutCode ?? template?.title ?? "Trénink";
+                      const isSelected = selectedId === schedule.id;
+                      return (
+                        <button
+                          key={schedule.id}
+                          type="button"
+                          onClick={() => openSchedule(schedule)}
+                          className="ui-calendar-item"
+                          data-status={schedule.status}
+                          data-selected={isSelected}
+                          aria-pressed={isSelected}
+                          aria-label={`${label}, ${formatDate(schedule.date, true)}, ${schedule.status}${isSelected ? ", vybráno pro úpravu" : ""}`}
+                          title={label}
+                        >
+                          <span aria-hidden="true">{isSelected ? `✓ ${label}` : label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
-      </section>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {!ready && <div className="ui-card mt-6 h-36 animate-pulse" />}
       {ready && programChoices.length === 0 && (
@@ -448,8 +463,15 @@ export default function LiveProgramCalendarPage() {
       )}
 
       {selected && selectedTemplate && (
-        <section className="ui-card ui-card-accent mt-6 p-5 sm:p-6">
-          <p className="ui-chip ui-chip-accent mb-4 w-fit">✓ Vybráno pro úpravu</p>
+        <section id="training-detail" className="ui-card ui-card-accent mt-6 scroll-mt-24 p-5 sm:p-6">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <p className="ui-chip ui-chip-accent w-fit">✓ Vybráno pro úpravu</p>
+            {focusMode && (
+              <button type="button" onClick={() => setFocusMode(false)} className="ui-button ui-button-ghost ui-button-sm">
+                Měsíční kalendář
+              </button>
+            )}
+          </div>
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <p className="text-xs font-black uppercase tracking-[0.2em] text-accent">
@@ -507,22 +529,32 @@ export default function LiveProgramCalendarPage() {
                     className="ui-field mt-2"
                   >
                     <option value="" disabled>Místo neurčeno</option>
-                    <optgroup label="Rychlé profily">
-                      {Object.entries(TRAINING_LOCATION_PRESETS).map(([value, preset]) => (
-                        <option key={value} value={value}>{preset.label}</option>
-                      ))}
-                    </optgroup>
+                    {selectedLocation && legacyGenericLocationIds.includes(selectedLocation) && (
+                      <optgroup label="Původní obecný profil">
+                        <option value={selectedLocation}>{TRAINING_LOCATION_PRESETS[selectedLocation as "standard-gym" | "hybrid-gym"].label}</option>
+                      </optgroup>
+                    )}
                     {customLocations.length > 0 && (
-                      <optgroup label="Moje místa">
+                      <optgroup label="Moje konkrétní místa">
                         {customLocations.map((location) => (
                           <option key={location.id} value={location.id}>{location.name}</option>
                         ))}
                       </optgroup>
                     )}
+                    <optgroup label="Rychlá prostředí">
+                      {quickLocationIds.map((value) => (
+                        <option key={value} value={value}>{TRAINING_LOCATION_PRESETS[value as "outdoor" | "home"].label}</option>
+                      ))}
+                    </optgroup>
                   </select>
                 </label>
                 {selectedLocationProfile && (
                   <p className="mt-2 text-xs leading-5 text-zinc-500">{selectedLocationProfile.description}</p>
+                )}
+                {selectedLocation && legacyGenericLocationIds.includes(selectedLocation) && (
+                  <p className="ui-feedback ui-feedback-warning mt-3 text-sm">
+                    Tato jednotka ještě používá starý obecný profil fitka. Pro přesné plánování ji přepni na konkrétní uložené místo.
+                  </p>
                 )}
                 {!selectedFitsLocation && (
                   <p className="ui-feedback ui-feedback-warning mt-3 text-sm font-bold">
@@ -638,7 +670,16 @@ export default function LiveProgramCalendarPage() {
             <p className="ui-feedback ui-feedback-success mt-5 text-sm">Dokončený trénink zůstává uzamčený, aby se nezměnila historie programu.</p>
           )}
 
-          <button type="button" onClick={() => setSelectedId("")} className="ui-button ui-button-ghost mt-4 w-full">Zavřít detail</button>
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedId("");
+              setFocusMode(false);
+            }}
+            className="ui-button ui-button-ghost mt-4 w-full"
+          >
+            Zavřít detail
+          </button>
         </section>
       )}
 
