@@ -6,8 +6,7 @@ import { StickyBottomNavigation } from "@/components/navigation/StickyBottomNavi
 import { StickyHeader } from "@/components/navigation/StickyHeader";
 import { useHyroxData } from "@/hooks/useHyroxData";
 import {
-  EQUIPMENT_LABELS,
-  requiredEquipmentForTemplate,
+  equipmentRequirementLabelsForTemplate,
   resolveTrainingLocation,
 } from "@/lib/training-context";
 import { buildTrainingAdaptation, type TrainingAdaptationRecommendation } from "@/lib/training-adaptation";
@@ -86,8 +85,8 @@ export default function Home() {
   const upcomingLocation = upcomingSchedule?.trainingLocation
     ? resolveTrainingLocation(upcomingSchedule.trainingLocation, customLocations)
     : null;
-  const todayEquipment = todayTemplate ? requiredEquipmentForTemplate(todayTemplate) : [];
-  const upcomingEquipment = upcomingTemplate ? requiredEquipmentForTemplate(upcomingTemplate) : [];
+  const todayEquipment = todayTemplate ? equipmentRequirementLabelsForTemplate(todayTemplate) : [];
+  const upcomingEquipment = upcomingTemplate ? equipmentRequirementLabelsForTemplate(upcomingTemplate) : [];
 
   const weekStart = startOfWeek(now);
   const weekDays = Array.from({ length: 7 }, (_, index) => {
@@ -243,13 +242,13 @@ export default function Home() {
                     <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">Doporučené místo</p>
                     <p className="mt-1 font-black text-zinc-100">{todayLocation?.label ?? "Místo neurčeno"}</p>
                   </div>
-                  <span className="ui-chip ui-chip-accent shrink-0">{todayEquipment.length} položek</span>
+                  <span className="ui-chip ui-chip-accent shrink-0">{todayEquipment.length} požadavků</span>
                 </div>
                 <div className="mt-3 flex flex-wrap gap-1.5">
                   {todayEquipment.length === 0 ? (
                     <span className="ui-chip">Bez speciálního vybavení</span>
-                  ) : todayEquipment.map((equipmentId) => (
-                    <span key={equipmentId} className="ui-chip">{EQUIPMENT_LABELS[equipmentId]}</span>
+                  ) : todayEquipment.map((label) => (
+                    <span key={label} className="ui-chip">{label}</span>
                   ))}
                 </div>
               </div>
@@ -298,8 +297,8 @@ export default function Home() {
                     <div className="mt-3 flex flex-wrap gap-1.5">
                       {upcomingEquipment.length === 0 ? (
                         <span className="ui-chip">Bez speciálního vybavení</span>
-                      ) : upcomingEquipment.map((equipmentId) => (
-                        <span key={equipmentId} className="ui-chip">{EQUIPMENT_LABELS[equipmentId]}</span>
+                      ) : upcomingEquipment.map((label) => (
+                        <span key={label} className="ui-chip">{label}</span>
                       ))}
                     </div>
                   </div>
