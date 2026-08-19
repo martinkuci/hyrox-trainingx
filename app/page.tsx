@@ -539,13 +539,3 @@ function RecoveryIcon() {
     </svg>
   );
 }
-
-function RecoveryIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="size-6" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
-      <path d="M20 5.5C14.2 5.5 9.5 9.2 9.5 15c0 1 .14 1.93.42 2.78" />
-      <path d="M4 19c3.1-4.5 7.3-7.3 12.5-8.5" />
-      <path d="M20 5.5c0 8-3.7 13.5-9.5 13.5-3.3 0-5.5-2.2-5.5-5.5C5 8.8 9.5 5.5 20 5.5Z" />
-    </svg>
-  );
-}
