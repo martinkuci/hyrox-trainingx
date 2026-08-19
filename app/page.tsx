@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { StickyBottomNavigation } from "@/components/navigation/StickyBottomNavigation";
 import { StickyHeader } from "@/components/navigation/StickyHeader";
+import { TrainingLocationSelector } from "@/components/planning/TrainingLocationSelector";
 import { useHyroxData } from "@/hooks/useHyroxData";
 import {
   equipmentRequirementLabelsForTemplate,
@@ -251,6 +252,17 @@ export default function Home() {
                     <span key={label} className="ui-chip">{label}</span>
                   ))}
                 </div>
+                {todaySchedule.status === "planned" && (
+                  <div className="mt-4 border-t border-white/8 pt-4">
+                    <TrainingLocationSelector
+                      schedule={todaySchedule}
+                      template={todayTemplate}
+                      phase={activeWeek?.phase}
+                      returnTo="/"
+                      label="Dnešní místo"
+                    />
+                  </div>
+                )}
               </div>
 
               <Link
@@ -265,7 +277,7 @@ export default function Home() {
                   href={`/calendar/program?scheduleId=${todaySchedule.id}`}
                   className="ui-button ui-button-outline mt-3 w-full"
                 >
-                  Upravit místo / trénink
+                  Detail / další úpravy tréninku
                 </Link>
               )}
               {todayTemplate.metadata?.runningTarget && (
@@ -514,6 +526,16 @@ function PlayIcon() {
   return (
     <svg viewBox="0 0 24 24" className="size-5" fill="currentColor" aria-hidden="true">
       <path d="M8 5.75a1 1 0 0 1 1.53-.85l9 6.25a1 1 0 0 1 0 1.7l-9 6.25A1 1 0 0 1 8 18.25V5.75Z" />
+    </svg>
+  );
+}
+
+function RecoveryIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="size-6" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+      <path d="M20 5.5C14.2 5.5 9.5 9.2 9.5 15c0 1 .14 1.93.42 2.78" />
+      <path d="M4 19c3.1-4.5 7.3-7.3 12.5-8.5" />
+      <path d="M20 5.5c0 8-3.7 13.5-9.5 13.5-3.3 0-5.5-2.2-5.5-5.5C5 8.8 9.5 5.5 20 5.5Z" />
     </svg>
   );
 }
