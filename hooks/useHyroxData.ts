@@ -18,6 +18,7 @@ import {
   deleteWeeklyPlan,
   decideTrainingAdaptation,
   loadHyroxData,
+  mergeHealthActivities,
   replaceSchedulesForDates,
   resetHyroxData,
   scheduleMany,
@@ -30,6 +31,8 @@ import {
   updateTrainingProgram,
 } from "@/lib/storage";
 import type {
+  HealthActivity,
+  HealthProviderId,
   NewScheduledWorkout,
   NewTrainingLocationProfile,
   NewTrainingProgram,
@@ -81,6 +84,8 @@ export function useHyroxData() {
     addResult: (input: NewWorkoutResult) => addResult(input),
     updateResult: (id: string, updates: Partial<NewWorkoutResult>) => updateResult(id, updates),
     decideTrainingAdaptation: (resultId: string, decision: TrainingAdaptationDecision) => decideTrainingAdaptation(resultId, decision),
+    mergeHealthActivities: (provider: HealthProviderId, activities: HealthActivity[], syncedAt?: string) =>
+      mergeHealthActivities(provider, activities, syncedAt),
     deleteResult,
     resetData: resetHyroxData,
   };
