@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { TRAINING_CATALOG } from "../lib/training-catalog.ts";
 import {
   ALL_TRAINING_EQUIPMENT,
   equipmentRequirementsForTemplate,
@@ -94,6 +95,23 @@ test("or wording creates alternative equipment instead of requiring both machine
   const requirements = equipmentRequirementsForTemplate(cardioRotation);
   assert.ok(requirements.some((requirement) => requirement.anyOf.includes("ski-erg") && requirement.anyOf.includes("rower")));
   assert.equal(templateFitsLocation(cardioRotation, location.id, [location]), true);
+});
+
+test("actual Base Engine 02 is compatible with a basic gym that has treadmill and rower but no SkiErg", () => {
+  const cardioRotation = TRAINING_CATALOG.find((item) => item.id === "catalog-base-engine-02");
+  assert.ok(cardioRotation, "Base Engine 02 must exist in the training catalog");
+  const starac = {
+    id: "location-starac",
+    name: "Staráč",
+    equipment: [
+      "treadmill", "rower", "kettlebell", "dumbbell", "medicine-ball", "barbell",
+      "rack", "bench", "box", "pull-up-bar", "cable-machine", "resistance-band",
+    ],
+    createdAt: "2026-08-19T00:00:00.000Z",
+    updatedAt: "2026-08-19T00:00:00.000Z",
+  };
+
+  assert.equal(templateFitsLocation(cardioRotation, starac.id, [starac]), true);
 });
 
 test("or wording still rejects a place that has none of the alternatives", () => {
