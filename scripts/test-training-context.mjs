@@ -2,13 +2,14 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   ALL_TRAINING_EQUIPMENT,
+  equipmentRequirementsForTemplate,
   findLocationAlternatives,
   requiredEquipmentForTemplate,
   resolveTrainingLocation,
   templateFitsLocation,
 } from "../lib/training-context.ts";
 
-function template(id, title, category, steps, durationMinutes = 45) {
+function template(id, title, category, steps, durationMinutes = 45, progressionGroup = category) {
   return {
     id,
     title,
@@ -27,7 +28,7 @@ function template(id, title, category, steps, durationMinutes = 45) {
       runningTarget: "",
       primaryMetric: "",
       secondaryMetrics: [],
-      progressionGroup: category,
+      progressionGroup,
       difficultyLevel: 2,
     },
     blocks: [{
@@ -77,6 +78,36 @@ test("generic running can be completed at a custom location with a treadmill", (
   assert.equal(templateFitsLocation(runWorkout, location.id, [location]), true);
 });
 
+test("or wording creates alternative equipment instead of requiring both machines", () => {
+  const location = {
+    id: "location-old-gym",
+    name: "Old gym",
+    equipment: ["treadmill", "rower"],
+    createdAt: "2026-08-19T00:00:00.000Z",
+    updatedAt: "2026-08-19T00:00:00.000Z",
+  };
+  const cardioRotation = template("rotation", "Cardio Rotation", "base-engine", [
+    "5 min lehký běh nebo veslo",
+    "500 m SkiErg nebo veslo",
+  ]);
+
+  const requirements = equipmentRequirementsForTemplate(cardioRotation);
+  assert.ok(requirements.some((requirement) => requirement.anyOf.includes("ski-erg") && requirement.anyOf.includes("rower")));
+  assert.equal(templateFitsLocation(cardioRotation, location.id, [location]), true);
+});
+
+test("or wording still rejects a place that has none of the alternatives", () => {
+  const location = {
+    id: "location-no-cardio",
+    name: "No cardio",
+    equipment: ["dumbbell"],
+    createdAt: "2026-08-19T00:00:00.000Z",
+    updatedAt: "2026-08-19T00:00:00.000Z",
+  };
+  const cardioRotation = template("rotation", "Cardio Rotation", "base-engine", ["500 m SkiErg nebo veslo"]);
+  assert.equal(templateFitsLocation(cardioRotation, location.id, [location]), false);
+});
+
 test("custom location uses only equipment the user kept checked", () => {
   const location = {
     id: "location-test-gym",
@@ -103,4 +134,17 @@ test("location alternatives preserve category before unrelated workouts", () => 
     location: "outdoor",
   });
   assert.equal(alternatives[0]?.id, "same");
+});
+
+test("location alternatives use program phase when same-category replacement is unavailable", () => {
+  const current = template("current", "Hybrid", "race-simulation", ["500 m SkiErg", "10 wall balls"], 50, "race-specific");
+  const baseRun = template("base", "Easy run", "base-engine", ["40 min běh"], 45, "base-engine");
+  const mixed = template("mixed", "Outdoor mixed", "mixed", ["1 km běh", "10 burpee broad jumps"], 45, "mixed");
+  const alternatives = findLocationAlternatives({
+    current,
+    templates: [current, baseRun, mixed],
+    location: "outdoor",
+    phase: "specific",
+  });
+  assert.equal(alternatives[0]?.id, "mixed");
 });
