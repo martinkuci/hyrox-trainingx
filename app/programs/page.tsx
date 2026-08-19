@@ -6,7 +6,9 @@ import { TrainingLocationManager } from "@/components/planning/TrainingLocationM
 import { useHyroxData } from "@/hooks/useHyroxData";
 import {
   TRAINING_LOCATION_PRESETS,
+  findCompatibleLocationForTemplate,
   resolveTrainingLocation,
+  templateFitsEquipment,
 } from "@/lib/training-context";
 import type {
   NewScheduledWorkout,
@@ -45,7 +47,7 @@ export default function ProgramsPage() {
   const [weeks, setWeeks] = useState<ProgramWeek[]>([]);
   const [message, setMessage] = useState("");
 
-  const customLocations = data.trainingLocations ?? [];
+  const customLocations = useMemo(() => data.trainingLocations ?? [], [data.trainingLocations]);
   const locationOptions = useMemo(() => [
     ...Object.keys(TRAINING_LOCATION_PRESETS).map((id) =>
       resolveTrainingLocation(id as ScheduledTrainingLocation, customLocations)!,
@@ -53,6 +55,9 @@ export default function ProgramsPage() {
     ...customLocations.map((location) => resolveTrainingLocation(location.id, customLocations)!),
   ], [customLocations]);
   const selectedLocations = locationOptions.filter((location) => locationIds.includes(location.id));
+  const compatibleTemplates = data.templates.filter((template) =>
+    selectedLocations.some((location) => templateFitsEquipment(template, location.equipment)),
+  );
 
   const totalUnits = duration * frequency;
   const assigned = weeks.flatMap((week) => week.sessions).filter((session) => session.templateId).length;
@@ -123,10 +128,31 @@ export default function ProgramsPage() {
   }
 
   function updateSession(weekIndex: number, sessionIndex: number, templateId: string) {
+    if (!templateId) {
+      setWeeks((current) => current.map((week, index) => index === weekIndex ? {
+        ...week,
+        sessions: week.sessions.map((session, i) => i === sessionIndex
+          ? { ...session, templateId: null, trainingLocation: undefined }
+          : session),
+      } : week));
+      return;
+    }
+
+    const template = data.templates.find((item) => item.id === templateId);
+    if (!template) return;
+    const location = findCompatibleLocationForTemplate(
+      template,
+      selectedLocations.map((item) => ({ id: item.id, equipment: item.equipment })),
+    );
+    if (!location) {
+      setMessage("Vybraný trénink není možné kompletně odcvičit v žádném ze zvolených míst.");
+      return;
+    }
+
     setWeeks((current) => current.map((week, index) => index === weekIndex ? {
       ...week,
       sessions: week.sessions.map((session, i) => i === sessionIndex
-        ? { ...session, templateId: templateId || null }
+        ? { ...session, templateId, trainingLocation: location.id }
         : session),
     } : week));
   }
@@ -207,7 +233,7 @@ export default function ProgramsPage() {
 
       {weeks.length > 0 && <>
         <section className="ui-card mt-6 p-5"><div className="flex items-center justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[0.2em] text-accent">4 · Náhled</p><h2 className="mt-2 text-2xl font-black">{duration} týdnů · {assigned} jednotek</h2></div><button type="button" onClick={generateProgram} className="ui-button ui-button-outline ui-button-sm">Regenerovat</button></div></section>
-        <div className="mt-4 space-y-4">{weeks.map((week, weekIndex) => <section key={week.weekNumber} className="ui-card p-5"><div className="flex items-center justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-wide text-accent">Týden {week.weekNumber}</p><h3 className="mt-1 text-lg font-black">{week.focus}</h3></div><span className="ui-chip">{phaseLabels[week.phase]}</span></div><div className="mt-4 grid gap-3 sm:grid-cols-2">{week.sessions.map((session, sessionIndex) => { const location = session.trainingLocation ? resolveTrainingLocation(session.trainingLocation, customLocations) : null; return <label key={session.id} className="ui-inset p-3"><span className="text-xs font-black uppercase tracking-wide text-accent">Jednotka {sessionIndex + 1}</span><select value={session.templateId ?? ""} onChange={(e) => updateSession(weekIndex, sessionIndex, e.target.value)} className="ui-field mt-2 bg-surface px-3 py-3 text-base"><option value="">Bez kompatibilní jednotky</option>{data.templates.map((template) => <option key={template.id} value={template.id}>{template.metadata?.workoutCode ? `${template.metadata.workoutCode} · ` : ""}{template.title}</option>)}</select>{location && <p className="mt-2 text-xs font-bold text-zinc-500">Doporučené místo: <span className="text-zinc-300">{location.label}</span></p>}</label>; })}</div></section>)}</div>
+        <div className="mt-4 space-y-4">{weeks.map((week, weekIndex) => <section key={week.weekNumber} className="ui-card p-5"><div className="flex items-center justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-wide text-accent">Týden {week.weekNumber}</p><h3 className="mt-1 text-lg font-black">{week.focus}</h3></div><span className="ui-chip">{phaseLabels[week.phase]}</span></div><div className="mt-4 grid gap-3 sm:grid-cols-2">{week.sessions.map((session, sessionIndex) => { const location = session.trainingLocation ? resolveTrainingLocation(session.trainingLocation, customLocations) : null; return <label key={session.id} className="ui-inset p-3"><span className="text-xs font-black uppercase tracking-wide text-accent">Jednotka {sessionIndex + 1}</span><select value={session.templateId ?? ""} onChange={(e) => updateSession(weekIndex, sessionIndex, e.target.value)} className="ui-field mt-2 bg-surface px-3 py-3 text-base"><option value="">Bez kompatibilní jednotky</option>{compatibleTemplates.map((template) => <option key={template.id} value={template.id}>{template.metadata?.workoutCode ? `${template.metadata.workoutCode} · ` : ""}{template.title}</option>)}</select>{location && <p className="mt-2 text-xs font-bold text-zinc-500">Doporučené místo: <span className="text-zinc-300">{location.label}</span></p>}</label>; })}</div></section>)}</div>
         <button type="button" onClick={saveAndSchedule} className="ui-button ui-button-primary ui-button-lg mt-6 w-full">Uložit a vložit do kalendáře</button>
       </>}
 
