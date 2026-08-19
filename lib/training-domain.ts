@@ -1,4 +1,5 @@
-import type { WorkoutTemplate } from "./types";
+import type { EquipmentId, WorkoutTemplate } from "./types";
+export type { EquipmentId } from "./types";
 
 export type DisciplineId =
   | "run"
@@ -13,19 +14,6 @@ export type DisciplineId =
   | "strength"
   | "mobility"
   | "recovery";
-
-export type EquipmentId =
-  | "none"
-  | "running"
-  | "ski-erg"
-  | "sled"
-  | "rower"
-  | "kettlebell"
-  | "dumbbell"
-  | "sandbag"
-  | "wall-ball"
-  | "barbell"
-  | "box";
 
 export type MovementFamily =
   | "running"
@@ -65,7 +53,7 @@ export const TRAINING_DISCIPLINES: readonly TrainingDiscipline[] = [
     name: "Běh",
     shortName: "Běh",
     family: "running",
-    equipment: ["running"],
+    equipment: ["running", "treadmill"],
     aliases: ["běh", "run", "running", "klus", "sprint"],
     measurableBy: ["time", "distance", "pace"],
   },
@@ -163,7 +151,7 @@ export const TRAINING_DISCIPLINES: readonly TrainingDiscipline[] = [
     name: "Mobilita",
     shortName: "Mobilita",
     family: "mobility",
-    equipment: ["none"],
+    equipment: ["none", "resistance-band"],
     aliases: ["mobility", "mobilita", "protažení", "stretch"],
     measurableBy: ["time"],
   },
@@ -172,7 +160,7 @@ export const TRAINING_DISCIPLINES: readonly TrainingDiscipline[] = [
     name: "Regenerace",
     shortName: "Recovery",
     family: "recovery",
-    equipment: ["none", "running", "rower", "ski-erg"],
+    equipment: ["none", "running", "treadmill", "rower", "ski-erg", "bike-erg", "air-bike"],
     aliases: ["recovery", "regenerace", "vychození", "chůze", "easy"],
     measurableBy: ["time", "distance"],
   },
