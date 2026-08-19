@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 960" role="img" aria-labelledby="title desc">
+  <title id="title">Enginn brand board</title>
+  <desc id="desc">Přehled značky Enginn, symbolu, barev, typografie a tónu komunikace.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1440" y2="960" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#15191D"/>
+      <stop offset="1" stop-color="#090A0C"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0" cy="0" r="1" gradientTransform="translate(330 265) rotate(52) scale(430 520)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#BEF264" stop-opacity=".18"/>
+      <stop offset="1" stop-color="#BEF264" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1440" height="960" fill="url(#bg)"/>
+  <rect width="1440" height="960" fill="url(#glow)"/>
+  <text x="80" y="92" fill="#BEF264" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="800" letter-spacing="5">BRAND SYSTEM · 1B</text>
+  <text x="80" y="145" fill="#F7F8F4" font-family="Inter, Arial, sans-serif" font-size="30" font-weight="700">Hybridní trénink bez chaosu.</text>
+
+  <rect x="80" y="205" width="620" height="430" rx="42" fill="#111417" stroke="#FFFFFF" stroke-opacity=".1" stroke-width="2"/>
+  <rect x="140" y="270" width="218" height="218" rx="50" fill="#090A0C" stroke="#FFFFFF" stroke-opacity=".08" stroke-width="3"/>
+  <path fill="#BEF264" d="M181 315h136l-24 32h-72v24h75l-24 32h-51v21h96l-24 32H181V315Z"/>
+  <text x="406" y="386" fill="#F7F8F4" font-family="Inter, Arial, sans-serif" font-size="58" font-weight="900" letter-spacing="8">ENGINN</text>
+  <text x="406" y="430" fill="#9CA3AF" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="600">Plán. Trénink. Výsledky.</text>
+  <line x1="140" y1="540" x2="640" y2="540" stroke="#FFFFFF" stroke-opacity=".08" stroke-width="2"/>
+  <text x="140" y="585" fill="#9CA3AF" font-family="Inter, Arial, sans-serif" font-size="18">E-rail · pohyb, struktura, tři části hlavního toku</text>
+
+  <rect x="740" y="205" width="620" height="430" rx="42" fill="#14171A" stroke="#FFFFFF" stroke-opacity=".1" stroke-width="2"/>
+  <text x="790" y="265" fill="#F7F8F4" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="800">Základní paleta</text>
+  <circle cx="835" cy="345" r="45" fill="#BEF264"/>
+  <circle cx="965" cy="345" r="45" fill="#090A0C" stroke="#FFFFFF" stroke-opacity=".14" stroke-width="2"/>
+  <circle cx="1095" cy="345" r="45" fill="#202429"/>
+  <circle cx="1225" cy="345" r="45" fill="#F7F8F4"/>
+  <text x="790" y="420" fill="#9CA3AF" font-family="Inter, Arial, sans-serif" font-size="15">ENGINN LIME</text>
+  <text x="925" y="420" fill="#9CA3AF" font-family="Inter, Arial, sans-serif" font-size="15">CARBON</text>
+  <text x="1062" y="420" fill="#9CA3AF" font-family="Inter, Arial, sans-serif" font-size="15">STEEL</text>
+  <text x="1190" y="420" fill="#9CA3AF" font-family="Inter, Arial, sans-serif" font-size="15">SIGNAL</text>
+  <text x="790" y="495" fill="#BEF264" font-family="Inter, Arial, sans-serif" font-size="16" font-weight="800" letter-spacing="4">PŘIPRAV SE</text>
+  <text x="790" y="548" fill="#F7F8F4" font-family="Inter, Arial, sans-serif" font-size="42" font-weight="900">Další blok za 00:30</text>
+  <text x="790" y="590" fill="#9CA3AF" font-family="Inter, Arial, sans-serif" font-size="18">Klidný trenér. Krátké pokyny. Žádné prázdné slogany.</text>
+
+  <rect x="80" y="685" width="1280" height="195" rx="36" fill="#14171A" stroke="#FFFFFF" stroke-opacity=".1" stroke-width="2"/>
+  <text x="130" y="745" fill="#BEF264" font-family="Inter, Arial, sans-serif" font-size="16" font-weight="800" letter-spacing="4">PRODUKTOVÝ JAZYK</text>
+  <text x="130" y="800" fill="#F7F8F4" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="800">Spustit trénink</text>
+  <text x="435" y="800" fill="#F7F8F4" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="800">Dokončit blok</text>
+  <text x="750" y="800" fill="#F7F8F4" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="800">Lehčí varianta</text>
+  <text x="1055" y="800" fill="#F7F8F4" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="800">Uložit výsledek</text>
+  <text x="130" y="845" fill="#9CA3AF" font-family="Inter, Arial, sans-serif" font-size="18">Konkrétní akce · přesné jednotky · srozumitelné následky · respekt k začátečníkům</text>
+</svg>

@@ -1,4 +1,4 @@
-# HYROX Training App Roadmap
+# Enginn App Roadmap
 
 ## Phase 1 - Project foundation
 Status: complete
@@ -39,7 +39,7 @@ Improve useful statistics, progress comparison, workout metadata, splits, RPE, w
 
 ## Phase 5 - Version 1.0
 
-Status: release candidate 1.0.0
+Status: released as 1.0.0
 
 Release when the app is stable on mobile, core flows are tested, data can be exported and restored, and no critical issue remains.
 
@@ -61,12 +61,41 @@ Status: final regression
 
 ### Phase 5C - Version 1.0 release
 
-Status: release candidate; awaiting final approval, merge, and tag
+Status: released to `main`
 
 - Complete final production smoke checks and data backup verification.
 - Confirm that the automated gate passes and no release blocker remains.
 - Mark and publish version 1.0, then monitor the production deployment.
 
+## Phase 6 - Enginn rebrand
+
+### Phase 6A - Name clearance
+
+Status: confirmed by product owner
+
+- Confirm name, domains, handles and relevant trademark classes before implementation.
+
+### Phase 6B - Brand identity
+
+Status: complete; awaiting visual approval
+
+- Define Enginn positioning, logo, app icon, palette and product language.
+- Separate visible brand references from legacy technical identifiers.
+- Prepare deterministic vector and PWA assets for technical implementation.
+
+### Phase 6C - Technical rebrand
+
+- Replace public metadata, navigation, onboarding and support copy.
+- Rename public workout content without breaking stored history or backup compatibility.
+- Configure the new deployment name and domain with redirects from the old address.
+
+## Phase 7 - General hybrid training
+
+- Extend program goals with discipline mix and a complete-beginner level.
+- Expand exercise taxonomy beyond the current race-specific stations.
+- Add technique, common mistakes, scaling and contextual “Jak na to” guidance.
+- Personalize onboarding from the athlete's selected disciplines.
+
 ## Later
 
-Only after version 1.0 consider accounts, cloud sync, social features, subscriptions, or extracting a broader reusable platform.
+Consider social features, subscriptions and a broader reusable platform only after the Enginn rebrand and hybrid-training expansion are stable.
