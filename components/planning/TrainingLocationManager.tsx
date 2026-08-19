@@ -75,9 +75,11 @@ function EquipmentChecklist({
 
 export function TrainingLocationManager({
   onLocationCreated,
+  onApplyToRemainingProgram,
   startOpen = false,
 }: {
   onLocationCreated?: (location: TrainingLocationProfile) => void;
+  onApplyToRemainingProgram?: (location: TrainingLocationProfile) => string | void;
   startOpen?: boolean;
 }) {
   const {
@@ -138,6 +140,12 @@ export function TrainingLocationManager({
     setEditorOpen(true);
   }
 
+  function applyLocationToProgram(location: TrainingLocationProfile) {
+    if (!onApplyToRemainingProgram) return;
+    const result = onApplyToRemainingProgram(location);
+    if (result) setMessage(result);
+  }
+
   return (
     <section className="ui-card mt-5 p-4 sm:p-5">
       <div className="flex items-center justify-between gap-3">
@@ -155,25 +163,36 @@ export function TrainingLocationManager({
       {locations.length > 0 && (
         <div className="mt-4 space-y-2">
           {locations.map((location) => (
-            <div key={location.id} className="ui-inset flex items-center justify-between gap-3 p-3">
-              <div className="min-w-0">
-                <p className="truncate text-sm font-black text-white">{location.name}</p>
-                <p className="mt-0.5 text-xs text-zinc-500">{location.equipment.length} z {ALL_TRAINING_EQUIPMENT.length} položek vybavení</p>
-                {location.equipment.length > 0 && (
-                  <div className="mt-2 flex flex-wrap gap-1">
-                    {location.equipment.slice(0, 3).map((item) => (
-                      <span key={item} className="ui-chip text-[10px]">{EQUIPMENT_LABELS[item]}</span>
-                    ))}
-                    {location.equipment.length > 3 && (
-                      <span className="ui-chip text-[10px]">+{location.equipment.length - 3}</span>
-                    )}
-                  </div>
-                )}
+            <div key={location.id} className="ui-inset p-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-black text-white">{location.name}</p>
+                  <p className="mt-0.5 text-xs text-zinc-500">{location.equipment.length} z {ALL_TRAINING_EQUIPMENT.length} položek vybavení</p>
+                </div>
+                <div className="flex shrink-0 gap-1.5">
+                  <button type="button" onClick={() => editLocation(location)} className="ui-button ui-button-outline ui-button-sm">Upravit</button>
+                  <button type="button" onClick={() => deleteTrainingLocation(location.id)} className="ui-button ui-button-danger ui-button-sm">Smazat</button>
+                </div>
               </div>
-              <div className="flex shrink-0 gap-1.5">
-                <button type="button" onClick={() => editLocation(location)} className="ui-button ui-button-outline ui-button-sm">Upravit</button>
-                <button type="button" onClick={() => deleteTrainingLocation(location.id)} className="ui-button ui-button-danger ui-button-sm">Smazat</button>
-              </div>
+              {location.equipment.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {location.equipment.slice(0, 3).map((item) => (
+                    <span key={item} className="ui-chip text-[10px]">{EQUIPMENT_LABELS[item]}</span>
+                  ))}
+                  {location.equipment.length > 3 && (
+                    <span className="ui-chip text-[10px]">+{location.equipment.length - 3}</span>
+                  )}
+                </div>
+              )}
+              {onApplyToRemainingProgram && (
+                <button
+                  type="button"
+                  onClick={() => applyLocationToProgram(location)}
+                  className="ui-button ui-button-secondary mt-3 w-full"
+                >
+                  Použít pro zbytek programu
+                </button>
+              )}
             </div>
           ))}
         </div>
