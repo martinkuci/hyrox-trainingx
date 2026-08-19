@@ -4,12 +4,14 @@ import { applyTrainingAdaptationDecision } from "./training-adaptation";
 import type {
   HyroxData,
   NewScheduledWorkout,
+  NewTrainingLocationProfile,
   NewTrainingProgram,
   NewWeeklyPlanTemplate,
   NewWorkoutResult,
   NewWorkoutTemplate,
   ScheduledWorkout,
   TrainingAdaptationDecision,
+  TrainingLocationProfile,
   TrainingProgram,
   WeeklyPlanTemplate,
   WorkoutResult,
@@ -66,6 +68,9 @@ function normalize(value: unknown): HyroxData {
     weeklyPlans: Array.isArray(data.weeklyPlans) ? data.weeklyPlans : [],
     trainingPrograms: Array.isArray(data.trainingPrograms)
       ? data.trainingPrograms
+      : [],
+    trainingLocations: Array.isArray(data.trainingLocations)
+      ? data.trainingLocations
       : [],
   };
 }
@@ -135,6 +140,62 @@ export function deleteTemplate(id: string) {
         ...week,
         sessions: week.sessions.map((session) =>
           session.templateId === id ? { ...session, templateId: null } : session,
+        ),
+      })),
+    })),
+  }));
+  return true;
+}
+
+export function createTrainingLocation(input: NewTrainingLocationProfile): TrainingLocationProfile {
+  const now = new Date().toISOString();
+  const location: TrainingLocationProfile = {
+    ...input,
+    id: makeId("location") as `location-${string}`,
+    equipment: [...new Set(input.equipment)],
+    createdAt: now,
+    updatedAt: now,
+  };
+  updateData((data) => ({
+    ...data,
+    trainingLocations: [...(data.trainingLocations ?? []), location],
+  }));
+  return location;
+}
+
+export function updateTrainingLocation(id: string, updates: Partial<NewTrainingLocationProfile>) {
+  let found: TrainingLocationProfile | null = null;
+  updateData((data) => ({
+    ...data,
+    trainingLocations: (data.trainingLocations ?? []).map((location) =>
+      location.id === id
+        ? (found = {
+            ...location,
+            ...updates,
+            id: location.id,
+            equipment: updates.equipment ? [...new Set(updates.equipment)] : location.equipment,
+            updatedAt: new Date().toISOString(),
+          })
+        : location,
+    ),
+  }));
+  return found;
+}
+
+export function deleteTrainingLocation(id: string) {
+  updateData((data) => ({
+    ...data,
+    trainingLocations: (data.trainingLocations ?? []).filter((location) => location.id !== id),
+    scheduledWorkouts: data.scheduledWorkouts.map((scheduled) =>
+      scheduled.trainingLocation === id ? { ...scheduled, trainingLocation: undefined } : scheduled,
+    ),
+    trainingPrograms: data.trainingPrograms.map((program) => ({
+      ...program,
+      trainingLocationIds: program.trainingLocationIds?.filter((locationId) => locationId !== id),
+      weeks: program.weeks.map((week) => ({
+        ...week,
+        sessions: week.sessions.map((session) =>
+          session.trainingLocation === id ? { ...session, trainingLocation: undefined } : session,
         ),
       })),
     })),
