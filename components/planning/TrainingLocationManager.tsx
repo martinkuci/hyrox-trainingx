@@ -5,8 +5,16 @@ import { useHyroxData } from "@/hooks/useHyroxData";
 import {
   ALL_TRAINING_EQUIPMENT,
   EQUIPMENT_LABELS,
+  TRAINING_LOCATION_PRESETS,
 } from "@/lib/training-context";
-import type { EquipmentId, TrainingLocationProfile } from "@/lib/types";
+import type { EquipmentId, TrainingLocationPresetId, TrainingLocationProfile } from "@/lib/types";
+
+const setupPresets: Array<{ id: TrainingLocationPresetId; label: string }> = [
+  { id: "hybrid-gym", label: "Hybridní fitko" },
+  { id: "standard-gym", label: "Běžné fitko" },
+  { id: "outdoor", label: "Venku" },
+  { id: "home", label: "Doma / minimum" },
+];
 
 function EquipmentChecklist({
   selected,
@@ -59,6 +67,12 @@ export function TrainingLocationManager() {
     setEditingId(null);
   }
 
+  function applyPreset(id: TrainingLocationPresetId) {
+    const preset = TRAINING_LOCATION_PRESETS[id];
+    setEquipment(preset.equipment.filter((item) => item !== "none"));
+    setMessage(`Checklist byl předvyplněný podle typu „${preset.label}“. Teď uprav přesně to, co na konkrétním místě je nebo není.`);
+  }
+
   function saveLocation() {
     const trimmed = name.trim();
     if (!trimmed) {
@@ -90,7 +104,7 @@ export function TrainingLocationManager() {
           <p className="text-xs font-black uppercase tracking-[0.2em] text-accent">Místa a vybavení</p>
           <h2 className="mt-2 text-2xl font-black">Moje fitka a tréninková místa</h2>
           <p className="mt-2 text-sm leading-6 text-zinc-400">
-            Nové místo začíná s kompletní výbavou. Odškrtni pouze to, co tam není. Enginn pak podle tohoto profilu skládá program i nabízí náhradní tréninky.
+            Ulož si konkrétní místo a jeho skutečnou výbavu. Předvolby níže slouží jen jako rychlý start checklistu; do programu se pak používá uložené místo s přesným vybavením.
           </p>
         </div>
         <span className="ui-chip ui-chip-accent shrink-0">{locations.length} míst</span>
@@ -105,6 +119,27 @@ export function TrainingLocationManager() {
           className="ui-field mt-2"
         />
       </label>
+
+      {!editingId && (
+        <div className="mt-5">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-zinc-500">Začít podle typu místa</p>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            {setupPresets.map((preset) => (
+              <button
+                key={preset.id}
+                type="button"
+                onClick={() => applyPreset(preset.id)}
+                className="ui-button ui-button-outline ui-button-sm"
+              >
+                {preset.label}
+              </button>
+            ))}
+          </div>
+          <p className="mt-2 text-xs leading-5 text-zinc-500">
+            Předvolba nic neukládá a nebude později soutěžit s tvým místem. Jen předvyplní vybavení, které můžeš hned upravit.
+          </p>
+        </div>
+      )}
 
       <div className="mt-4 flex flex-wrap gap-2">
         <button type="button" onClick={() => setEquipment(ALL_TRAINING_EQUIPMENT)} className="ui-button ui-button-outline ui-button-sm">
