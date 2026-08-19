@@ -92,7 +92,7 @@ test("generator prefers a discipline match inside the requested category", () =>
   let session = 0;
   const [week] = buildProgramWeeks({
     templates,
-    duration: 2,
+    duration: 4,
     frequency: 1,
     goal: "race",
     level: 1,
