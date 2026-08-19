@@ -105,6 +105,26 @@ test("generator prefers a discipline match inside the requested category", () =>
   assert.equal(week.sessions[0].weekday, 1);
 });
 
+test("generator can build a program before the user knows any training location", () => {
+  const templates = [
+    template("base-run", "base-engine", 1, "30 min běh"),
+    template("strength", "strength", 1, "Goblet squat"),
+  ];
+  const [week] = buildProgramWeeks({
+    templates,
+    duration: 2,
+    frequency: 1,
+    goal: "race",
+    level: 1,
+    days: [1],
+    locations: [],
+    makeSessionId: () => "session-flexible-location",
+  });
+
+  assert.equal(week.sessions[0].templateId, "base-run");
+  assert.equal(week.sessions[0].trainingLocation, undefined);
+});
+
 test("generator filters templates by a concrete saved location and assigns that location", () => {
   const templates = [
     template("base-run", "base-engine", 1, "30 min běh"),
