@@ -2,40 +2,42 @@
 
 ## Feature větev
 
-`agent/enginn-brand-1b`
+`agent/enginn-3d1-strava-health`
 
 ## Fáze
 
-Enginn 1B — zapojení schválené identity do aplikace.
+Enginn 3D.1 — Strava + společná Health & Activity vrstva.
 
 ## Cíl změny
 
-Zapojit schválený brand systém Enginn do veřejného rozhraní, metadat a instalované PWA. Odstranit veřejné odkazy na původní značku a současně zachovat kompatibilitu uložených dat, záloh a historických výsledků.
+Připravit první skutečnou integraci externího fitness zdroje přes Strava OAuth 2.0 a současně vytvořit společný datový model, na který později naváže Apple HealthKit a Android Health Connect.
 
 ## Rozsah
 
-- zobrazit symbol a wordmark Enginn v hlavní navigaci, onboardingu, aktivním tréninku a souhrnu,
-- změnit metadata, manifest, favicon a PWA ikony na Enginn,
-- přepsat veřejné texty podpory, programu, importu a vestavěného katalogu na obecný hybridní trénink,
-- změnit veřejné kódy vestavěných tréninků z `HYX` na `EGN`,
-- povýšit katalog tak, aby se nové veřejné názvy propsaly do neupravených vestavěných šablon,
-- zachovat legacy storage keys, TypeScript názvy, ID šablon, Firebase konfiguraci a formát zálohy,
-- aktualizovat dokumentaci a automatické testy.
+- přidat obecný datový model pro externí health/activity zdroje a synchronizované aktivity,
+- zachovat zpětnou kompatibilitu současných lokálních dat a záloh,
+- přidat bezpečný serverový základ Strava OAuth bez ukládání Client Secret do klienta nebo repozitáře,
+- připravit token exchange a refresh logiku pro krátkodobé access tokeny a rotující refresh tokeny,
+- připravit načtení posledních Strava aktivit a jejich mapování do společného modelu,
+- přidat uživatelské rozhraní v Profilu pro stav Strava integrace, připojení a odpojení,
+- přidat obrazovku Health & Activity pro přehled dostupných zdrojů a posledních importovaných aktivit,
+- doplnit environment-variable dokumentaci a cílené automatické testy.
 
 ## Akceptační kritéria
 
-- veřejné rozhraní, metadata a PWA používají pouze značku Enginn,
-- nové logo je čitelné v horní navigaci i aktivním tréninku a zachovává funkci minimalizace,
-- noví uživatelé i neupravené vestavěné šablony dostanou obecné hybridní názvosloví,
-- uživatelsky upravené šablony, historické výsledky a zálohy se nepřepisují,
-- žádný existující storage key, typ, ID tréninku ani formát zálohy se nemění,
+- aplikace se bez Strava environment variables stále normálně sestaví a zobrazí srozumitelný stav „integrace není nakonfigurována“,
+- Client Secret ani refresh/access token se nikdy nedostanou do klientského JavaScriptu, localStorage, záloh ani Git historie,
+- OAuth používá state ochranu a po callbacku validuje udělené scopes,
+- refresh vždy ukládá nejnovější refresh token vrácený Stravou,
+- importované aktivity používají jednotný provider-neutral model se zdrojem `strava`,
+- datový model je připravený na budoucí `apple-health` a `health-connect`,
+- stávající výsledky a health metriky z ručního/screenshot importu zůstávají kompatibilní,
 - lint, automatické testy a produkční build projdou.
 
 ## Mimo rozsah
 
-- změna názvu Vercel nebo Firebase projektu,
-- připojení nové domény,
-- přejmenování legacy datových ID a historických výsledků,
-- změna generátoru programu, knihovny cviků nebo onboardingového toku,
-- změna verze aplikace,
-- sloučení do `main` bez uživatelského otestování náhledu.
+- HealthKit a nativní Capacitor plugin,
+- Android Health Connect,
+- automatické změny programu podle HRV/spánku/recovery,
+- produkční webhook subscription bez reálných Strava credentials a veřejného callbacku,
+- sloučení do `main` bez uživatelského otestování Preview.
