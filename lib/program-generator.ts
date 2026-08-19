@@ -1,6 +1,8 @@
 import type {
+  EquipmentId,
   ProgramPhase,
   ProgramWeek,
+  ScheduledTrainingLocation,
   WorkoutCategory,
   WorkoutTemplate,
 } from "./types";
@@ -10,9 +12,18 @@ import {
   type ProgramGoal,
   type ProgramLevel,
   type SessionBlueprint,
-} from "./program-generation-policy";
+} from "./program-generation-policy.ts";
+import {
+  findCompatibleLocationForTemplate,
+  templateFitsEquipment,
+} from "./training-context.ts";
 
-export type { ProgramGoal, ProgramLevel } from "./program-generation-policy";
+export type { ProgramGoal, ProgramLevel } from "./program-generation-policy.ts";
+
+export type ProgramTrainingLocation = {
+  id: ScheduledTrainingLocation;
+  equipment: EquipmentId[];
+};
 
 type BuildProgramInput = {
   templates: WorkoutTemplate[];
@@ -21,6 +32,7 @@ type BuildProgramInput = {
   goal: ProgramGoal;
   level: ProgramLevel;
   days: number[];
+  locations?: ProgramTrainingLocation[];
   makeSessionId?: () => string;
 };
 
@@ -89,9 +101,12 @@ function chooseTemplate(
   maxDifficulty: ProgramLevel,
   cursor: number,
   usedTemplateIds: Set<string>,
+  locations: ProgramTrainingLocation[],
 ) {
   const eligible = templates.filter(
-    (template) => templateDifficulty(template) <= maxDifficulty,
+    (template) =>
+      templateDifficulty(template) <= maxDifficulty &&
+      (locations.length === 0 || locations.some((location) => templateFitsEquipment(template, location.equipment))),
   );
   const inCategory = eligible.filter(
     (template) => template.metadata?.category === session.category,
@@ -132,6 +147,7 @@ export function buildProgramWeeks({
   goal,
   level,
   days,
+  locations = [],
   makeSessionId = () => crypto.randomUUID(),
 }: BuildProgramInput): ProgramWeek[] {
   const safeDuration = Math.max(1, Math.round(duration));
@@ -159,9 +175,13 @@ export function buildProgramWeeks({
           maxDifficulty,
           cursor,
           usedTemplateIds,
+          locations,
         );
         categoryCursors.set(session.category, cursor + 1);
         if (template) usedTemplateIds.add(template.id);
+        const location = template && locations.length > 0
+          ? findCompatibleLocationForTemplate(template, locations)
+          : undefined;
 
         return {
           id: makeSessionId(),
@@ -172,6 +192,7 @@ export function buildProgramWeeks({
               : "18:00",
           templateId: template?.id ?? null,
           note: `${phaseLabels[phase]} · ${template?.metadata?.category ?? session.category}`,
+          trainingLocation: location?.id,
         };
       }),
     };

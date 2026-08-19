@@ -1,15 +1,14 @@
 "use client";
 
-import Link from "next/link";
 import { useMemo, useState } from "react";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { PlanningShell } from "@/components/planning/PlanningShell";
-import { StatusBadge } from "@/components/planning/StatusBadge";
+import { ScheduledWorkoutContextCard } from "@/components/planning/ScheduledWorkoutContextCard";
+import { TrainingLocationManager } from "@/components/planning/TrainingLocationManager";
 import { useHyroxData } from "@/hooks/useHyroxData";
 import type {
   NewScheduledWorkout,
   ScheduledWorkout,
-  ScheduledWorkoutStatus,
   WeeklyPlanDay,
 } from "@/lib/types";
 
@@ -42,15 +41,6 @@ function mondayKey(date = new Date()) {
   const offset = day === 0 ? -6 : 1 - day;
   result.setDate(result.getDate() + offset);
   return dateKey(result);
-}
-
-function dateLabel(value: string) {
-  return new Intl.DateTimeFormat("cs-CZ", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  }).format(parseDate(value));
 }
 
 function emptyWeek(): WeeklyPlanDay[] {
@@ -207,7 +197,7 @@ export default function CalendarPage() {
     <PlanningShell
       eyebrow="Plán"
       title="Kalendář"
-      description="Naplánuj jednotlivý trénink nebo si připrav celý vícetýdenní rozvrh."
+      description="Naplánuj jednotlivý trénink nebo si připrav celý vícetýdenní rozvrh. U každého dne vidíš obsah, potřebné vybavení a můžeš rychle změnit místo i trénink."
     >
       <section className="ui-card p-5 sm:p-6">
         <h2 className="text-xl font-black">Přidat jeden trénink</h2>
@@ -280,6 +270,8 @@ export default function CalendarPage() {
         {planMessage && <p role="status" className="ui-feedback mt-4 text-center text-sm font-semibold">{planMessage}</p>}
       </section>
 
+      <TrainingLocationManager />
+
       <div className="mt-8 flex items-center justify-between gap-4"><h2 className="text-2xl font-black">Naplánované dny</h2><span className="text-sm text-zinc-500">{items.length} položek</span></div>
       {!ready && <div className="ui-card mt-4 h-40 animate-pulse" />}
       {ready && items.length === 0 && <section className="ui-card mt-4 border-dashed p-7 text-center text-zinc-400">Kalendář je zatím prázdný.</section>}
@@ -289,12 +281,15 @@ export default function CalendarPage() {
           const template = data.templates.find((entry) => entry.id === item.templateId);
           if (!template) return null;
           return (
-            <article key={item.id} className="ui-card p-5">
-              <div className="flex items-start justify-between gap-4"><div><p className="capitalize text-sm font-bold text-accent">{dateLabel(item.date)}</p><h3 className="mt-1 text-2xl font-black">{template.title}</h3><p className="mt-1 text-sm text-zinc-500">{template.durationMinutes} min</p></div><StatusBadge status={item.status} /></div>
-              <div className="mt-5 grid grid-cols-2 gap-3"><label><span className="text-xs font-bold uppercase tracking-wide text-zinc-500">Přesunout na</span><input type="date" value={item.date} onChange={(event) => updateScheduledWorkout(item.id, { date: event.target.value })} className="ui-field mt-2 px-3 py-3 text-sm" /></label><label><span className="text-xs font-bold uppercase tracking-wide text-zinc-500">Čas</span><input type="time" value={item.time} onChange={(event) => updateScheduledWorkout(item.id, { time: event.target.value })} className="ui-field mt-2 px-3 py-3 text-sm" /></label></div>
-              <label className="mt-3 block"><span className="text-xs font-bold uppercase tracking-wide text-zinc-500">Stav</span><select value={item.status} onChange={(event) => updateScheduledWorkout(item.id, { status: event.target.value as ScheduledWorkoutStatus })} className="ui-field mt-2 px-3 py-3 text-sm"><option value="planned">Naplánováno</option><option value="completed">Dokončeno</option><option value="skipped">Vynecháno</option></select></label>
-              <div className="mt-4 grid grid-cols-[1fr_auto] gap-3"><Link href={`/workout/${template.id}?scheduleId=${item.id}`} className="ui-button ui-button-accent">Spustit</Link><button type="button" onClick={() => setPendingDelete(item)} className="ui-button ui-button-danger">Smazat</button></div>
-            </article>
+            <ScheduledWorkoutContextCard
+              key={item.id}
+              item={item}
+              template={template}
+              templates={data.templates}
+              locations={data.trainingLocations ?? []}
+              onUpdate={(updates) => updateScheduledWorkout(item.id, updates)}
+              onDelete={() => setPendingDelete(item)}
+            />
           );
         })}
       </div>

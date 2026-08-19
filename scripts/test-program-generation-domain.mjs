@@ -92,7 +92,7 @@ test("generator prefers a discipline match inside the requested category", () =>
   let session = 0;
   const [week] = buildProgramWeeks({
     templates,
-    duration: 2,
+    duration: 4,
     frequency: 1,
     goal: "race",
     level: 1,
@@ -103,4 +103,66 @@ test("generator prefers a discipline match inside the requested category", () =>
   assert.equal(week.phase, "base");
   assert.equal(week.sessions[0].templateId, "base-run");
   assert.equal(week.sessions[0].weekday, 1);
+});
+
+test("generator can build a program before the user knows any training location", () => {
+  const templates = [
+    template("base-run", "base-engine", 1, "30 min běh"),
+    template("strength", "strength", 1, "Goblet squat"),
+  ];
+  const [week] = buildProgramWeeks({
+    templates,
+    duration: 2,
+    frequency: 1,
+    goal: "race",
+    level: 1,
+    days: [1],
+    locations: [],
+    makeSessionId: () => "session-flexible-location",
+  });
+
+  assert.equal(week.sessions[0].templateId, "base-run");
+  assert.equal(week.sessions[0].trainingLocation, undefined);
+});
+
+test("generator filters templates by a concrete saved location and assigns that location", () => {
+  const templates = [
+    template("base-run", "base-engine", 1, "30 min běh"),
+    template("base-row", "base-engine", 1, "1000 m veslo"),
+  ];
+  const [week] = buildProgramWeeks({
+    templates,
+    duration: 2,
+    frequency: 1,
+    goal: "race",
+    level: 1,
+    days: [1],
+    locations: [{ id: "location-row-gym", equipment: ["rower"] }],
+    makeSessionId: () => "session-location",
+  });
+
+  assert.equal(week.sessions[0].templateId, "base-row");
+  assert.equal(week.sessions[0].trainingLocation, "location-row-gym");
+});
+
+test("generator never combines equipment from two different locations into one imaginary gym", () => {
+  const templates = [
+    template("hybrid", "base-engine", 1, "500 m SkiErg + 20 m Sled Push"),
+  ];
+  const [week] = buildProgramWeeks({
+    templates,
+    duration: 2,
+    frequency: 1,
+    goal: "race",
+    level: 1,
+    days: [1],
+    locations: [
+      { id: "location-ski", equipment: ["ski-erg"] },
+      { id: "location-sled", equipment: ["sled"] },
+    ],
+    makeSessionId: () => "session-split",
+  });
+
+  assert.equal(week.sessions[0].templateId, null);
+  assert.equal(week.sessions[0].trainingLocation, undefined);
 });

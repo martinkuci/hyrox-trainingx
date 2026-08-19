@@ -1,0 +1,168 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { TRAINING_CATALOG } from "../lib/training-catalog.ts";
+import {
+  ALL_TRAINING_EQUIPMENT,
+  equipmentRequirementsForTemplate,
+  findLocationAlternatives,
+  requiredEquipmentForTemplate,
+  resolveTrainingLocation,
+  templateFitsLocation,
+} from "../lib/training-context.ts";
+
+function template(id, title, category, steps, durationMinutes = 45, progressionGroup = category) {
+  return {
+    id,
+    title,
+    description: "",
+    durationMinutes,
+    tags: [],
+    metadata: {
+      workoutCode: id,
+      templateVersion: 1,
+      category,
+      goal: "",
+      targetRpeMin: 5,
+      targetRpeMax: 7,
+      expectedDurationMin: durationMinutes - 5,
+      expectedDurationMax: durationMinutes + 5,
+      runningTarget: "",
+      primaryMetric: "",
+      secondaryMetrics: [],
+      progressionGroup,
+      difficultyLevel: 2,
+    },
+    blocks: [{
+      id: `${id}-block`,
+      type: "manual",
+      title: "Main",
+      repeat: 1,
+      steps: steps.map((name, index) => ({ id: `${id}-${index}`, name, detail: "" })),
+    }],
+    createdAt: "2026-08-19T00:00:00.000Z",
+    updatedAt: "2026-08-19T00:00:00.000Z",
+  };
+}
+
+test("equipment inference only returns equipment actually named by the workout", () => {
+  const workout = template("mixed", "Mixed", "mixed", ["600 m běh", "500 m SkiErg", "12 wall balls"]);
+  assert.deepEqual(requiredEquipmentForTemplate(workout).sort(), ["running", "ski-erg", "wall-ball"].sort());
+});
+
+test("medicine ball and wall ball remain distinct equipment", () => {
+  const workout = template("balls", "Balls", "strength", ["10 medicine ball slams", "15 wall balls"]);
+  assert.deepEqual(requiredEquipmentForTemplate(workout).sort(), ["medicine-ball", "wall-ball"].sort());
+});
+
+test("complete equipment checklist contains general gym and hybrid equipment", () => {
+  for (const equipment of ["dumbbell", "kettlebell", "medicine-ball", "ski-erg", "rower", "sled", "treadmill", "rack"]) {
+    assert.ok(ALL_TRAINING_EQUIPMENT.includes(equipment));
+  }
+});
+
+test("outdoor preset rejects machine workouts and accepts running/bodyweight", () => {
+  const machine = template("machine", "Engine", "base-engine", ["500 m veslo", "500 m SkiErg"]);
+  const outdoor = template("outdoor", "Outdoor", "base-engine", ["2 km běh", "10 burpee broad jumps"]);
+  assert.equal(templateFitsLocation(machine, "outdoor"), false);
+  assert.equal(templateFitsLocation(outdoor, "outdoor"), true);
+});
+
+test("generic running can be completed at a custom location with a treadmill", () => {
+  const location = {
+    id: "location-treadmill-gym",
+    name: "Treadmill gym",
+    equipment: ["treadmill"],
+    createdAt: "2026-08-19T00:00:00.000Z",
+    updatedAt: "2026-08-19T00:00:00.000Z",
+  };
+  const runWorkout = template("run", "Run", "base-engine", ["30 min běh"]);
+  assert.equal(templateFitsLocation(runWorkout, location.id, [location]), true);
+});
+
+test("or wording creates alternative equipment instead of requiring both machines", () => {
+  const location = {
+    id: "location-old-gym",
+    name: "Old gym",
+    equipment: ["treadmill", "rower"],
+    createdAt: "2026-08-19T00:00:00.000Z",
+    updatedAt: "2026-08-19T00:00:00.000Z",
+  };
+  const cardioRotation = template("rotation", "Cardio Rotation", "base-engine", [
+    "5 min lehký běh nebo veslo",
+    "500 m SkiErg nebo veslo",
+  ]);
+
+  const requirements = equipmentRequirementsForTemplate(cardioRotation);
+  assert.ok(requirements.some((requirement) => requirement.anyOf.includes("ski-erg") && requirement.anyOf.includes("rower")));
+  assert.equal(templateFitsLocation(cardioRotation, location.id, [location]), true);
+});
+
+test("actual Base Engine 02 is compatible with a basic gym that has treadmill and rower but no SkiErg", () => {
+  const cardioRotation = TRAINING_CATALOG.find((item) => item.id === "catalog-base-engine-02");
+  assert.ok(cardioRotation, "Base Engine 02 must exist in the training catalog");
+  const starac = {
+    id: "location-starac",
+    name: "Staráč",
+    equipment: [
+      "treadmill", "rower", "kettlebell", "dumbbell", "medicine-ball", "barbell",
+      "rack", "bench", "box", "pull-up-bar", "cable-machine", "resistance-band",
+    ],
+    createdAt: "2026-08-19T00:00:00.000Z",
+    updatedAt: "2026-08-19T00:00:00.000Z",
+  };
+
+  assert.equal(templateFitsLocation(cardioRotation, starac.id, [starac]), true);
+});
+
+test("or wording still rejects a place that has none of the alternatives", () => {
+  const location = {
+    id: "location-no-cardio",
+    name: "No cardio",
+    equipment: ["dumbbell"],
+    createdAt: "2026-08-19T00:00:00.000Z",
+    updatedAt: "2026-08-19T00:00:00.000Z",
+  };
+  const cardioRotation = template("rotation", "Cardio Rotation", "base-engine", ["500 m SkiErg nebo veslo"]);
+  assert.equal(templateFitsLocation(cardioRotation, location.id, [location]), false);
+});
+
+test("custom location uses only equipment the user kept checked", () => {
+  const location = {
+    id: "location-test-gym",
+    name: "Test gym",
+    equipment: ["dumbbell", "kettlebell", "rower"],
+    createdAt: "2026-08-19T00:00:00.000Z",
+    updatedAt: "2026-08-19T00:00:00.000Z",
+  };
+  const rowWorkout = template("row", "Row", "base-engine", ["1000 m veslo"]);
+  const skiWorkout = template("ski", "Ski", "base-engine", ["1000 m SkiErg"]);
+
+  assert.equal(resolveTrainingLocation(location.id, [location])?.label, "Test gym");
+  assert.equal(templateFitsLocation(rowWorkout, location.id, [location]), true);
+  assert.equal(templateFitsLocation(skiWorkout, location.id, [location]), false);
+});
+
+test("location alternatives preserve category before unrelated workouts", () => {
+  const current = template("current", "Hybrid", "mixed", ["500 m SkiErg", "10 wall balls"], 45);
+  const sameCategory = template("same", "Outdoor mixed", "mixed", ["1 km běh", "10 burpee broad jumps"], 40);
+  const otherCategory = template("other", "Outdoor engine", "base-engine", ["3 km běh"], 45);
+  const alternatives = findLocationAlternatives({
+    current,
+    templates: [current, otherCategory, sameCategory],
+    location: "outdoor",
+  });
+  assert.equal(alternatives[0]?.id, "same");
+});
+
+test("location alternatives use program phase when same-category replacement is unavailable", () => {
+  const current = template("current", "Hybrid", "race-simulation", ["500 m SkiErg", "10 wall balls"], 50, "race-specific");
+  const baseRun = template("base", "Easy run", "base-engine", ["40 min běh"], 45, "base-engine");
+  const mixed = template("mixed", "Outdoor mixed", "mixed", ["1 km běh", "10 burpee broad jumps"], 45, "mixed");
+  const alternatives = findLocationAlternatives({
+    current,
+    templates: [current, baseRun, mixed],
+    location: "outdoor",
+    phase: "specific",
+  });
+  assert.equal(alternatives[0]?.id, "mixed");
+});

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { PlanningShell } from "@/components/planning/PlanningShell";
 import { StatusBadge } from "@/components/planning/StatusBadge";
@@ -17,9 +17,19 @@ import {
   type ScheduleMoveFailure,
   type ScheduleMoveScope,
 } from "@/lib/calendar-planning";
-import type { ScheduledWorkout } from "@/lib/types";
+import {
+  TRAINING_LOCATION_PRESETS,
+  equipmentRequirementLabelsForTemplate,
+  findLocationAlternatives,
+  resolveTrainingLocation,
+  templateFitsLocation,
+  workoutContentSummary,
+} from "@/lib/training-context";
+import type { ScheduledTrainingLocation, ScheduledWorkout } from "@/lib/types";
 
 const weekdayLabels = ["Po", "Út", "St", "Čt", "Pá", "So", "Ne"];
+const quickLocationIds: ScheduledTrainingLocation[] = ["outdoor", "home"];
+const legacyGenericLocationIds: ScheduledTrainingLocation[] = ["standard-gym", "hybrid-gym"];
 
 type Feedback = {
   tone: "success" | "warning" | "danger";
@@ -81,6 +91,9 @@ export default function LiveProgramCalendarPage() {
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [pendingCollision, setPendingCollision] = useState<PendingCollision | null>(null);
   const [pendingSkip, setPendingSkip] = useState<ScheduledWorkout | null>(null);
+  const [focusMode, setFocusMode] = useState(false);
+  const queryHandledRef = useRef(false);
+  const customLocations = useMemo(() => data.trainingLocations ?? [], [data.trainingLocations]);
 
   const programChoices = useMemo(
     () => listProgramCalendarChoices(data.trainingPrograms, data.scheduledWorkouts),
@@ -109,11 +122,38 @@ export default function LiveProgramCalendarPage() {
   const originalTemplate = selected?.originalTemplateId
     ? data.templates.find((item) => item.id === selected.originalTemplateId)
     : undefined;
-  const shorterVariants = useMemo(
-    () => selectedTemplate && !originalTemplate
-      ? findShorterWorkoutVariants(selectedTemplate, data.templates)
-      : [],
-    [data.templates, originalTemplate, selectedTemplate],
+  const selectedProgramWeek = selected?.programWeek
+    ? activeProgram?.weeks.find((week) => week.weekNumber === selected.programWeek)
+    : undefined;
+  const selectedPhase = selectedProgramWeek?.phase;
+  const selectedLocation = selected?.trainingLocation;
+  const selectedLocationProfile = selectedLocation
+    ? resolveTrainingLocation(selectedLocation, customLocations)
+    : null;
+  const selectedEquipmentLabels = selectedTemplate ? equipmentRequirementLabelsForTemplate(selectedTemplate) : [];
+  const selectedContent = selectedTemplate ? workoutContentSummary(selectedTemplate) : [];
+  const selectedFitsLocation = selectedTemplate && selectedLocation
+    ? templateFitsLocation(selectedTemplate, selectedLocation, customLocations)
+    : true;
+  const alternativeAnchor = originalTemplate ?? selectedTemplate;
+  const alternatives = alternativeAnchor && selectedLocation
+    ? findLocationAlternatives({
+        current: alternativeAnchor,
+        templates: data.templates,
+        location: selectedLocation,
+        customLocations,
+        phase: selectedPhase,
+      })
+    : [];
+  const shorterVariants = selectedTemplate && !originalTemplate
+    ? findShorterWorkoutVariants(selectedTemplate, data.templates).filter((variant) =>
+        !selectedLocation || templateFitsLocation(variant, selectedLocation, customLocations),
+      )
+    : [];
+  const originalFitsSelectedLocation = Boolean(
+    originalTemplate
+    && selectedLocation
+    && templateFitsLocation(originalTemplate, selectedLocation, customLocations),
   );
 
   const cells = monthCells(month);
@@ -122,6 +162,28 @@ export default function LiveProgramCalendarPage() {
   const completed = programSchedules.filter((item) => item.status === "completed").length;
   const planned = programSchedules.filter((item) => item.status === "planned").length;
   const skipped = programSchedules.filter((item) => item.status === "skipped").length;
+
+  useEffect(() => {
+    if (!ready || queryHandledRef.current || typeof window === "undefined") return;
+    queryHandledRef.current = true;
+    const requestedId = new URLSearchParams(window.location.search).get("scheduleId");
+    const schedule = requestedId
+      ? data.scheduledWorkouts.find((item) => item.id === requestedId)
+      : [...data.scheduledWorkouts]
+          .filter((item) => item.status === "planned" && item.programId)
+          .sort((left, right) => `${left.date}T${left.time}`.localeCompare(`${right.date}T${right.time}`))[0];
+    if (!schedule) return;
+
+    const timer = window.setTimeout(() => {
+      if (schedule.programId) setProgramId(schedule.programId);
+      setSelectedId(schedule.id);
+      setTargetDate(schedule.date);
+      setMonth(parseCalendarDate(schedule.date));
+      setFocusMode(Boolean(requestedId));
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [data.scheduledWorkouts, ready]);
 
   function schedulesForDate(key: string) {
     return schedulesByDate.filter((item) => item.date === key);
@@ -132,6 +194,7 @@ export default function LiveProgramCalendarPage() {
     setTargetDate(schedule.date);
     setPendingCollision(null);
     setFeedback(null);
+    setFocusMode(true);
   }
 
   function changeProgram(nextProgramId: string) {
@@ -139,10 +202,83 @@ export default function LiveProgramCalendarPage() {
     setSelectedId("");
     setPendingCollision(null);
     setFeedback(null);
+    setFocusMode(false);
     const firstSchedule = data.scheduledWorkouts
       .filter((item) => item.programId === nextProgramId)
       .sort((left, right) => left.date.localeCompare(right.date))[0];
     if (firstSchedule) setMonth(parseCalendarDate(firstSchedule.date));
+  }
+
+  function changeSelectedLocation(nextLocation: ScheduledTrainingLocation) {
+    if (!selected || !selectedTemplate) return;
+    const profile = resolveTrainingLocation(nextLocation, customLocations);
+    const locationLabel = profile?.label ?? "vybrané místo";
+
+    if (originalTemplate && templateFitsLocation(originalTemplate, nextLocation, customLocations)) {
+      updateScheduledWorkout(selected.id, {
+        trainingLocation: nextLocation,
+        templateId: originalTemplate.id,
+        originalTemplateId: undefined,
+      });
+      setFeedback({
+        tone: "success",
+        text: `Místo změněno na ${locationLabel}. Původně naplánovaný trénink je zde proveditelný, takže ho Enginn automaticky obnovil.`,
+      });
+      return;
+    }
+
+    if (templateFitsLocation(selectedTemplate, nextLocation, customLocations)) {
+      updateScheduledWorkout(selected.id, { trainingLocation: nextLocation });
+      setFeedback({
+        tone: "success",
+        text: `Místo změněno na ${locationLabel}. Aktuální trénink zde může zůstat beze změny.`,
+      });
+      return;
+    }
+
+    const anchor = originalTemplate ?? selectedTemplate;
+    const bestAlternative = findLocationAlternatives({
+      current: anchor,
+      templates: data.templates,
+      location: nextLocation,
+      customLocations,
+      phase: selectedPhase,
+      limit: 1,
+    })[0];
+
+    if (bestAlternative) {
+      updateScheduledWorkout(selected.id, {
+        trainingLocation: nextLocation,
+        templateId: bestAlternative.id,
+        originalTemplateId: selected.originalTemplateId ?? selected.templateId,
+      });
+      setFeedback({
+        tone: "success",
+        text: `Místo změněno na ${locationLabel}. Původní jednotka tam nejde odcvičit, proto Enginn automaticky vybral ${bestAlternative.title} jako nejbližší variantu pro aktuální fázi programu.`,
+      });
+      return;
+    }
+
+    updateScheduledWorkout(selected.id, { trainingLocation: nextLocation });
+    setFeedback({
+      tone: "warning",
+      text: `Místo změněno na ${locationLabel}, ale Enginn v katalogu nenašel kompatibilní variantu pro tuto jednotku. Vyber jiné místo.`,
+    });
+  }
+
+  function changeSelectedWorkout(templateId: string) {
+    if (!selected || !templateId || !selectedLocation || templateId === selected.templateId) return;
+    const candidate = data.templates.find((item) => item.id === templateId);
+    if (!candidate || !templateFitsLocation(candidate, selectedLocation, customLocations)) return;
+    const originalId = selected.originalTemplateId ?? selected.templateId;
+    updateScheduledWorkout(selected.id, {
+      templateId: candidate.id,
+      originalTemplateId: candidate.id === selected.originalTemplateId ? undefined : originalId,
+    });
+    setFeedback({
+      tone: "success",
+      text: `Trénink ručně změněn na ${candidate.title}. Místo zůstává stejné.`,
+    });
   }
 
   function applyMove(
@@ -224,7 +360,7 @@ export default function LiveProgramCalendarPage() {
 
   function selectShorterVariant(templateId: string) {
     if (!selected || !selectedTemplate) return;
-    const variant = data.templates.find((item) => item.id === templateId);
+    const variant = shorterVariants.find((item) => item.id === templateId);
     if (!variant || variant.durationMinutes >= selectedTemplate.durationMinutes) return;
     updateScheduledWorkout(selected.id, {
       templateId: variant.id,
@@ -237,7 +373,7 @@ export default function LiveProgramCalendarPage() {
   }
 
   function restoreOriginalVariant() {
-    if (!selected || !originalTemplate) return;
+    if (!selected || !originalTemplate || !originalFitsSelectedLocation) return;
     updateScheduledWorkout(selected.id, {
       templateId: originalTemplate.id,
       originalTemplateId: undefined,
@@ -248,8 +384,10 @@ export default function LiveProgramCalendarPage() {
   return (
     <PlanningShell
       eyebrow="Plán"
-      title="Kalendář programu"
-      description="Přesuň jednotku, uprav zbytek programu nebo zvol kratší trénink podle času, který dnes máš."
+      title={focusMode ? "Upravit trénink" : "Kalendář programu"}
+      description={focusMode
+        ? "Enginn drží záměr programu a podle vybraného místa automaticky volí nejbližší proveditelnou variantu."
+        : "Přesuň jednotku, zkontroluj obsah a vybavení nebo změň místo a trénink podle toho, kde dnes skutečně budeš cvičit."}
       backHref="/plan"
     >
       <section className="ui-card p-5 sm:p-6">
@@ -280,6 +418,11 @@ export default function LiveProgramCalendarPage() {
             {formatDate(firstDate, true)} až {formatDate(lastDate, true)}
           </p>
         )}
+        {!focusMode && selected && selectedTemplate && (
+          <button type="button" onClick={() => setFocusMode(true)} className="ui-button ui-button-primary mt-4 w-full">
+            Upravit nejbližší / vybraný trénink
+          </button>
+        )}
       </section>
 
       {feedback && (
@@ -291,73 +434,75 @@ export default function LiveProgramCalendarPage() {
         </p>
       )}
 
-      <section className="ui-card ui-card-accent mt-5 overflow-hidden p-3 sm:p-6">
-        <div className="flex items-center justify-between gap-2 px-1 sm:gap-3">
-          <button
-            type="button"
-            onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))}
-            className="ui-button ui-button-secondary ui-button-icon text-xl"
-            aria-label="Předchozí měsíc"
-          >
-            ‹
-          </button>
-          <div className="min-w-0 text-center">
-            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-accent sm:text-xs">Program</p>
-            <h2 className="mt-1 truncate text-lg font-black capitalize sm:text-xl">
-              {new Intl.DateTimeFormat("cs-CZ", { month: "long", year: "numeric" }).format(month)}
-            </h2>
+      {!focusMode && (
+        <section className="ui-card ui-card-accent mt-5 overflow-hidden p-3 sm:p-6">
+          <div className="flex items-center justify-between gap-2 px-1 sm:gap-3">
+            <button
+              type="button"
+              onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))}
+              className="ui-button ui-button-secondary ui-button-icon text-xl"
+              aria-label="Předchozí měsíc"
+            >
+              ‹
+            </button>
+            <div className="min-w-0 text-center">
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-accent sm:text-xs">Program</p>
+              <h2 className="mt-1 truncate text-lg font-black capitalize sm:text-xl">
+                {new Intl.DateTimeFormat("cs-CZ", { month: "long", year: "numeric" }).format(month)}
+              </h2>
+            </div>
+            <button
+              type="button"
+              onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))}
+              className="ui-button ui-button-secondary ui-button-icon text-xl"
+              aria-label="Následující měsíc"
+            >
+              ›
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))}
-            className="ui-button ui-button-secondary ui-button-icon text-xl"
-            aria-label="Následující měsíc"
-          >
-            ›
-          </button>
-        </div>
 
-        <div className="mt-4 grid grid-cols-7 gap-1 text-center text-[10px] font-black uppercase text-zinc-500 sm:gap-1.5 sm:text-xs">
-          {weekdayLabels.map((label) => <span key={label}>{label}</span>)}
-        </div>
-        <div className="mt-2 grid grid-cols-7 gap-1 sm:gap-1.5">
-          {cells.map((date, index) => {
-            if (!date) return <span key={`empty-${index}`} className="min-h-16" />;
-            const key = calendarDateKey(date);
-            const schedules = schedulesForDate(key);
-            return (
-              <div
-                key={key}
-                className={`min-h-16 min-w-0 rounded-xl border bg-zinc-950 p-1 sm:min-h-20 sm:p-1.5 ${key === calendarDateKey(new Date()) ? "border-accent/60" : "border-zinc-800"}`}
-              >
-                <p className="text-[10px] font-bold text-zinc-500 sm:text-xs">{date.getDate()}</p>
-                <div className="mt-1 space-y-1">
-                  {schedules.map((schedule) => {
-                    const template = data.templates.find((item) => item.id === schedule.templateId);
-                    const label = template?.metadata?.workoutCode ?? template?.title ?? "Trénink";
-                    const isSelected = selectedId === schedule.id;
-                    return (
-                      <button
-                        key={schedule.id}
-                        type="button"
-                        onClick={() => openSchedule(schedule)}
-                        className="ui-calendar-item"
-                        data-status={schedule.status}
-                        data-selected={isSelected}
-                        aria-pressed={isSelected}
-                        aria-label={`${label}, ${formatDate(schedule.date, true)}, ${schedule.status}${isSelected ? ", vybráno pro úpravu" : ""}`}
-                        title={label}
-                      >
-                        <span aria-hidden="true">{isSelected ? `✓ ${label}` : label}</span>
-                      </button>
-                    );
-                  })}
+          <div className="mt-4 grid grid-cols-7 gap-1 text-center text-[10px] font-black uppercase text-zinc-500 sm:gap-1.5 sm:text-xs">
+            {weekdayLabels.map((label) => <span key={label}>{label}</span>)}
+          </div>
+          <div className="mt-2 grid grid-cols-7 gap-1 sm:gap-1.5">
+            {cells.map((date, index) => {
+              if (!date) return <span key={`empty-${index}`} className="min-h-16" />;
+              const key = calendarDateKey(date);
+              const schedules = schedulesForDate(key);
+              return (
+                <div
+                  key={key}
+                  className={`min-h-16 min-w-0 rounded-xl border bg-zinc-950 p-1 sm:min-h-20 sm:p-1.5 ${key === calendarDateKey(new Date()) ? "border-accent/60" : "border-zinc-800"}`}
+                >
+                  <p className="text-[10px] font-bold text-zinc-500 sm:text-xs">{date.getDate()}</p>
+                  <div className="mt-1 space-y-1">
+                    {schedules.map((schedule) => {
+                      const template = data.templates.find((item) => item.id === schedule.templateId);
+                      const label = template?.metadata?.workoutCode ?? template?.title ?? "Trénink";
+                      const isSelected = selectedId === schedule.id;
+                      return (
+                        <button
+                          key={schedule.id}
+                          type="button"
+                          onClick={() => openSchedule(schedule)}
+                          className="ui-calendar-item"
+                          data-status={schedule.status}
+                          data-selected={isSelected}
+                          aria-pressed={isSelected}
+                          aria-label={`${label}, ${formatDate(schedule.date, true)}, ${schedule.status}${isSelected ? ", vybráno pro úpravu" : ""}`}
+                          title={label}
+                        >
+                          <span aria-hidden="true">{isSelected ? `✓ ${label}` : label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
-      </section>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {!ready && <div className="ui-card mt-6 h-36 animate-pulse" />}
       {ready && programChoices.length === 0 && (
@@ -373,8 +518,15 @@ export default function LiveProgramCalendarPage() {
       )}
 
       {selected && selectedTemplate && (
-        <section className="ui-card ui-card-accent mt-6 p-5 sm:p-6">
-          <p className="ui-chip ui-chip-accent mb-4 w-fit">✓ Vybráno pro úpravu</p>
+        <section id="training-detail" className="ui-card ui-card-accent mt-6 scroll-mt-24 p-5 sm:p-6">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <p className="ui-chip ui-chip-accent w-fit">✓ Vybráno pro úpravu</p>
+            {focusMode && (
+              <button type="button" onClick={() => setFocusMode(false)} className="ui-button ui-button-ghost ui-button-sm">
+                Měsíční kalendář
+              </button>
+            )}
+          </div>
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <p className="text-xs font-black uppercase tracking-[0.2em] text-accent">
@@ -388,18 +540,112 @@ export default function LiveProgramCalendarPage() {
             <StatusBadge status={selected.status} />
           </div>
 
+          <details className="ui-inset mt-4 p-4" open>
+            <summary className="cursor-pointer list-none font-black">Obsah a potřebné vybavení</summary>
+            <p className="mt-2 text-sm leading-6 text-zinc-400">{selectedTemplate.description}</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {selectedEquipmentLabels.length === 0 ? (
+                <span className="ui-chip">Bez speciálního vybavení</span>
+              ) : selectedEquipmentLabels.map((label) => (
+                <span key={label} className="ui-chip">{label}</span>
+              ))}
+            </div>
+            <div className="mt-4 space-y-2">
+              {selectedContent.map((block) => (
+                <div key={block.id} className="border-t border-white/10 pt-2 first:border-0 first:pt-0">
+                  <p className="text-sm font-bold text-white">{block.title}</p>
+                  <p className="mt-1 text-xs leading-5 text-zinc-400">{block.detail}</p>
+                </div>
+              ))}
+            </div>
+          </details>
+
           {originalTemplate && (
             <div className="ui-feedback ui-feedback-warning mt-4 text-sm">
-              <p className="font-bold">Používáš upravenou variantu programu.</p>
+              <p className="font-bold">Enginn upravil původní jednotku podle dostupného místa.</p>
               <p className="mt-1 text-zinc-300">Původně: {originalTemplate.title} · {originalTemplate.durationMinutes} min</p>
-              <button type="button" onClick={restoreOriginalVariant} className="ui-button ui-button-secondary ui-button-sm mt-3 w-full">
-                Obnovit původně naplánovaný trénink
-              </button>
+              {originalFitsSelectedLocation ? (
+                <button type="button" onClick={restoreOriginalVariant} className="ui-button ui-button-secondary ui-button-sm mt-3 w-full">
+                  Obnovit původně naplánovaný trénink
+                </button>
+              ) : (
+                <p className="mt-2 text-xs text-zinc-400">Původní varianta na aktuálním místě není kompletně proveditelná.</p>
+              )}
             </div>
           )}
 
           {selected.status === "planned" && (
             <>
+              <div className="mt-5 border-t border-white/8 pt-5">
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-zinc-500">Místo a varianta</p>
+                <label className="mt-3 block">
+                  <span className="text-sm font-bold text-zinc-300">Kde budu cvičit</span>
+                  <select
+                    value={selectedLocation ?? ""}
+                    onChange={(event) => {
+                      if (event.target.value) changeSelectedLocation(event.target.value as ScheduledTrainingLocation);
+                    }}
+                    className="ui-field mt-2"
+                  >
+                    <option value="" disabled>Místo neurčeno</option>
+                    {selectedLocation && legacyGenericLocationIds.includes(selectedLocation) && (
+                      <optgroup label="Původní obecný profil">
+                        <option value={selectedLocation}>{TRAINING_LOCATION_PRESETS[selectedLocation as "standard-gym" | "hybrid-gym"].label}</option>
+                      </optgroup>
+                    )}
+                    {customLocations.length > 0 && (
+                      <optgroup label="Moje konkrétní místa">
+                        {customLocations.map((location) => (
+                          <option key={location.id} value={location.id}>{location.name}</option>
+                        ))}
+                      </optgroup>
+                    )}
+                    <optgroup label="Rychlá prostředí">
+                      {quickLocationIds.map((value) => (
+                        <option key={value} value={value}>{TRAINING_LOCATION_PRESETS[value as "outdoor" | "home"].label}</option>
+                      ))}
+                    </optgroup>
+                  </select>
+                </label>
+                {selectedLocationProfile && (
+                  <p className="mt-2 text-xs leading-5 text-zinc-500">{selectedLocationProfile.description}</p>
+                )}
+                {selectedLocation && legacyGenericLocationIds.includes(selectedLocation) && (
+                  <p className="ui-feedback ui-feedback-warning mt-3 text-sm">
+                    Tato jednotka ještě používá starý obecný profil fitka. Pro přesné plánování ji přepni na konkrétní uložené místo.
+                  </p>
+                )}
+                {!selectedFitsLocation && (
+                  <p className="ui-feedback ui-feedback-warning mt-3 text-sm font-bold">
+                    Pro toto místo zatím není kompatibilní varianta. Vyber jiné místo.
+                  </p>
+                )}
+                {selectedLocation && (
+                  <label className="mt-4 block">
+                    <span className="text-sm font-bold text-zinc-300">Varianta pro toto místo</span>
+                    <select
+                      value={selectedTemplate.id}
+                      onChange={(event) => changeSelectedWorkout(event.target.value)}
+                      className="ui-field mt-2"
+                    >
+                      <option value={selectedTemplate.id}>
+                        {selectedTemplate.title} · {selectedTemplate.durationMinutes} min · aktuálně
+                      </option>
+                      {alternatives
+                        .filter((candidate) => candidate.id !== selectedTemplate.id)
+                        .map((candidate) => (
+                          <option key={candidate.id} value={candidate.id}>
+                            {candidate.title} · {candidate.durationMinutes} min
+                          </option>
+                        ))}
+                    </select>
+                    <span className="mt-2 block text-xs leading-5 text-zinc-500">
+                      Enginn mění variantu automaticky jen tehdy, když aktuální workout na zvoleném místě opravdu nejde odcvičit. Tento výběr je pro ruční zásah.
+                    </span>
+                  </label>
+                )}
+              </div>
+
               <div className="mt-5 border-t border-white/8 pt-5">
                 <p className="text-xs font-black uppercase tracking-[0.18em] text-zinc-500">Změnit termín</p>
                 <label className="mt-3 block">
@@ -458,7 +704,7 @@ export default function LiveProgramCalendarPage() {
                       >
                         <span className="min-w-0">
                           <span className="block truncate font-bold">{variant.title}</span>
-                          <span className="mt-0.5 block text-xs text-zinc-500">Stejný tréninkový cíl</span>
+                          <span className="mt-0.5 block text-xs text-zinc-500">Stejný tréninkový cíl · kompatibilní s vybraným místem</span>
                         </span>
                         <span className="ui-chip ui-chip-accent shrink-0">{variant.durationMinutes} min</span>
                       </button>
@@ -490,7 +736,16 @@ export default function LiveProgramCalendarPage() {
             <p className="ui-feedback ui-feedback-success mt-5 text-sm">Dokončený trénink zůstává uzamčený, aby se nezměnila historie programu.</p>
           )}
 
-          <button type="button" onClick={() => setSelectedId("")} className="ui-button ui-button-ghost mt-4 w-full">Zavřít detail</button>
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedId("");
+              setFocusMode(false);
+            }}
+            className="ui-button ui-button-ghost mt-4 w-full"
+          >
+            Zavřít detail
+          </button>
         </section>
       )}
 

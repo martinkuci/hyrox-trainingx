@@ -14,6 +14,28 @@ export type WorkoutBlock =
   | EmomWorkoutBlock
   | AmrapWorkoutBlock;
 
+export type EquipmentId =
+  | "none"
+  | "running"
+  | "treadmill"
+  | "ski-erg"
+  | "sled"
+  | "rower"
+  | "bike-erg"
+  | "air-bike"
+  | "kettlebell"
+  | "dumbbell"
+  | "sandbag"
+  | "medicine-ball"
+  | "wall-ball"
+  | "barbell"
+  | "rack"
+  | "bench"
+  | "box"
+  | "pull-up-bar"
+  | "cable-machine"
+  | "resistance-band";
+
 export type WorkoutCategory =
   | "base-engine"
   | "base-builder"
@@ -52,6 +74,17 @@ export type WorkoutTemplate = {
   updatedAt: string;
 };
 
+export type ScheduledWorkoutStatus = "planned" | "completed" | "skipped";
+export type TrainingLocationPresetId = "outdoor" | "home" | "standard-gym" | "hybrid-gym";
+export type ScheduledTrainingLocation = TrainingLocationPresetId | `location-${string}`;
+export type TrainingLocationProfile = {
+  id: `location-${string}`;
+  name: string;
+  equipment: EquipmentId[];
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type ProgramPhase = "base" | "build" | "deload" | "specific" | "taper";
 export type ProgramSession = {
   id: string;
@@ -59,6 +92,7 @@ export type ProgramSession = {
   time: string;
   templateId: string | null;
   note: string;
+  trainingLocation?: ScheduledTrainingLocation;
 };
 export type ProgramWeek = {
   weekNumber: number;
@@ -73,11 +107,11 @@ export type TrainingProgram = {
   name: string;
   description: string;
   weeks: ProgramWeek[];
+  trainingLocationIds?: ScheduledTrainingLocation[];
   createdAt: string;
   updatedAt: string;
 };
 
-export type ScheduledWorkoutStatus = "planned" | "completed" | "skipped";
 export type ScheduledWorkout = {
   id: string;
   templateId: string;
@@ -85,6 +119,7 @@ export type ScheduledWorkout = {
   date: string;
   time: string;
   status: ScheduledWorkoutStatus;
+  trainingLocation?: ScheduledTrainingLocation;
   programId?: string;
   programWeek?: number;
   programSessionId?: string;
@@ -142,9 +177,11 @@ export type HyroxData = {
   results: WorkoutResult[];
   weeklyPlans: WeeklyPlanTemplate[];
   trainingPrograms: TrainingProgram[];
+  trainingLocations?: TrainingLocationProfile[];
 };
 export type NewWorkoutTemplate = Omit<WorkoutTemplate, "id" | "createdAt" | "updatedAt">;
 export type NewScheduledWorkout = Omit<ScheduledWorkout, "id">;
 export type NewWorkoutResult = Omit<WorkoutResult, "id">;
 export type NewWeeklyPlanTemplate = Omit<WeeklyPlanTemplate, "id" | "createdAt" | "updatedAt">;
 export type NewTrainingProgram = Omit<TrainingProgram, "id" | "createdAt" | "updatedAt">;
+export type NewTrainingLocationProfile = Omit<TrainingLocationProfile, "id" | "createdAt" | "updatedAt">;

@@ -4,7 +4,12 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { StickyBottomNavigation } from "@/components/navigation/StickyBottomNavigation";
 import { StickyHeader } from "@/components/navigation/StickyHeader";
+import { TrainingLocationSelector } from "@/components/planning/TrainingLocationSelector";
 import { useHyroxData } from "@/hooks/useHyroxData";
+import {
+  equipmentRequirementLabelsForTemplate,
+  resolveTrainingLocation,
+} from "@/lib/training-context";
 import { buildTrainingAdaptation, type TrainingAdaptationRecommendation } from "@/lib/training-adaptation";
 import type { ProgramPhase, ScheduledWorkout, ScheduledWorkoutStatus, WorkoutTemplate } from "@/lib/types";
 
@@ -74,6 +79,21 @@ export default function Home() {
   const upcomingTemplate = upcomingSchedule
     ? data.templates.find((template) => template.id === upcomingSchedule.templateId)
     : undefined;
+  const upcomingProgram = upcomingSchedule?.programId
+    ? data.trainingPrograms.find((program) => program.id === upcomingSchedule.programId)
+    : undefined;
+  const upcomingWeek = upcomingSchedule?.programWeek
+    ? upcomingProgram?.weeks.find((week) => week.weekNumber === upcomingSchedule.programWeek)
+    : undefined;
+  const customLocations = data.trainingLocations ?? [];
+  const todayLocation = todaySchedule?.trainingLocation
+    ? resolveTrainingLocation(todaySchedule.trainingLocation, customLocations)
+    : null;
+  const upcomingLocation = upcomingSchedule?.trainingLocation
+    ? resolveTrainingLocation(upcomingSchedule.trainingLocation, customLocations)
+    : null;
+  const todayEquipment = todayTemplate ? equipmentRequirementLabelsForTemplate(todayTemplate) : [];
+  const upcomingEquipment = upcomingTemplate ? equipmentRequirementLabelsForTemplate(upcomingTemplate) : [];
 
   const weekStart = startOfWeek(now);
   const weekDays = Array.from({ length: 7 }, (_, index) => {
@@ -223,6 +243,34 @@ export default function Home() {
                 />
               </div>
 
+              <div className="ui-inset mt-4 bg-black/20 p-4 backdrop-blur-sm">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">Doporučené místo</p>
+                    <p className="mt-1 font-black text-zinc-100">{todayLocation?.label ?? "Místo neurčeno"}</p>
+                  </div>
+                  <span className="ui-chip ui-chip-accent shrink-0">{todayEquipment.length} požadavků</span>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {todayEquipment.length === 0 ? (
+                    <span className="ui-chip">Bez speciálního vybavení</span>
+                  ) : todayEquipment.map((label) => (
+                    <span key={label} className="ui-chip">{label}</span>
+                  ))}
+                </div>
+                {todaySchedule.status === "planned" && (
+                  <div className="mt-4 border-t border-white/8 pt-4">
+                    <TrainingLocationSelector
+                      schedule={todaySchedule}
+                      template={todayTemplate}
+                      phase={activeWeek?.phase}
+                      returnTo="/"
+                      label="Dnešní místo"
+                    />
+                  </div>
+                )}
+              </div>
+
               <Link
                 href={`/workout/${todayTemplate.id}?scheduleId=${todaySchedule.id}`}
                 className="ui-button ui-button-primary ui-button-lg mt-6 w-full"
@@ -230,6 +278,14 @@ export default function Home() {
                 <PlayIcon />
                 {todaySchedule.status === "completed" ? "Spustit znovu" : "Spustit trénink"}
               </Link>
+              {todaySchedule.status === "planned" && (
+                <Link
+                  href={`/calendar/program?scheduleId=${todaySchedule.id}`}
+                  className="ui-button ui-button-outline mt-3 w-full"
+                >
+                  Detail / další úpravy tréninku
+                </Link>
+              )}
               {todayTemplate.metadata?.runningTarget && (
                 <p className="mt-4 text-center text-xs font-semibold text-zinc-400">
                   Cíl běhu: <span className="text-zinc-200">{todayTemplate.metadata.runningTarget}</span>
@@ -248,15 +304,33 @@ export default function Home() {
                   <p className="mt-2 leading-6 text-zinc-400">
                     Další trénink tě čeká {new Intl.DateTimeFormat("cs-CZ", { weekday: "long", day: "numeric", month: "numeric" }).format(parseDate(upcomingSchedule.date))} v {upcomingSchedule.time}.
                   </p>
-                  <div className="ui-inset mt-5 flex items-center justify-between gap-4 p-4">
-                    <div className="min-w-0">
-                      <p className="truncate font-black">{upcomingTemplate.title}</p>
-                      <p className="mt-1 text-xs text-zinc-500">{upcomingTemplate.durationMinutes} min</p>
+                  <div className="ui-inset mt-5 p-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0">
+                        <p className="font-black">{upcomingTemplate.title}</p>
+                        <p className="mt-1 text-xs text-zinc-500">{upcomingTemplate.durationMinutes} min · {upcomingLocation?.label ?? "místo neurčeno"}</p>
+                      </div>
+                      <span className="shrink-0 text-accent" aria-hidden="true">→</span>
                     </div>
-                    <span className="shrink-0 text-accent" aria-hidden="true">→</span>
+                    <div className="mt-3 flex flex-wrap gap-1.5">
+                      {upcomingEquipment.length === 0 ? (
+                        <span className="ui-chip">Bez speciálního vybavení</span>
+                      ) : upcomingEquipment.map((label) => (
+                        <span key={label} className="ui-chip">{label}</span>
+                      ))}
+                    </div>
+                    <div className="mt-4 border-t border-white/8 pt-4">
+                      <TrainingLocationSelector
+                        schedule={upcomingSchedule}
+                        template={upcomingTemplate}
+                        phase={upcomingWeek?.phase}
+                        returnTo="/"
+                        label="Místo nejbližšího tréninku"
+                      />
+                    </div>
                   </div>
-                  <Link href="/calendar/program" className="ui-button ui-button-primary mt-5 w-full">
-                    Zobrazit plán
+                  <Link href={`/calendar/program?scheduleId=${upcomingSchedule.id}`} className="ui-button ui-button-outline mt-5 w-full">
+                    Detail / další úpravy tréninku
                   </Link>
                 </>
               ) : (

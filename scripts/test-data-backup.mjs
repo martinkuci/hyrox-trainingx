@@ -62,6 +62,21 @@ test("accepts the complete built-in training catalog", () => {
   assert.deepEqual(restored.backup.data.templates, TRAINING_CATALOG);
 });
 
+test("preserves custom training locations and their checked equipment", () => {
+  const data = {
+    ...createData(),
+    trainingLocations: [{
+      id: "location-gym-a",
+      name: "Gym A",
+      equipment: ["rower", "dumbbell", "kettlebell"],
+      createdAt: "2026-08-19T10:00:00.000Z",
+      updatedAt: "2026-08-19T10:00:00.000Z",
+    }],
+  };
+  const restored = parseHyroxBackupText(serializeHyroxBackup(data));
+  assert.deepEqual(restored.backup.data.trainingLocations, data.trainingLocations);
+});
+
 test("accepts every structured workout mode", () => {
   const data = createData();
   const step = { id: "step-1", name: "SkiErg", detail: "250 m" };

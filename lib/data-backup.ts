@@ -146,6 +146,18 @@ function validProgramWeek(value: unknown) {
   );
 }
 
+function validTrainingLocation(value: unknown) {
+  return (
+    isRecord(value) &&
+    hasText(value.id) &&
+    hasText(value.name) &&
+    Array.isArray(value.equipment) &&
+    value.equipment.every(hasText) &&
+    hasText(value.createdAt) &&
+    hasText(value.updatedAt)
+  );
+}
+
 function validateCollections(value: unknown): asserts value is HyroxData {
   if (!isRecord(value) || value.version !== 1) {
     throw new Error("Soubor neobsahuje podporovaná data aplikace Enginn verze 1.");
@@ -165,6 +177,12 @@ function validateCollections(value: unknown): asserts value is HyroxData {
     }
     if (!value[name].every(isRecord)) {
       throw new Error(`Kolekce „${name}“ obsahuje neplatnou položku.`);
+    }
+  }
+
+  if (value.trainingLocations !== undefined) {
+    if (!Array.isArray(value.trainingLocations) || !value.trainingLocations.every(validTrainingLocation)) {
+      throw new Error("Kolekce „trainingLocations“ obsahuje neplatnou položku.");
     }
   }
 
@@ -238,6 +256,9 @@ function normalizeBackupData(data: HyroxData): HyroxData {
     results: data.results,
     weeklyPlans: data.weeklyPlans,
     trainingPrograms: data.trainingPrograms,
+    ...(Array.isArray(data.trainingLocations)
+      ? { trainingLocations: data.trainingLocations }
+      : {}),
   };
 }
 

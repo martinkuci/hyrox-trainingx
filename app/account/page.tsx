@@ -162,6 +162,16 @@ export default function AccountPage() {
           </section>
         )}
         <section className="ui-card mt-6 p-5 sm:p-6">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-accent">Trénování</p>
+          <h2 className="mt-2 text-xl font-black">Moje tréninková místa</h2>
+          <p className="mt-2 text-sm leading-6 text-zinc-400">
+            Upravuj fitka a další místa, kam chodíš cvičit, včetně dostupného vybavení.
+          </p>
+          <Link href="/account/locations" className="ui-button ui-button-outline mt-5 w-full">
+            Spravovat tréninková místa
+          </Link>
+        </section>
+        <section className="ui-card mt-6 p-5 sm:p-6">
           <p className="text-xs font-black uppercase tracking-[0.18em] text-accent">Podpora</p>
           <h2 className="mt-2 text-xl font-black">Nápověda a kontakt</h2>
           <p className="mt-2 text-sm leading-6 text-zinc-400">
