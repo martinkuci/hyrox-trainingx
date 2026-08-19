@@ -8,7 +8,7 @@ import type {
 import {
   getTrainingDiscipline,
   inferTemplateDisciplineIds,
-} from "./training-domain";
+} from "./training-domain.ts";
 
 export type TrainingLocationPreset = TrainingLocationPresetId;
 
