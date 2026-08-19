@@ -112,7 +112,7 @@ export const TRAINING_DISCIPLINES: readonly TrainingDiscipline[] = [
     name: "Farmers Carry",
     shortName: "Carry",
     family: "carry",
-    equipment: ["kettlebell", "dumbbell"],
+    equipment: ["kettlebell"],
     hyroxStation: 6,
     aliases: ["farmers carry", "farmer carry", "farmářská chůze"],
     measurableBy: ["time", "distance", "load"],
