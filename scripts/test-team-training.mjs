@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createTeamJoinCode, isValidTeamJoinCode, normalizeTeamJoinCode } from "../lib/team-join-code.ts";
+import { buildWorkoutBenchmarks } from "../lib/training-insights.ts";
 import {
   buildTeamAssignments,
   buildTeamResult,
@@ -131,4 +132,28 @@ test("team result keeps aggregate time separate from personal contributions", ()
   const result = buildTeamResult(current, events);
   assert.equal(result.teamDurationSeconds, 1800);
   assert.equal(result.participants.find((item) => item.participantId === "a")?.finish?.rpe, 8);
+});
+
+test("solo and team results never share the same benchmark identity", () => {
+  const base = {
+    templateId: "benchmark-workout",
+    workoutTitle: "Benchmark",
+    workoutCode: "EGN-TEAM-TEST",
+    templateVersion: 1,
+    rpe: 8,
+    weights: "",
+    notes: "",
+    splits: [],
+    source: "runner",
+  };
+  const results = [
+    { ...base, id: "solo-1", completedAt: "2026-08-01T10:00:00.000Z", durationSeconds: 1800 },
+    { ...base, id: "solo-2", completedAt: "2026-08-08T10:00:00.000Z", durationSeconds: 1750 },
+    { ...base, id: "team-1", completedAt: "2026-08-02T10:00:00.000Z", durationSeconds: 1500, source: "team", teamFormat: "doubles", teamSessionId: "s1" },
+    { ...base, id: "team-2", completedAt: "2026-08-09T10:00:00.000Z", durationSeconds: 1450, source: "team", teamFormat: "doubles", teamSessionId: "s2" },
+  ];
+  const benchmarks = buildWorkoutBenchmarks(results, 10);
+  assert.equal(benchmarks.length, 2);
+  assert.ok(benchmarks.some((benchmark) => benchmark.key.includes(":team:doubles")));
+  assert.ok(benchmarks.some((benchmark) => !benchmark.key.includes(":team:")));
 });
