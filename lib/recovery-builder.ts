@@ -32,6 +32,12 @@ export type RecoveryPlan = {
   exercises: RecoveryPlanExercise[];
 };
 
+export type InferredRecoveryArea = {
+  area: Exclude<RecoveryArea, "full-body">;
+  score: number;
+  label: string;
+};
+
 export const RECOVERY_INTENT_LABELS: Record<RecoveryIntent, string> = {
   warmup: "Příprava před tréninkem",
   cooldown: "Zklidnění po tréninku",
@@ -78,9 +84,7 @@ function exerciseText(exercise: ExerciseDefinition) {
 }
 
 function areaMatchScore(exercise: ExerciseDefinition, area: RecoveryArea) {
-  if (area === "full-body") {
-    return exercise.tags.includes("full-body") ? 6 : 1;
-  }
+  if (area === "full-body") return exercise.tags.includes("full-body") ? 6 : 1;
   const text = exerciseText(exercise);
   return AREA_KEYWORDS[area].reduce((score, keyword) => score + (text.includes(normalize(keyword)) ? 2 : 0), 0);
 }
@@ -147,14 +151,32 @@ function candidateExercises(equipment: EquipmentId[], intent: RecoveryIntent, ar
     .sort((left, right) => right.score - left.score || left.exercise.name.localeCompare(right.exercise.name, "cs"));
 }
 
-function pickDiverse(
-  candidates: Array<{ exercise: ExerciseDefinition; score: number }>,
-  count: number,
-  seed: string,
+function candidateExercisesForAreas(
+  equipment: EquipmentId[],
+  intent: RecoveryIntent,
+  areas: Array<Exclude<RecoveryArea, "full-body">>,
 ) {
+  if (areas.length === 0) return candidateExercises(equipment, intent, "full-body");
+  return EXERCISE_LIBRARY
+    .filter((exercise) => ["warmup", "mobility", "compensation", "recovery"].includes(exercise.category))
+    .filter((exercise) => exerciseFitsEquipment(exercise, equipment))
+    .map((exercise) => {
+      const areaScore = areas.reduce((sum, area, index) => {
+        const weight = Math.max(1, areas.length - index);
+        return sum + areaMatchScore(exercise, area) * weight;
+      }, 0);
+      return { exercise, score: intentMatchScore(exercise, intent) + areaScore };
+    })
+    .filter((item) => item.score > 0)
+    .sort((left, right) => right.score - left.score || left.exercise.name.localeCompare(right.exercise.name, "cs"));
+}
+
+function pickDiverse(candidates: Array<{ exercise: ExerciseDefinition; score: number }>, count: number, seed: string) {
   if (candidates.length <= count) return candidates.map((item) => item.exercise);
-  const offset = hashSeed(seed) % candidates.length;
-  const rotated = [...candidates.slice(offset), ...candidates.slice(0, offset)];
+  const windowSize = Math.min(candidates.length, Math.max(count * 3, 8));
+  const competitive = candidates.slice(0, windowSize);
+  const offset = hashSeed(seed) % competitive.length;
+  const rotated = [...competitive.slice(offset), ...competitive.slice(0, offset), ...candidates.slice(windowSize)];
   const selected: ExerciseDefinition[] = [];
   const families = new Set<string>();
 
@@ -172,13 +194,15 @@ function pickDiverse(
   return selected;
 }
 
-export function buildRecoveryPlan({
-  equipment,
-  intent,
-  area,
-  durationMinutes,
-  seed = "enginn-recovery",
-}: {
+function reasonForExercise(exercise: ExerciseDefinition, areas: RecoveryArea[]) {
+  const matching = areas
+    .filter((area) => area !== "full-body" && areaMatchScore(exercise, area) > 0)
+    .slice(0, 2)
+    .map((area) => RECOVERY_AREA_LABELS[area]);
+  return matching.length > 0 ? matching.join(" · ") : "Celé tělo";
+}
+
+export function buildRecoveryPlan({ equipment, intent, area, durationMinutes, seed = "enginn-recovery" }: {
   equipment: EquipmentId[];
   intent: RecoveryIntent;
   area: RecoveryArea;
@@ -187,7 +211,9 @@ export function buildRecoveryPlan({
 }): RecoveryPlan {
   const primary = candidateExercises(equipment, intent, area);
   const fallback = area === "full-body" ? primary : candidateExercises(equipment, intent, "full-body");
-  const candidates = primary.length >= targetCount(durationMinutes) ? primary : [...primary, ...fallback.filter((item) => !primary.some((primaryItem) => primaryItem.exercise.id === item.exercise.id))];
+  const candidates = primary.length >= targetCount(durationMinutes)
+    ? primary
+    : [...primary, ...fallback.filter((item) => !primary.some((primaryItem) => primaryItem.exercise.id === item.exercise.id))];
   const selected = pickDiverse(candidates, targetCount(durationMinutes), `${seed}-${intent}-${area}-${durationMinutes}`);
 
   return {
@@ -203,9 +229,11 @@ export function buildRecoveryPlan({
   };
 }
 
-export function inferWorkoutRecoveryAreas(template: WorkoutTemplate) {
+export function inferWorkoutRecoveryAreas(template: WorkoutTemplate): InferredRecoveryArea[] {
   const scores = new Map<Exclude<RecoveryArea, "full-body">, number>();
-  const exercises = template.blocks.flatMap((block) => block.steps.map((step) => getExerciseForStep(step))).filter(Boolean) as ExerciseDefinition[];
+  const exercises = template.blocks
+    .flatMap((block) => block.steps.map((step) => getExerciseForStep(step)))
+    .filter(Boolean) as ExerciseDefinition[];
 
   for (const exercise of exercises) {
     for (const area of Object.keys(AREA_KEYWORDS) as Array<Exclude<RecoveryArea, "full-body">>) {
@@ -220,13 +248,7 @@ export function inferWorkoutRecoveryAreas(template: WorkoutTemplate) {
     .map(([area, score]) => ({ area, score, label: RECOVERY_AREA_LABELS[area] }));
 }
 
-export function buildWorkoutRecoveryPlan({
-  template,
-  equipment,
-  when,
-  durationMinutes = 8,
-  seed,
-}: {
+export function buildWorkoutRecoveryPlan({ template, equipment, when, durationMinutes = 8, seed }: {
   template: WorkoutTemplate;
   equipment: EquipmentId[];
   when: "before" | "after";
@@ -234,13 +256,49 @@ export function buildWorkoutRecoveryPlan({
   seed?: string;
 }) {
   const inferred = inferWorkoutRecoveryAreas(template);
-  const area = inferred[0]?.area ?? "full-body";
-  const plan = buildRecoveryPlan({
-    equipment,
-    intent: when === "before" ? "warmup" : "cooldown",
-    area,
+  const areas = inferred.map((item) => item.area);
+  const intent: RecoveryIntent = when === "before" ? "warmup" : "cooldown";
+  const candidates = candidateExercisesForAreas(equipment, intent, areas);
+  const fallback = candidateExercises(equipment, intent, "full-body");
+  const combined = candidates.length >= targetCount(durationMinutes)
+    ? candidates
+    : [...candidates, ...fallback.filter((item) => !candidates.some((candidate) => candidate.exercise.id === item.exercise.id))];
+  const selected = pickDiverse(combined, targetCount(durationMinutes), seed ?? `${template.id}-${when}-${durationMinutes}`);
+  const primaryArea = areas[0] ?? "full-body";
+
+  return {
+    intent,
+    area: primaryArea,
     durationMinutes,
-    seed: seed ?? `${template.id}-${when}`,
-  });
-  return { ...plan, inferredAreas: inferred };
+    exercises: selected.map((exercise) => ({
+      exerciseId: exercise.id,
+      name: exercise.name,
+      prescription: prescriptionFor(exercise, intent),
+      reason: reasonForExercise(exercise, areas.length > 0 ? areas : ["full-body"]),
+    })),
+    inferredAreas: inferred,
+  };
+}
+
+export function replaceRecoveryPlanExercise({ plan, equipment, index, seed = "recovery-swap" }: {
+  plan: RecoveryPlan;
+  equipment: EquipmentId[];
+  index: number;
+  seed?: string;
+}) {
+  if (index < 0 || index >= plan.exercises.length) return plan;
+  const current = plan.exercises[index];
+  const used = new Set(plan.exercises.map((item) => item.exerciseId));
+  const candidates = candidateExercises(equipment, plan.intent, plan.area)
+    .filter((item) => item.exercise.id !== current.exerciseId && !used.has(item.exercise.id));
+  if (candidates.length === 0) return plan;
+  const replacement = candidates[hashSeed(`${seed}-${current.exerciseId}-${index}`) % candidates.length].exercise;
+  const exercises = [...plan.exercises];
+  exercises[index] = {
+    exerciseId: replacement.id,
+    name: replacement.name,
+    prescription: prescriptionFor(replacement, plan.intent),
+    reason: plan.area === "full-body" ? RECOVERY_INTENT_LABELS[plan.intent] : RECOVERY_AREA_LABELS[plan.area],
+  };
+  return { ...plan, exercises };
 }
