@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import ActiveTeamSessionResume from "@/components/ActiveTeamSessionResume";
 import CloudSyncProvider from "@/components/CloudSyncProvider";
 import OnboardingGuide from "@/components/OnboardingGuide";
 import "./globals.css";
@@ -43,6 +44,7 @@ export default function RootLayout({
         <CloudSyncProvider>
           <OnboardingGuide />
           {children}
+          <ActiveTeamSessionResume />
         </CloudSyncProvider>
       </body>
     </html>
