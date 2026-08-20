@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { useParams, useSearchParams } from "next/navigation";
-import WorkoutRunner from "@/components/WorkoutRunner";
+import WorkoutExperience from "@/components/WorkoutExperience";
 import { useHyroxData } from "@/hooks/useHyroxData";
 import { applyExerciseOverrides } from "@/lib/exercise-substitution";
 import { resolveTrainingLocation } from "@/lib/training-context";
@@ -25,11 +25,7 @@ function WorkoutPageContent() {
     : null;
 
   if (!ready) {
-    return (
-      <main className="runner-shell grid min-h-dvh place-items-center text-zinc-400">
-        Načítám trénink…
-      </main>
-    );
+    return <main className="runner-shell grid min-h-dvh place-items-center text-zinc-400">Načítám trénink…</main>;
   }
 
   if (!template) {
@@ -38,16 +34,14 @@ function WorkoutPageContent() {
         <section className="ui-card w-full max-w-sm p-7 text-center">
           <h1 className="text-2xl font-bold">Trénink nebyl nalezen</h1>
           <p className="mt-3 text-zinc-400">Možná byl mezitím smazán.</p>
-          <Link href="/" className="ui-button ui-button-primary mt-7 w-full">
-            Zpět na přehled
-          </Link>
+          <Link href="/" className="ui-button ui-button-primary mt-7 w-full">Zpět na přehled</Link>
         </section>
       </main>
     );
   }
 
   return (
-    <WorkoutRunner
+    <WorkoutExperience
       template={template}
       scheduledWorkoutId={scheduleId}
       recoveryEquipment={location?.equipment ?? ["none"]}
