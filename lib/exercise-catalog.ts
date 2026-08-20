@@ -39,6 +39,12 @@ const exercisePhrases = EXERCISE_LIBRARY
   ))
   .sort((left, right) => right.phrase.length - left.phrase.length);
 
+function containsExercisePhrase(paddedText: string, phrase: string) {
+  if (paddedText.includes(` ${phrase} `)) return true;
+  if (!phrase.endsWith("s") && paddedText.includes(` ${phrase}s `)) return true;
+  return false;
+}
+
 export function getExercise(exerciseId: string | undefined) {
   if (!exerciseId) return undefined;
   return exerciseById.get(exerciseId);
@@ -48,7 +54,7 @@ export function inferExerciseFromText(value: string) {
   const text = normalizeExerciseText(value);
   if (!text || /(^| )(nebo|or)( |$)/.test(text)) return undefined;
   const padded = ` ${text} `;
-  return exercisePhrases.find(({ phrase }) => padded.includes(` ${phrase} `))?.exercise;
+  return exercisePhrases.find(({ phrase }) => containsExercisePhrase(padded, phrase))?.exercise;
 }
 
 export function getExerciseForStep(step: Pick<WorkoutStep, "exerciseId" | "name" | "detail">) {
