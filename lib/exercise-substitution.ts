@@ -1,4 +1,4 @@
-import { exerciseFitsEquipment, findExerciseAlternatives, getExercise } from "./exercise-library";
+import { exerciseFitsEquipment, findExerciseAlternatives, getExercise } from "./exercise-catalog";
 import type { EquipmentId, WorkoutStep, WorkoutTemplate } from "./types";
 
 export type ExerciseSubstitution = {
