@@ -169,6 +169,51 @@ export type WorkoutResult = {
   metrics?: WorkoutResultMetrics;
   adaptationDecision?: TrainingAdaptationDecision;
 };
+
+export type HealthProviderId = "strava" | "apple-health" | "health-connect";
+export type HealthActivity = {
+  id: string;
+  provider: HealthProviderId;
+  externalId: string;
+  title: string;
+  sportType: string;
+  startedAt: string;
+  durationSeconds: number;
+  movingDurationSeconds?: number;
+  distanceKm?: number;
+  elevationGainMeters?: number;
+  averageHeartRate?: number;
+  maxHeartRate?: number;
+  calories?: number;
+  averageWatts?: number;
+  sourceDevice?: string;
+  trainer?: boolean;
+  manual?: boolean;
+  importedAt: string;
+};
+export type HealthMetricKind =
+  | "resting-heart-rate"
+  | "heart-rate-variability"
+  | "sleep-duration"
+  | "sleep-score"
+  | "steps"
+  | "active-energy"
+  | "weight";
+export type HealthMetricSample = {
+  id: string;
+  provider: HealthProviderId;
+  metric: HealthMetricKind;
+  measuredAt: string;
+  value: number;
+  unit: string;
+  importedAt: string;
+};
+export type HealthDataStore = {
+  activities: HealthActivity[];
+  samples: HealthMetricSample[];
+  lastSyncedAt?: Partial<Record<HealthProviderId, string>>;
+};
+
 export type HyroxData = {
   version: 1;
   catalogVersion?: number;
@@ -178,6 +223,7 @@ export type HyroxData = {
   weeklyPlans: WeeklyPlanTemplate[];
   trainingPrograms: TrainingProgram[];
   trainingLocations?: TrainingLocationProfile[];
+  healthData?: HealthDataStore;
 };
 export type NewWorkoutTemplate = Omit<WorkoutTemplate, "id" | "createdAt" | "updatedAt">;
 export type NewScheduledWorkout = Omit<ScheduledWorkout, "id">;
