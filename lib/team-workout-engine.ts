@@ -129,7 +129,9 @@ export function buildTeamAssignments({
         else if (supported.includes("you-go-i-go")) mode = "you-go-i-go";
         else if (supported.includes("simultaneous")) mode = "simultaneous";
         else mode = "solo";
-        if (mode === "you-go-i-go" || exercise?.team.requiresSingleStation) activeParticipantId = participantIds[0];
+        if (["you-go-i-go", "shared-reps", "shared-distance"].includes(mode) || exercise?.team.requiresSingleStation) {
+          activeParticipantId = participantIds[0];
+        }
       } else {
         mode = supported.includes("simultaneous") ? "simultaneous" : "solo";
       }
