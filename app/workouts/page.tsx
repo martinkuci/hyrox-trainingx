@@ -57,15 +57,18 @@ export default function WorkoutsPage() {
       title="Trénovat"
       description="Vyber hotový trénink, skládej ho z jednotlivých cviků nebo rovnou začni dnešní jednotku."
       action={
-        <div className="grid w-full grid-cols-3 gap-2 sm:flex sm:w-auto">
+        <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto">
+          <Link href="/workouts/generate" className="ui-button ui-button-primary ui-button-sm">
+            Sestavit
+          </Link>
           <Link href="/exercises" className="ui-button ui-button-outline ui-button-sm">
             Cviky
           </Link>
           <Link href="/import" className="ui-button ui-button-outline ui-button-sm">
             Import
           </Link>
-          <Link href="/workouts/editor" className="ui-button ui-button-primary ui-button-sm">
-            + Nový
+          <Link href="/workouts/editor" className="ui-button ui-button-outline ui-button-sm">
+            + Ručně
           </Link>
         </div>
       }
