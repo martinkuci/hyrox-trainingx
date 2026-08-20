@@ -5,48 +5,84 @@ import { PlanningShell } from "@/components/planning/PlanningShell";
 import {
   EXERCISE_CATEGORY_LABELS,
   EXERCISE_LIBRARY,
+  exerciseCatalogStats,
   type ExerciseCategory,
-} from "@/lib/exercise-library";
+} from "@/lib/exercise-catalog";
 import { EQUIPMENT_LABELS } from "@/lib/training-context";
+
+const QUICK_FILTERS = [
+  { id: "all", label: "Vše" },
+  { id: "bodyweight", label: "Vlastní váha" },
+  { id: "core", label: "Core / břicho" },
+  { id: "finisher", label: "Finisher" },
+  { id: "kettlebell", label: "Kettlebell" },
+  { id: "dumbbell", label: "Dumbbell" },
+  { id: "barbell", label: "Osa" },
+  { id: "machine", label: "Stroje" },
+  { id: "crossfit", label: "CrossFit" },
+  { id: "prehab", label: "Kompenzace / prehab" },
+] as const;
+
+type QuickFilter = typeof QUICK_FILTERS[number]["id"];
 
 export default function ExerciseLibraryPage() {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<ExerciseCategory | "all">("all");
+  const [quickFilter, setQuickFilter] = useState<QuickFilter>("all");
+  const stats = useMemo(() => exerciseCatalogStats(), []);
 
   const exercises = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase("cs");
     return EXERCISE_LIBRARY.filter((exercise) => {
+      const equipmentText = exercise.equipment.flatMap((requirement) => requirement.anyOf.map((item) => EQUIPMENT_LABELS[item]));
       const haystack = [
         exercise.name,
         ...exercise.aliases,
         ...exercise.tags,
         ...exercise.purposes,
         ...exercise.primaryMuscles,
+        ...equipmentText,
       ].join(" ").toLocaleLowerCase("cs");
-      return (category === "all" || exercise.category === category) && (!normalized || haystack.includes(normalized));
-    });
-  }, [category, query]);
+      const quickMatches = quickFilter === "all"
+        || exercise.tags.includes(quickFilter)
+        || (quickFilter === "prehab" && (exercise.tags.includes("prehab") || exercise.category === "compensation"));
+      return (category === "all" || exercise.category === category) && quickMatches && (!normalized || haystack.includes(normalized));
+    }).sort((a, b) => a.name.localeCompare(b.name, "cs"));
+  }, [category, query, quickFilter]);
 
   return (
     <PlanningShell
       eyebrow="3B · Knihovna"
       title="Cviky a pohyby"
-      description="Strukturovaný katalog pro skládání tréninků, změny podle vybavení, kompenzace a budoucí týmové workouty."
+      description="Katalog pro skládání workoutů po jednotlivých cvicích, změny podle vybavení, finishery, kompenzaci a budoucí týmové tréninky."
       backHref="/workouts"
     >
       <section className="ui-card p-4 sm:p-5">
+        <div className="mb-4 grid grid-cols-3 gap-2 text-center">
+          <div className="ui-inset p-3"><p className="text-xl font-black">{stats.total}</p><p className="text-[10px] uppercase tracking-wide text-zinc-500">cviků</p></div>
+          <div className="ui-inset p-3"><p className="text-xl font-black">{stats.finisher}</p><p className="text-[10px] uppercase tracking-wide text-zinc-500">finisherů</p></div>
+          <div className="ui-inset p-3"><p className="text-xl font-black">{stats.machine}</p><p className="text-[10px] uppercase tracking-wide text-zinc-500">strojových</p></div>
+        </div>
         <input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Hledat cvik, svalovou skupinu nebo účel…"
+          placeholder="Hledat cvik, sval, vybavení nebo účel…"
           className="ui-field"
         />
-        <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+        <p className="mt-4 text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">Rychlý výběr</p>
+        <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
+          {QUICK_FILTERS.map((filter) => (
+            <button key={filter.id} type="button" aria-pressed={quickFilter === filter.id} onClick={() => setQuickFilter(filter.id)} className="ui-choice min-h-10 shrink-0 rounded-full px-3 py-2 text-sm">{filter.label}</button>
+          ))}
+        </div>
+        <p className="mt-4 text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">Typ cvičení</p>
+        <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
           <button type="button" aria-pressed={category === "all"} onClick={() => setCategory("all")} className="ui-choice min-h-10 shrink-0 rounded-full px-3 py-2 text-sm">Vše</button>
           {(Object.entries(EXERCISE_CATEGORY_LABELS) as Array<[ExerciseCategory, string]>).map(([id, label]) => (
             <button key={id} type="button" aria-pressed={category === id} onClick={() => setCategory(id)} className="ui-choice min-h-10 shrink-0 rounded-full px-3 py-2 text-sm">{label}</button>
           ))}
         </div>
+        <p className="mt-3 text-xs text-zinc-500">Zobrazeno {exercises.length} z {stats.total} cviků.</p>
       </section>
 
       <div className="mt-5 space-y-4">
@@ -55,6 +91,7 @@ export default function ExerciseLibraryPage() {
             <div className="flex flex-wrap items-center gap-2">
               <span className="ui-chip ui-chip-accent">{EXERCISE_CATEGORY_LABELS[exercise.category]}</span>
               <span className="ui-chip">{exercise.movementFamily}</span>
+              {exercise.tags.includes("finisher") && <span className="ui-chip">Finisher</span>}
               {exercise.team.modes.some((mode) => mode !== "solo") && <span className="ui-chip">Týmově připraveno</span>}
             </div>
             <h2 className="mt-4 text-2xl font-black">{exercise.name}</h2>
@@ -65,7 +102,7 @@ export default function ExerciseLibraryPage() {
                 <span className="ui-chip">Bez vybavení</span>
               ) : exercise.equipment.map((requirement, index) => (
                 <span key={`${exercise.id}-eq-${index}`} className="ui-chip">
-                  {requirement.anyOf.map((item) => EQUIPMENT_LABELS[item]).join(" / ")}
+                  {requirement.anyOf.map((item) => item === "none" ? "volitelné" : EQUIPMENT_LABELS[item]).join(" / ")}
                 </span>
               ))}
             </div>
