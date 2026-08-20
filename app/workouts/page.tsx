@@ -54,9 +54,12 @@ export default function WorkoutsPage() {
     <PlanningShell
       eyebrow="Knihovna"
       title="Trénovat"
-      description="Vyber hotový trénink, uprav si vlastní nebo rovnou začni dnešní jednotku."
+      description="Vyber hotový trénink, skládej ho z jednotlivých cviků nebo rovnou začni dnešní jednotku."
       action={
-        <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto">
+        <div className="grid w-full grid-cols-3 gap-2 sm:flex sm:w-auto">
+          <Link href="/exercises" className="ui-button ui-button-outline ui-button-sm">
+            Cviky
+          </Link>
           <Link href="/import" className="ui-button ui-button-outline ui-button-sm">
             Import
           </Link>
@@ -70,7 +73,7 @@ export default function WorkoutsPage() {
         <input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Hledat název, HYX kód, cíl…"
+          placeholder="Hledat název, EGN kód, cíl…"
           className="ui-field"
         />
         <div className="mt-3 flex flex-wrap gap-2">
