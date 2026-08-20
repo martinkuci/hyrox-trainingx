@@ -28,6 +28,57 @@ function targetForStep(name: string, detail: string) {
   return { distanceMeters, reps, leadingCount };
 }
 
+function normalizedTeamText(...values: Array<string | undefined>) {
+  return values
+    .filter(Boolean)
+    .join(" ")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+function isSharedPreparationOrRecovery(
+  blockTitle: string,
+  stepName: string,
+  stepDetail: string,
+  category?: string,
+) {
+  if (["warmup", "mobility", "compensation", "recovery"].includes(category ?? "")) return true;
+  const text = normalizedTeamText(blockTitle, stepName, stepDetail);
+  return [
+    "rozcvi",
+    "warmup",
+    "warm-up",
+    "zklid",
+    "cooldown",
+    "cool-down",
+    "mobilit",
+    "recovery",
+    "regener",
+    "stretch",
+    "prota",
+  ].some((token) => text.includes(token));
+}
+
+export function distanceProgressOptions(targetDistanceMeters?: number, currentDistanceMeters = 0) {
+  if (!targetDistanceMeters || targetDistanceMeters <= 0) return [100, 250, 500];
+  const remaining = Math.max(0, targetDistanceMeters - Math.max(0, currentDistanceMeters));
+  if (remaining === 0) return [];
+
+  const base = targetDistanceMeters <= 50
+    ? [5, 10, 25]
+    : targetDistanceMeters <= 100
+      ? [10, 25, 50]
+      : targetDistanceMeters <= 500
+        ? [25, 50, 100]
+        : targetDistanceMeters <= 1500
+          ? [50, 100, 250]
+          : [100, 250, 500];
+
+  return [...new Set(base.map((value) => Math.min(value, remaining)).filter((value) => value > 0))]
+    .sort((left, right) => left - right);
+}
+
 export function createJoinCode(random = Math.random) {
   return `ENG-${Math.floor(1000 + random() * 9000)}`;
 }
@@ -55,11 +106,20 @@ export function buildTeamAssignments({
       const supported = exercise?.team.modes ?? ["solo"];
       const target = targetForStep(step.name, step.detail);
       const sharedRepTarget = target.reps ?? target.leadingCount;
+      const sharedPreparationOrRecovery = isSharedPreparationOrRecovery(
+        block.title,
+        step.name,
+        step.detail,
+        exercise?.category,
+      );
       let mode: TeamStepAssignment["mode"] = "simultaneous";
       let assignedIds = participantIds;
       let activeParticipantId: string | undefined;
 
-      if (format === "relay") {
+      if (sharedPreparationOrRecovery) {
+        mode = "simultaneous";
+        assignedIds = participantIds;
+      } else if (format === "relay") {
         mode = "relay";
         assignedIds = participantIds.length > 0 ? [participantIds[sequence % participantIds.length]] : [];
         activeParticipantId = assignedIds[0];
