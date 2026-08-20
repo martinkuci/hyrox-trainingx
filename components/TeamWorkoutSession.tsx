@@ -16,6 +16,7 @@ import {
   canParticipantWork,
   canStartTeamSession,
   deriveTeamWorkoutState,
+  distanceProgressOptions,
 } from "@/lib/team-workout-engine";
 
 const FORMAT_LABELS = { shared: "Společný workout", doubles: "Partner / Doubles", relay: "Relay" } as const;
@@ -48,6 +49,18 @@ function targetLabel(assignment: TeamStepAssignment, reps: number, distance: num
   return undefined;
 }
 
+function modeLabel(assignment: TeamStepAssignment) {
+  if (assignment.mode !== "simultaneous") return MODE_LABELS[assignment.mode];
+  const text = `${assignment.blockTitle} ${assignment.stepName} ${assignment.stepDetail}`
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+  if (["rozcvi", "warmup", "warm-up", "zklid", "cooldown", "cool-down", "mobilit", "recovery", "regener", "stretch", "prota"].some((token) => text.includes(token))) {
+    return "společně / volně";
+  }
+  return MODE_LABELS.simultaneous;
+}
+
 export default function TeamWorkoutSession({ sessionId }: { sessionId: string }) {
   const router = useRouter();
   const { data, addResult } = useHyroxData();
@@ -69,15 +82,15 @@ export default function TeamWorkoutSession({ sessionId }: { sessionId: string })
     let unsubscribe: (() => void) | undefined;
     const connect = async () => {
       try {
-        const current = await teamWorkoutTransport.getSession(sessionId);
-        if (!current) throw new Error("Týmová session nebyla nalezena.");
-        let joined = current;
-        if (!current.session.participants.some((participant) => participant.userId === user.uid)) {
+        const currentSnapshot = await teamWorkoutTransport.getSession(sessionId);
+        if (!currentSnapshot) throw new Error("Týmová session nebyla nalezena.");
+        let joined = currentSnapshot;
+        if (!currentSnapshot.session.participants.some((participant) => participant.userId === user.uid)) {
           joined = await teamWorkoutTransport.joinSession(sessionId, {
             id: participantId,
             userId: user.uid,
             displayName: profile.displayName,
-            role: current.session.hostUserId === user.uid ? "host" : "athlete",
+            role: currentSnapshot.session.hostUserId === user.uid ? "host" : "athlete",
             status: "joined",
             joinedAt: new Date().toISOString(),
           });
@@ -109,8 +122,8 @@ export default function TeamWorkoutSession({ sessionId }: { sessionId: string })
     : 0;
   const teamElapsedSeconds = Number.isFinite(startMs) && now >= startMs ? Math.max(0, Math.floor((now - startMs) / 1000)) : 0;
   const canWork = baseCanWork && countdownSeconds === 0;
-  const previous = current && session ? session.assignments[current.sequence - 1] : undefined;
-  const next = current && session ? session.assignments[current.sequence + 1] : undefined;
+  const previous = state && session && state.currentAssignmentIndex > 0 ? session.assignments[state.currentAssignmentIndex - 1] : undefined;
+  const next = state && session ? session.assignments[state.currentAssignmentIndex + 1] : undefined;
 
   function ensureAudio() {
     try {
@@ -310,7 +323,7 @@ export default function TeamWorkoutSession({ sessionId }: { sessionId: string })
         <h1 className="mt-1 text-3xl font-black">{session.workoutTemplate.title}</h1>
         <div className="ui-card ui-card-accent mt-5 p-5"><p className="text-xs font-black uppercase tracking-wider text-zinc-500">Týmový čas</p><p className="mt-1 font-mono text-5xl font-black text-accent">{clock(teamResult?.teamDurationSeconds)}</p><p className="mt-2 text-sm text-zinc-400">{FORMAT_LABELS[session.format]} · {session.joinCode}</p></div>
         <div className="mt-4 space-y-3">{teamResult?.participants.map((participant) => <div key={participant.participantId} className="ui-card p-4"><div className="flex items-center justify-between"><p className="font-black">{participant.displayName}</p><span className="ui-chip">{participant.completedAssignments} úseků</span></div><div className="mt-3 grid grid-cols-3 gap-2 text-center text-sm"><div className="ui-inset p-2"><b>{participant.reps}</b><span className="block text-[10px] text-zinc-500">reps</span></div><div className="ui-inset p-2"><b>{participant.distanceMeters} m</b><span className="block text-[10px] text-zinc-500">distance</span></div><div className="ui-inset p-2"><b>{clock(participant.durationSeconds)}</b><span className="block text-[10px] text-zinc-500">tracked work</span></div></div></div>)}</div>
-        {!existingResult ? <section className="ui-card mt-4 p-5"><p className="font-black">Jak těžké to pro tebe bylo?</p><div className="mt-3 grid grid-cols-6 gap-2">{[5,6,7,8,9,10].map((value) => <button key={value} type="button" onClick={() => setRpe(value)} className={rpe === value ? "ui-button ui-button-primary px-2" : "ui-button ui-button-outline px-2"}>{value}</button>)}</div><button type="button" disabled={busy} onClick={() => void savePersonalResult()} className="ui-button ui-button-primary mt-4 w-full">Uložit do mojí historie</button><p className="mt-3 text-xs leading-5 text-zinc-500">Do týmu se sdílí společný postup. Tvoje RPE a budoucí Health data zůstávají ve tvém osobním výsledku.</p></section> : <p className="ui-feedback ui-feedback-success mt-4 text-sm">Týmový workout už je uložený v tvojí historii.</p>}
+        {!existingResult ? <section className="ui-card mt-4 p-5"><p className="font-black">Jak těžké to pro tebe bylo?</p><div className="mt-3 grid grid-cols-5 gap-2">{[1,2,3,4,5,6,7,8,9,10].map((value) => <button key={value} type="button" onClick={() => setRpe(value)} className={rpe === value ? "ui-button ui-button-primary px-2" : "ui-button ui-button-outline px-2"}>{value}</button>)}</div><button type="button" disabled={busy} onClick={() => void savePersonalResult()} className="ui-button ui-button-primary mt-4 w-full">Uložit do mojí historie</button><p className="mt-3 text-xs leading-5 text-zinc-500">Do týmu se sdílí společný postup. Tvoje RPE a budoucí Health data zůstávají ve tvém osobním výsledku.</p></section> : <p className="ui-feedback ui-feedback-success mt-4 text-sm">Týmový workout už je uložený v tvojí historii.</p>}
         <div className="mt-4 grid gap-2"><Link href="/history" className="ui-button ui-button-primary">Historie</Link><Link href="/team" className="ui-button ui-button-outline">Další týmový workout</Link></div>
         {error && <p className="ui-feedback mt-4 text-sm text-amber-200">{error}</p>}
       </section>
@@ -334,6 +347,7 @@ export default function TeamWorkoutSession({ sessionId }: { sessionId: string })
   if (!current || !progress) return <main className="runner-shell grid min-h-dvh place-items-center text-zinc-400">Synchronizuji další úsek…</main>;
   const target = targetLabel(current, progress.reps, progress.distanceMeters);
   const activeName = session.participants.find((participant) => participant.id === progress.activeParticipantId)?.displayName;
+  const distanceOptions = distanceProgressOptions(current.targetDistanceMeters, progress.distanceMeters);
 
   if (countdownSeconds > 0) return (
     <main className="runner-shell safe-screen flex min-h-dvh flex-col px-5 text-center text-white">
@@ -364,7 +378,7 @@ export default function TeamWorkoutSession({ sessionId }: { sessionId: string })
       <div className="mt-4 flex items-center justify-between gap-3"><p className="text-xs font-black uppercase tracking-[0.2em] text-accent">{current.blockTitle}</p><span className="font-mono text-sm text-zinc-500">{current.sequence + 1}/{session.assignments.length}</span></div>
       <h1 className="mt-1 text-4xl font-black leading-tight">{current.stepName}</h1>
       {current.stepDetail && <p className="mt-2 text-lg text-zinc-400">{current.stepDetail}</p>}
-      <div className="mt-4 flex flex-wrap gap-2"><span className="ui-chip">{MODE_LABELS[current.mode]}</span>{activeName && <span className="ui-chip ui-chip-accent">Na řadě: {activeName}</span>}{current.exerciseId && <Link href={`/exercises/${encodeURIComponent(current.exerciseId)}`} className="ui-chip">Jak na to</Link>}</div>
+      <div className="mt-4 flex flex-wrap gap-2"><span className="ui-chip">{modeLabel(current)}</span>{activeName && <span className="ui-chip ui-chip-accent">Na řadě: {activeName}</span>}{current.exerciseId && <Link href={`/exercises/${encodeURIComponent(current.exerciseId)}`} className="ui-chip">Jak na to</Link>}</div>
 
       <div className="mt-5 text-center"><p className="font-mono text-5xl font-black tracking-tight">{clock(teamElapsedSeconds)}</p><p className="mt-1 text-sm text-zinc-500">Celkový čas session</p></div>
 
@@ -382,7 +396,7 @@ export default function TeamWorkoutSession({ sessionId }: { sessionId: string })
       <section className="ui-card mt-4 p-5">
         {canWork ? <>
           {current.mode === "shared-reps" && <div className="grid grid-cols-3 gap-2">{[1,5,10].map((value) => <button key={value} type="button" disabled={busy} onClick={() => void addProgress("reps", value)} className="ui-button ui-button-primary">+{value}</button>)}</div>}
-          {current.mode === "shared-distance" && <div className="grid grid-cols-3 gap-2">{[100,250,500].map((value) => <button key={value} type="button" disabled={busy} onClick={() => void addProgress("distance", value)} className="ui-button ui-button-primary">+{value} m</button>)}</div>}
+          {current.mode === "shared-distance" && <div className="grid grid-cols-3 gap-2">{distanceOptions.map((value) => <button key={value} type="button" disabled={busy} onClick={() => void addProgress("distance", value)} className="ui-button ui-button-primary">+{value} m</button>)}</div>}
           {(current.mode === "simultaneous" || current.mode === "solo" || current.mode === "relay") && <button type="button" disabled={busy || progress.completedByParticipantIds.includes(me.id)} onClick={() => void completeMyStep()} className="ui-button ui-button-primary w-full">{progress.completedByParticipantIds.includes(me.id) ? "Hotovo · čekám na tým" : "MŮJ ÚSEK HOTOVO"}</button>}
           {current.mode === "you-go-i-go" && <div className="grid gap-2"><button type="button" disabled={busy} onClick={() => void handoff()} className="ui-button ui-button-accent w-full">PŘEDAT →</button><button type="button" disabled={busy} onClick={() => void completeMyStep()} className="ui-button ui-button-outline w-full">Stanice hotová</button></div>}
           {progress.activeParticipantId && current.mode !== "you-go-i-go" && current.participantIds.length > 1 && <button type="button" disabled={busy} onClick={() => void handoff()} className="ui-button ui-button-accent mt-3 w-full">PŘEDAT →</button>}
@@ -401,7 +415,7 @@ export default function TeamWorkoutSession({ sessionId }: { sessionId: string })
             <div className="flex items-center justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[0.2em] text-accent">Předchozí úsek · {previous.sequence + 1}/{session.assignments.length}</p><h2 id="team-previous-title" className="mt-1 text-3xl font-black">{previous.stepName}</h2></div><span className="font-mono text-lg font-black text-zinc-300">{clock(teamElapsedSeconds)}</span></div>
             <p className="mt-3 text-sm font-black uppercase tracking-[0.16em] text-zinc-500">{previous.blockTitle}</p>
             {previous.stepDetail && <p className="mt-3 text-lg leading-7 text-zinc-300">{previous.stepDetail}</p>}
-            <div className="ui-card mt-5 p-4"><p className="text-xs uppercase tracking-wider text-zinc-500">Režim</p><p className="mt-1 font-black">{MODE_LABELS[previous.mode]}</p></div>
+            <div className="ui-card mt-5 p-4"><p className="text-xs uppercase tracking-wider text-zinc-500">Režim</p><p className="mt-1 font-black">{modeLabel(previous)}</p></div>
             <div className="mt-6 grid gap-3">{previous.exerciseId && <Link href={`/exercises/${encodeURIComponent(previous.exerciseId)}`} className="ui-button ui-button-outline w-full">Jak na předchozí cvik</Link>}<button type="button" onClick={() => setShowPrevious(false)} className="ui-button ui-button-primary ui-button-lg w-full">Zpět na aktuální cvik</button></div>
             <p className="mt-4 text-center text-xs text-zinc-500">Pouze náhled. Týmový postup se tím nevrací zpět.</p>
           </div>
