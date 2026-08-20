@@ -1,6 +1,11 @@
-import { findCompensationExercises, findFinisherExercises } from "./exercise-catalog";
+import {
+  findCompensationExercises,
+  findExerciseAlternatives,
+  findFinisherExercises,
+} from "./exercise-catalog";
 import type {
   EnginnExtraDurationMinutes,
+  EnginnExtraExercise,
   EnginnExtraFocus,
   EnginnExtraPlan,
   EquipmentId,
@@ -46,6 +51,24 @@ function targetCount(duration: EnginnExtraDurationMinutes) {
   return 4;
 }
 
+function candidatesFor({
+  equipment,
+  focus,
+}: {
+  equipment: EquipmentId[];
+  focus: EnginnExtraFocus;
+}) {
+  const source = focus === "mobility" || focus === "recovery"
+    ? findCompensationExercises({ equipment, focusTag: focus, limit: 30 })
+    : findFinisherExercises({ equipment, focus: focus === "legs" ? "legs" : focus, limit: 30 });
+
+  const fallback = focus === "mobility" || focus === "recovery"
+    ? findCompensationExercises({ equipment, limit: 30 })
+    : findFinisherExercises({ equipment, limit: 30 });
+
+  return source.length > 0 ? source : fallback;
+}
+
 export function buildEnginnExtra({
   equipment,
   focus,
@@ -57,14 +80,7 @@ export function buildEnginnExtra({
   durationMinutes: EnginnExtraDurationMinutes;
   seed?: string;
 }): EnginnExtraPlan {
-  const source = focus === "mobility" || focus === "recovery"
-    ? findCompensationExercises({ equipment, focusTag: focus, limit: 30 })
-    : findFinisherExercises({ equipment, focus: focus === "legs" ? "legs" : focus, limit: 30 });
-
-  const fallback = focus === "mobility" || focus === "recovery"
-    ? findCompensationExercises({ equipment, limit: 30 })
-    : findFinisherExercises({ equipment, limit: 30 });
-  const candidates = source.length > 0 ? source : fallback;
+  const candidates = candidatesFor({ equipment, focus });
   const selected = rotate(candidates, hashSeed(`${seed}-${focus}-${durationMinutes}`)).slice(0, targetCount(durationMinutes));
 
   return {
@@ -75,5 +91,40 @@ export function buildEnginnExtra({
       name: exercise.name,
       prescription: prescriptionFor(focus, durationMinutes, index),
     })),
+  };
+}
+
+export function replaceEnginnExtraExercise({
+  equipment,
+  focus,
+  durationMinutes,
+  currentExerciseId,
+  excludedExerciseIds = [],
+  seed = "enginn-extra-replacement",
+}: {
+  equipment: EquipmentId[];
+  focus: EnginnExtraFocus;
+  durationMinutes: EnginnExtraDurationMinutes;
+  currentExerciseId: string;
+  excludedExerciseIds?: string[];
+  seed?: string;
+}): EnginnExtraExercise | undefined {
+  const candidates = candidatesFor({ equipment, focus });
+  const candidateIds = new Set(candidates.map((exercise) => exercise.id));
+  const blocked = new Set([currentExerciseId, ...excludedExerciseIds]);
+  const directAlternatives = findExerciseAlternatives(currentExerciseId, equipment)
+    .filter((exercise) => candidateIds.has(exercise.id) && !blocked.has(exercise.id));
+  const directIds = new Set(directAlternatives.map((exercise) => exercise.id));
+  const remaining = rotate(
+    candidates.filter((exercise) => !blocked.has(exercise.id) && !directIds.has(exercise.id)),
+    hashSeed(`${seed}-${focus}-${durationMinutes}-${currentExerciseId}`),
+  );
+  const exercise = [...directAlternatives, ...remaining][0];
+  if (!exercise) return undefined;
+
+  return {
+    exerciseId: exercise.id,
+    name: exercise.name,
+    prescription: prescriptionFor(focus, durationMinutes, hashSeed(`${seed}-${exercise.id}`) % 2),
   };
 }
