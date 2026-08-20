@@ -31,14 +31,15 @@ type Props = {
 export default function EnginnExtra({ equipment, seed, locationLabel, onComplete }: Props) {
   const [focus, setFocus] = useState<EnginnExtraFocus>("core");
   const [durationMinutes, setDurationMinutes] = useState<EnginnExtraDurationMinutes>(8);
+  const [variant, setVariant] = useState(0);
   const [remainingSeconds, setRemainingSeconds] = useState(durationMinutes * 60);
   const [running, setRunning] = useState(false);
   const [started, setStarted] = useState(false);
   const [completed, setCompleted] = useState(false);
 
   const plan = useMemo(
-    () => buildEnginnExtra({ equipment, focus, durationMinutes, seed }),
-    [durationMinutes, equipment, focus, seed],
+    () => buildEnginnExtra({ equipment, focus, durationMinutes, seed: `${seed}-variant-${variant}` }),
+    [durationMinutes, equipment, focus, seed, variant],
   );
 
   useEffect(() => {
@@ -63,6 +64,16 @@ export default function EnginnExtra({ equipment, seed, locationLabel, onComplete
       durationSeconds: durationMinutes * 60,
     });
   }, [completed, durationMinutes, onComplete, plan, remainingSeconds, running, started]);
+
+  function chooseFocus(nextFocus: EnginnExtraFocus) {
+    setFocus(nextFocus);
+    setVariant(0);
+  }
+
+  function chooseDuration(nextDuration: EnginnExtraDurationMinutes) {
+    setDurationMinutes(nextDuration);
+    setVariant(0);
+  }
 
   function start() {
     setRemainingSeconds(durationMinutes * 60);
@@ -115,7 +126,7 @@ export default function EnginnExtra({ equipment, seed, locationLabel, onComplete
                 <button
                   key={duration}
                   type="button"
-                  onClick={() => setDurationMinutes(duration)}
+                  onClick={() => chooseDuration(duration)}
                   className={durationMinutes === duration ? "ui-button ui-button-primary" : "ui-button ui-button-outline"}
                 >
                   {duration} min
@@ -131,7 +142,7 @@ export default function EnginnExtra({ equipment, seed, locationLabel, onComplete
                 <button
                   key={item}
                   type="button"
-                  onClick={() => setFocus(item)}
+                  onClick={() => chooseFocus(item)}
                   className={focus === item ? "ui-chip ui-chip-accent" : "ui-chip"}
                 >
                   {ENGINN_EXTRA_FOCUS_LABELS[item]}
@@ -165,9 +176,19 @@ export default function EnginnExtra({ equipment, seed, locationLabel, onComplete
             )}
           </div>
 
-          <button type="button" onClick={start} disabled={plan.exercises.length === 0} className="ui-button ui-button-primary mt-4 w-full disabled:opacity-40">
-            Spustit Enginn Extra
-          </button>
+          <div className="mt-4 grid grid-cols-[auto_1fr] gap-2">
+            <button
+              type="button"
+              onClick={() => setVariant((current) => current + 1)}
+              disabled={plan.exercises.length === 0}
+              className="ui-button ui-button-outline disabled:opacity-40"
+            >
+              Jiná sestava
+            </button>
+            <button type="button" onClick={start} disabled={plan.exercises.length === 0} className="ui-button ui-button-primary disabled:opacity-40">
+              Spustit Enginn Extra
+            </button>
+          </div>
         </>
       ) : (
         <div className="mt-5">
