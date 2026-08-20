@@ -1,5 +1,6 @@
 import type {
   ProgramPhase,
+  ScheduledExerciseOverride,
   ScheduledTrainingLocation,
   ScheduledWorkout,
   TrainingLocationProfile,
@@ -8,12 +9,19 @@ import type {
 } from "./types";
 import {
   findLocationAlternatives,
+  resolveTrainingLocation,
+  templateFitsEquipment,
   templateFitsLocation,
 } from "./training-context.ts";
+import {
+  substituteTemplateExercisesForEquipment,
+  substitutionsToOverrides,
+} from "./exercise-substitution";
 
 export type TrainingLocationChangeOutcome =
   | "restored-original"
   | "kept-current"
+  | "adapted-exercises"
   | "adapted"
   | "no-compatible-alternative";
 
@@ -23,6 +31,7 @@ export type TrainingLocationChangePlan = {
     trainingLocation?: ScheduledTrainingLocation;
     templateId?: string;
     originalTemplateId?: string;
+    exerciseOverrides?: ScheduledExerciseOverride[];
   };
   selectedTemplate: WorkoutTemplate;
   originalTemplate?: WorkoutTemplate;
@@ -36,6 +45,7 @@ export type RemainingProgramLocationPlan = {
   total: number;
   kept: number;
   adapted: number;
+  exerciseAdapted: number;
   restored: number;
   unresolved: number;
   missingTemplates: number;
@@ -59,6 +69,7 @@ export function planTrainingLocationChange({
   const originalTemplate = schedule.originalTemplateId
     ? templates.find((item) => item.id === schedule.originalTemplateId)
     : undefined;
+  const anchor = originalTemplate ?? currentTemplate;
 
   if (!location) {
     if (originalTemplate) {
@@ -68,6 +79,7 @@ export function planTrainingLocationChange({
           trainingLocation: undefined,
           templateId: originalTemplate.id,
           originalTemplateId: undefined,
+          exerciseOverrides: undefined,
         },
         selectedTemplate: originalTemplate,
         originalTemplate,
@@ -75,34 +87,54 @@ export function planTrainingLocationChange({
     }
     return {
       outcome: "kept-current",
-      updates: { trainingLocation: undefined },
+      updates: { trainingLocation: undefined, exerciseOverrides: undefined },
       selectedTemplate: currentTemplate,
     };
   }
 
-  if (originalTemplate && templateFitsLocation(originalTemplate, location, customLocations)) {
-    return {
-      outcome: "restored-original",
-      updates: {
-        trainingLocation: location,
-        templateId: originalTemplate.id,
-        originalTemplateId: undefined,
-      },
-      selectedTemplate: originalTemplate,
-      originalTemplate,
-    };
-  }
-
-  if (templateFitsLocation(currentTemplate, location, customLocations)) {
+  if (templateFitsLocation(anchor, location, customLocations)) {
+    if (originalTemplate) {
+      return {
+        outcome: "restored-original",
+        updates: {
+          trainingLocation: location,
+          templateId: originalTemplate.id,
+          originalTemplateId: undefined,
+          exerciseOverrides: undefined,
+        },
+        selectedTemplate: originalTemplate,
+        originalTemplate,
+      };
+    }
     return {
       outcome: "kept-current",
-      updates: { trainingLocation: location },
+      updates: { trainingLocation: location, exerciseOverrides: undefined },
       selectedTemplate: currentTemplate,
-      originalTemplate,
     };
   }
 
-  const anchor = originalTemplate ?? currentTemplate;
+  const locationProfile = resolveTrainingLocation(location, customLocations);
+  if (locationProfile) {
+    const exercisePlan = substituteTemplateExercisesForEquipment(anchor, locationProfile.equipment);
+    if (
+      exercisePlan.substitutions.length > 0
+      && exercisePlan.unresolvedStepIds.length === 0
+      && templateFitsEquipment(exercisePlan.template, locationProfile.equipment)
+    ) {
+      return {
+        outcome: "adapted-exercises",
+        updates: {
+          trainingLocation: location,
+          templateId: anchor.id,
+          originalTemplateId: undefined,
+          exerciseOverrides: substitutionsToOverrides(exercisePlan.substitutions),
+        },
+        selectedTemplate: exercisePlan.template,
+        originalTemplate,
+      };
+    }
+  }
+
   const bestAlternative = findLocationAlternatives({
     current: anchor,
     templates,
@@ -119,6 +151,7 @@ export function planTrainingLocationChange({
         trainingLocation: location,
         templateId: bestAlternative.id,
         originalTemplateId: schedule.originalTemplateId ?? schedule.templateId,
+        exerciseOverrides: undefined,
       },
       selectedTemplate: bestAlternative,
       originalTemplate,
@@ -127,7 +160,7 @@ export function planTrainingLocationChange({
 
   return {
     outcome: "no-compatible-alternative",
-    updates: { trainingLocation: location },
+    updates: { trainingLocation: location, exerciseOverrides: undefined },
     selectedTemplate: currentTemplate,
     originalTemplate,
   };
@@ -161,6 +194,7 @@ export function planRemainingProgramLocationChange({
     total: remaining.length,
     kept: 0,
     adapted: 0,
+    exerciseAdapted: 0,
     restored: 0,
     unresolved: 0,
     missingTemplates: 0,
@@ -187,6 +221,7 @@ export function planRemainingProgramLocationChange({
 
     result.updates.push({ id: schedule.id, updates: plan.updates });
     if (plan.outcome === "adapted") result.adapted += 1;
+    else if (plan.outcome === "adapted-exercises") result.exerciseAdapted += 1;
     else if (plan.outcome === "restored-original") result.restored += 1;
     else if (plan.outcome === "no-compatible-alternative") result.unresolved += 1;
     else result.kept += 1;
