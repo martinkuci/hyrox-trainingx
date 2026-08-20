@@ -6,9 +6,9 @@ import { useRouter } from "next/navigation";
 import { PlanningShell } from "@/components/planning/PlanningShell";
 import { useHyroxData } from "@/hooks/useHyroxData";
 import { loadCloudUser } from "@/lib/firebase-rest";
+import { createTeamJoinCode, isValidTeamJoinCode, normalizeTeamJoinCode } from "@/lib/team-join-code";
 import { loadRecentTeammates, loadTeamProfile, saveTeamProfile } from "@/lib/team-profile";
 import { teamWorkoutTransport } from "@/lib/team-training-firestore";
-import { createJoinCode } from "@/lib/team-workout-engine";
 import type { TeamWorkoutFormat, TeamWorkoutParticipant, TeamWorkoutSession } from "@/lib/team-training";
 
 const FORMAT_LABELS: Record<TeamWorkoutFormat, { title: string; description: string }> = {
@@ -54,7 +54,7 @@ export default function TeamTrainingPage() {
     try {
       let lastError: unknown;
       for (let attempt = 0; attempt < 4; attempt += 1) {
-        const code = createJoinCode();
+        const code = createTeamJoinCode();
         const host = participant("host");
         const session: TeamWorkoutSession = {
           version: 1,
@@ -85,8 +85,8 @@ export default function TeamTrainingPage() {
 
   async function joinSession() {
     if (!user) return;
-    const code = joinCode.trim().toUpperCase();
-    if (!/^ENG-\d{4}$/.test(code)) { setError("Join kód má formát ENG-1234."); return; }
+    const code = normalizeTeamJoinCode(joinCode);
+    if (!isValidTeamJoinCode(code)) { setError("Join kód má formát ENG-7K2M-9Q4P."); return; }
     setBusy(true); setError(undefined); saveTeamProfile({ displayName });
     try {
       const snapshot = await teamWorkoutTransport.getSession(code);
@@ -146,7 +146,7 @@ export default function TeamTrainingPage() {
           <section className="ui-card mt-5 p-5 sm:p-6">
             <p className="text-xs font-black uppercase tracking-[0.18em] text-zinc-500">Připojit se</p>
             <div className="mt-3 grid grid-cols-[1fr_auto] gap-2">
-              <input value={joinCode} onChange={(event) => setJoinCode(event.target.value.toUpperCase())} placeholder="ENG-7421" className="ui-field font-mono uppercase" maxLength={8} />
+              <input value={joinCode} onChange={(event) => setJoinCode(event.target.value.toUpperCase())} onBlur={() => setJoinCode((value) => normalizeTeamJoinCode(value))} placeholder="ENG-7K2M-9Q4P" className="ui-field font-mono uppercase" maxLength={13} />
               <button type="button" disabled={busy} onClick={() => void joinSession()} className="ui-button ui-button-accent">Připojit</button>
             </div>
           </section>
