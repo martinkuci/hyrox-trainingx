@@ -17,10 +17,10 @@ import {
   type GeneratedWorkoutDurationMinutes,
   type GeneratedWorkoutGoal,
 } from "@/lib/workout-composer";
-import type { ScheduledTrainingLocation } from "@/lib/types";
+import type { ScheduledTrainingLocation, TrainingLocationPresetId } from "@/lib/types";
 
 const GOALS = Object.keys(GENERATED_WORKOUT_GOAL_LABELS) as GeneratedWorkoutGoal[];
-const PRESET_LOCATIONS: ScheduledTrainingLocation[] = ["standard-gym", "hybrid-gym", "outdoor", "home"];
+const PRESET_LOCATIONS: TrainingLocationPresetId[] = ["standard-gym", "hybrid-gym", "outdoor", "home"];
 
 export default function GeneratedWorkoutPage() {
   const router = useRouter();
@@ -32,7 +32,7 @@ export default function GeneratedWorkoutPage() {
   const [savedMessage, setSavedMessage] = useState<string>();
 
   const locationChoices = useMemo(() => [
-    ...PRESET_LOCATIONS.map((id) => ({ id, label: TRAINING_LOCATION_PRESETS[id].label })),
+    ...PRESET_LOCATIONS.map((id) => ({ id: id as ScheduledTrainingLocation, label: TRAINING_LOCATION_PRESETS[id].label })),
     ...(data.trainingLocations ?? []).map((location) => ({ id: location.id as ScheduledTrainingLocation, label: location.name })),
   ], [data.trainingLocations]);
 
