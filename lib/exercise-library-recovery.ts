@@ -1,6 +1,6 @@
 import type { ExerciseDefinition } from "./exercise-library";
 
-const solo = { modes: ["solo", "simultaneous"] as const, supportsIndependentTracking: true };
+const solo: ExerciseDefinition["team"] = { modes: ["solo", "simultaneous"], supportsIndependentTracking: true };
 
 export const RECOVERY_EXERCISE_LIBRARY: ExerciseDefinition[] = [
   {
