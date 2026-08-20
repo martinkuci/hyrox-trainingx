@@ -186,6 +186,23 @@ export type TrainingAdaptationDecision = {
   decidedAt: string;
 };
 
+export type EnginnExtraFocus = "core" | "grip" | "legs" | "cardio" | "mobility" | "recovery";
+export type EnginnExtraDurationMinutes = 5 | 8 | 10;
+export type EnginnExtraExercise = {
+  exerciseId: string;
+  name: string;
+  prescription: string;
+};
+export type EnginnExtraPlan = {
+  focus: EnginnExtraFocus;
+  durationMinutes: EnginnExtraDurationMinutes;
+  exercises: EnginnExtraExercise[];
+};
+export type EnginnExtraResult = EnginnExtraPlan & {
+  completedAt: string;
+  durationSeconds: number;
+};
+
 export type WorkoutResult = {
   id: string;
   templateId: string;
@@ -195,6 +212,7 @@ export type WorkoutResult = {
   metadataSnapshot?: WorkoutMetadata;
   scheduledWorkoutId?: string;
   exerciseOverridesSnapshot?: ScheduledExerciseOverride[];
+  enginnExtra?: EnginnExtraResult;
   completedAt: string;
   durationSeconds: number;
   rpe: number;
