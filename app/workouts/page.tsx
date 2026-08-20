@@ -59,21 +59,12 @@ export default function WorkoutsPage() {
       description="Vyber hotový trénink, skládej ho z jednotlivých cviků nebo doplň přípravu a kompenzaci."
       action={
         <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:justify-end">
-          <Link href="/workouts/generate" className="ui-button ui-button-primary ui-button-sm">
-            Sestavit
-          </Link>
-          <Link href="/recovery" className="ui-button ui-button-outline ui-button-sm">
-            Regenerace
-          </Link>
-          <Link href="/exercises" className="ui-button ui-button-outline ui-button-sm">
-            Cviky
-          </Link>
-          <Link href="/import" className="ui-button ui-button-outline ui-button-sm">
-            Import
-          </Link>
-          <Link href="/workouts/editor" className="ui-button ui-button-outline ui-button-sm sm:col-span-2">
-            + Ručně
-          </Link>
+          <Link href="/workouts/generate" className="ui-button ui-button-primary ui-button-sm">Sestavit</Link>
+          <Link href="/team" className="ui-button ui-button-accent ui-button-sm">Týmově</Link>
+          <Link href="/recovery" className="ui-button ui-button-outline ui-button-sm">Regenerace</Link>
+          <Link href="/exercises" className="ui-button ui-button-outline ui-button-sm">Cviky</Link>
+          <Link href="/import" className="ui-button ui-button-outline ui-button-sm">Import</Link>
+          <Link href="/workouts/editor" className="ui-button ui-button-outline ui-button-sm">+ Ručně</Link>
         </div>
       }
     >
@@ -217,18 +208,10 @@ export default function WorkoutsPage() {
               </details>
 
               <div className="mt-6 grid grid-cols-2 gap-3">
-                <Link href={`/workout/${template.id}`} className="ui-button ui-button-accent">
-                  Spustit
-                </Link>
-                <Link href={`/workouts/editor?id=${template.id}`} className="ui-button ui-button-secondary">
-                  Upravit
-                </Link>
-                <button type="button" onClick={() => duplicate(template)} className="ui-button ui-button-outline text-sm">
-                  Duplikovat
-                </button>
-                <button type="button" onClick={() => setPendingDelete(template)} className="ui-button ui-button-danger text-sm">
-                  Smazat
-                </button>
+                <Link href={`/workout/${template.id}`} className="ui-button ui-button-accent">Spustit</Link>
+                <Link href={`/workouts/editor?id=${template.id}`} className="ui-button ui-button-secondary">Upravit</Link>
+                <button type="button" onClick={() => duplicate(template)} className="ui-button ui-button-outline text-sm">Duplikovat</button>
+                <button type="button" onClick={() => setPendingDelete(template)} className="ui-button ui-button-danger text-sm">Smazat</button>
               </div>
             </article>
           );
