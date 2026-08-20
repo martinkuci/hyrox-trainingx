@@ -4,6 +4,7 @@ import { Suspense, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { PlanningShell } from "@/components/planning/PlanningShell";
 import { useHyroxData } from "@/hooks/useHyroxData";
+import { EXERCISE_LIBRARY, getExercise } from "@/lib/exercise-library";
 import type { NewWorkoutTemplate, WorkoutBlock, WorkoutMetadata, WorkoutStep } from "@/lib/types";
 import { convertWorkoutBlock, createWorkoutBlock, WORKOUT_BLOCK_TYPES, workoutBlockTypeDescription, workoutBlockTypeLabel, type WorkoutBlockType } from "@/lib/workout-blocks";
 import { emptyMetadata, normalizeMetadata, WORKOUT_CATEGORIES } from "@/lib/workout-metadata";
@@ -44,6 +45,13 @@ function EditorContent() {
     const block = draft.blocks[blockIndex];
     replaceBlock(blockIndex, { ...block, steps: block.steps.map((step, index) => index === stepIndex ? { ...step, ...updates } : step) });
   }
+  function selectExercise(blockIndex: number, stepIndex: number, exerciseId: string) {
+    const exercise = getExercise(exerciseId);
+    updateStep(blockIndex, stepIndex, {
+      exerciseId: exercise?.id,
+      name: exercise?.name ?? draft.blocks[blockIndex].steps[stepIndex].name,
+    });
+  }
   function moveBlock(index: number, direction: -1 | 1) { const target = index + direction; if (target < 0 || target >= draft.blocks.length) return; const blocks = [...draft.blocks]; [blocks[index], blocks[target]] = [blocks[target], blocks[index]]; setDraft({ ...draft, blocks }); }
   function moveStep(blockIndex: number, stepIndex: number, direction: -1 | 1) { const block = draft.blocks[blockIndex]; const target = stepIndex + direction; if (target < 0 || target >= block.steps.length) return; const steps = [...block.steps]; [steps[stepIndex], steps[target]] = [steps[target], steps[stepIndex]]; replaceBlock(blockIndex, { ...block, steps }); }
 
@@ -60,7 +68,7 @@ function EditorContent() {
     router.push("/workouts");
   }
 
-  return <PlanningShell eyebrow="Trénovat" title={editId ? "Upravit trénink" : "Nový trénink"} description="Jednotná struktura tréninku umožní sledovat progres, rekordy a později adaptivní doporučení." backHref="/workouts">
+  return <PlanningShell eyebrow="Trénovat" title={editId ? "Upravit trénink" : "Nový trénink"} description="Skládej trénink z jednotlivých cviků. Katalogové cviky nesou vybavení, techniku, náhrady a týmové možnosti." backHref="/workouts">
     <section className="ui-card p-5 sm:p-6">
       <label className="font-bold" htmlFor="title">Název</label><input id="title" value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} placeholder="Např. Base Engine" className={inputClass} />
       <label className="mt-5 block font-bold" htmlFor="description">Popis</label><textarea id="description" value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} rows={3} className={`${inputClass} resize-none`} />
@@ -92,7 +100,20 @@ function EditorContent() {
       <p className="mt-2 text-xs leading-5 text-zinc-500">{workoutBlockTypeDescription(block.type)}</p>
       <input value={block.title} onChange={(e) => replaceBlock(blockIndex, { ...block, title: e.target.value })} className={`${inputClass} mt-4 font-bold`} />
       <BlockSettings block={block} onChange={(nextBlock) => replaceBlock(blockIndex, nextBlock)} />
-      <div className="mt-5 space-y-3">{block.steps.map((step, stepIndex) => <div key={step.id} className="ui-inset p-4"><div className="flex items-center gap-2"><span className="text-xs font-black text-zinc-500">{stepIndex + 1}</span><input value={step.name} onChange={(e) => updateStep(blockIndex, stepIndex, { name: e.target.value })} placeholder="Cvik" className="min-w-0 flex-1 bg-transparent font-bold outline-none" /><SmallButton label="Nahoru" onClick={() => moveStep(blockIndex, stepIndex, -1)}>↑</SmallButton><SmallButton label="Dolů" onClick={() => moveStep(blockIndex, stepIndex, 1)}>↓</SmallButton><SmallButton label="Smazat" onClick={() => replaceBlock(blockIndex, { ...block, steps: block.steps.filter((_, i) => i !== stepIndex) })}>×</SmallButton></div><input value={step.detail} onChange={(e) => updateStep(blockIndex, stepIndex, { detail: e.target.value })} placeholder="Detail, tempo nebo váha" className="mt-3 w-full bg-transparent text-sm text-zinc-400 outline-none" /></div>)}</div>
+      <div className="mt-5 space-y-3">{block.steps.map((step, stepIndex) => {
+        const selectedExercise = getExercise(step.exerciseId);
+        return <div key={step.id} className="ui-inset p-4">
+          <label className="block text-xs font-black uppercase tracking-[0.14em] text-zinc-500">Cvik z knihovny
+            <select value={step.exerciseId ?? ""} onChange={(event) => selectExercise(blockIndex, stepIndex, event.target.value)} className="ui-field mt-2 text-sm normal-case tracking-normal">
+              <option value="">Vlastní cvik / volný text</option>
+              {EXERCISE_LIBRARY.map((exercise) => <option key={exercise.id} value={exercise.id}>{exercise.name}</option>)}
+            </select>
+          </label>
+          {selectedExercise && <div className="mt-2 flex flex-wrap gap-2"><span className="ui-chip">{selectedExercise.category}</span><span className="ui-chip">{selectedExercise.movementFamily}</span>{selectedExercise.team.modes.some((mode) => mode !== "solo") && <span className="ui-chip">tým</span>}</div>}
+          <div className="mt-3 flex items-center gap-2"><span className="text-xs font-black text-zinc-500">{stepIndex + 1}</span><input value={step.name} onChange={(e) => updateStep(blockIndex, stepIndex, { name: e.target.value, exerciseId: undefined })} placeholder="Cvik" className="min-w-0 flex-1 bg-transparent font-bold outline-none" /><SmallButton label="Nahoru" onClick={() => moveStep(blockIndex, stepIndex, -1)}>↑</SmallButton><SmallButton label="Dolů" onClick={() => moveStep(blockIndex, stepIndex, 1)}>↓</SmallButton><SmallButton label="Smazat" onClick={() => replaceBlock(blockIndex, { ...block, steps: block.steps.filter((_, i) => i !== stepIndex) })}>×</SmallButton></div>
+          <input value={step.detail} onChange={(e) => updateStep(blockIndex, stepIndex, { detail: e.target.value })} placeholder="Detail, tempo, vzdálenost, opakování nebo váha" className="mt-3 w-full bg-transparent text-sm text-zinc-400 outline-none" />
+        </div>;
+      })}</div>
       <button type="button" onClick={() => replaceBlock(blockIndex, { ...block, steps: [...block.steps, blankStep()] })} className="ui-button ui-button-outline ui-button-sm mt-4 w-full border-dashed">+ Přidat cvik</button>
     </section>)}</div>
     <div className="ui-card mt-5 p-4"><label className="block text-sm font-bold text-zinc-300">Nový režim<select value={newBlockType} onChange={(event) => setNewBlockType(event.target.value as WorkoutBlockType)} className={inputClass}>{WORKOUT_BLOCK_TYPES.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label><p className="mt-2 text-xs leading-5 text-zinc-500">{workoutBlockTypeDescription(newBlockType)}</p><button type="button" onClick={() => setDraft({ ...draft, blocks: [...draft.blocks, blankBlock(newBlockType)] })} className="ui-button ui-button-secondary mt-3 w-full">+ Přidat {workoutBlockTypeLabel(newBlockType)}</button></div>
