@@ -6,6 +6,7 @@ import {
   inferExerciseFromText,
 } from "../lib/exercise-catalog.ts";
 import { applyExerciseOverrides } from "../lib/exercise-substitution.ts";
+import { buildWorkoutBenchmarks } from "../lib/training-insights.ts";
 import { planTrainingLocationChange } from "../lib/training-location-change.ts";
 
 function template(id, steps) {
@@ -39,6 +40,24 @@ function template(id, steps) {
     }],
     createdAt: "2026-08-20T00:00:00.000Z",
     updatedAt: "2026-08-20T00:00:00.000Z",
+  };
+}
+
+function result(id, completedAt, durationSeconds, overrides) {
+  return {
+    id,
+    templateId: "mixed",
+    workoutTitle: "HYROX mixed",
+    workoutCode: "mixed",
+    templateVersion: 1,
+    completedAt,
+    durationSeconds,
+    rpe: 7,
+    weights: "",
+    notes: "",
+    splits: [],
+    source: "runner",
+    exerciseOverridesSnapshot: overrides,
   };
 }
 
@@ -98,4 +117,22 @@ test("core finisher suggestions respect available equipment", () => {
   const cableGym = findFinisherExercises({ equipment: ["cable-machine", "ab-wheel"], focus: "core", limit: 30 });
   assert.ok(cableGym.some((exercise) => exercise.id === "cable-crunch"));
   assert.ok(cableGym.some((exercise) => exercise.id === "ab-wheel-rollout"));
+});
+
+test("adapted workout does not share benchmark with the untouched original", () => {
+  const overrides = [{ blockId: "mixed-block", stepId: "mixed-step-0", exerciseId: "row" }];
+  const mixedResults = [
+    result("base-1", "2026-08-18T10:00:00.000Z", 2600),
+    result("adapted-1", "2026-08-19T10:00:00.000Z", 2500, overrides),
+  ];
+  assert.equal(buildWorkoutBenchmarks(mixedResults).length, 0);
+
+  const repeatedVariant = [
+    ...mixedResults,
+    result("adapted-2", "2026-08-20T10:00:00.000Z", 2450, overrides),
+  ];
+  const benchmarks = buildWorkoutBenchmarks(repeatedVariant);
+  assert.equal(benchmarks.length, 1);
+  assert.ok(benchmarks[0].key.includes(":variant:"));
+  assert.equal(benchmarks[0].attemptCount, 2);
 });
