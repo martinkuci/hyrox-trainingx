@@ -51,6 +51,10 @@ export type TeamWorkoutSession = {
   completedAt?: string;
 };
 
+export type TeamWorkoutSessionPatch = Partial<Pick<TeamWorkoutSession,
+  "format" | "status" | "participantLimit" | "assignments" | "scheduledFor" | "startedAt" | "completedAt"
+>>;
+
 export type TeamWorkoutEvent =
   | { id: string; type: "participant-joined"; participantId: string; at: string }
   | { id: string; type: "participant-ready"; participantId: string; ready: boolean; at: string }
@@ -106,6 +110,7 @@ export interface TeamWorkoutTransport {
   createSession(session: TeamWorkoutSession): Promise<TeamWorkoutSnapshot>;
   getSession(joinCode: string): Promise<TeamWorkoutSnapshot | null>;
   joinSession(joinCode: string, participant: TeamWorkoutParticipant): Promise<TeamWorkoutSnapshot>;
+  updateSession(sessionId: string, patch: TeamWorkoutSessionPatch): Promise<TeamWorkoutSnapshot>;
   publishEvent(sessionId: string, event: TeamWorkoutEvent): Promise<TeamWorkoutSnapshot>;
   subscribe(sessionId: string, onSnapshot: (snapshot: TeamWorkoutSnapshot) => void, onError?: (error: Error) => void): () => void;
 }
