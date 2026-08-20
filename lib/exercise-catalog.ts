@@ -6,6 +6,7 @@ import {
 } from "./exercise-library";
 import { EXTENDED_EXERCISE_LIBRARY } from "./exercise-library-extended";
 import { ACCESSORY_EXERCISE_LIBRARY } from "./exercise-library-accessories";
+import { RECOVERY_EXERCISE_LIBRARY } from "./exercise-library-recovery";
 import type { EquipmentId, WorkoutStep } from "./types";
 
 export { EXERCISE_CATEGORY_LABELS };
@@ -15,6 +16,7 @@ export const EXERCISE_LIBRARY: ExerciseDefinition[] = [
   ...CORE_EXERCISE_LIBRARY,
   ...EXTENDED_EXERCISE_LIBRARY,
   ...ACCESSORY_EXERCISE_LIBRARY,
+  ...RECOVERY_EXERCISE_LIBRARY,
 ];
 
 const exerciseById = new Map(EXERCISE_LIBRARY.map((exercise) => [exercise.id, exercise]));
@@ -115,7 +117,7 @@ export function findCompensationExercises({
   limit?: number;
 }) {
   return EXERCISE_LIBRARY
-    .filter((exercise) => exercise.category === "compensation" || exercise.category === "mobility" || exercise.category === "recovery")
+    .filter((exercise) => exercise.category === "compensation" || exercise.category === "mobility" || exercise.category === "recovery" || exercise.category === "warmup")
     .filter((exercise) => !focusTag || exercise.tags.includes(focusTag) || exercise.primaryMuscles.some((muscle) => muscle.includes(focusTag)))
     .filter((exercise) => exerciseFitsEquipment(exercise, equipment))
     .sort((a, b) => a.name.localeCompare(b.name, "cs"))
@@ -130,5 +132,6 @@ export function exerciseCatalogStats() {
     finisher: EXERCISE_LIBRARY.filter((exercise) => exercise.tags.includes("finisher")).length,
     machine: EXERCISE_LIBRARY.filter((exercise) => exercise.tags.includes("machine")).length,
     crossfit: EXERCISE_LIBRARY.filter((exercise) => exercise.tags.includes("crossfit")).length,
+    recovery: EXERCISE_LIBRARY.filter((exercise) => ["warmup", "mobility", "compensation", "recovery"].includes(exercise.category)).length,
   };
 }
