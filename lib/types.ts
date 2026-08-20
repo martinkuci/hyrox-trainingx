@@ -142,6 +142,12 @@ export type TrainingProgram = {
   updatedAt: string;
 };
 
+export type ScheduledExerciseOverride = {
+  blockId: string;
+  stepId: string;
+  exerciseId: string;
+};
+
 export type ScheduledWorkout = {
   id: string;
   templateId: string;
@@ -150,6 +156,7 @@ export type ScheduledWorkout = {
   time: string;
   status: ScheduledWorkoutStatus;
   trainingLocation?: ScheduledTrainingLocation;
+  exerciseOverrides?: ScheduledExerciseOverride[];
   programId?: string;
   programWeek?: number;
   programSessionId?: string;
