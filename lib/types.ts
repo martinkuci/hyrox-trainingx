@@ -194,6 +194,7 @@ export type WorkoutResult = {
   templateVersion?: number;
   metadataSnapshot?: WorkoutMetadata;
   scheduledWorkoutId?: string;
+  exerciseOverridesSnapshot?: ScheduledExerciseOverride[];
   completedAt: string;
   durationSeconds: number;
   rpe: number;
