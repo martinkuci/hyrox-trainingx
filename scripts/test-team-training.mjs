@@ -8,6 +8,7 @@ import {
   canParticipantWork,
   canStartTeamSession,
   deriveTeamWorkoutState,
+  distanceProgressOptions,
 } from "../lib/team-workout-engine.ts";
 
 const participants = [
@@ -70,6 +71,41 @@ test("doubles turns SkiErg and Wall Balls into shared targets", () => {
   assert.equal(assignments[1].mode, "shared-reps");
   assert.equal(assignments[1].targetReps, 100);
   assert.equal(assignments[1].activeParticipantId, "a");
+});
+
+test("short shared distances use practical handoff increments", () => {
+  assert.deepEqual(distanceProgressOptions(25, 0), [5, 10, 25]);
+  assert.deepEqual(distanceProgressOptions(30, 20), [5, 10]);
+  assert.deepEqual(distanceProgressOptions(2000, 0), [100, 250, 500]);
+});
+
+test("warmup and cooldown stay shared instead of being assigned to one athlete", () => {
+  const recoveryTemplate = {
+    ...template,
+    id: "team-recovery-test",
+    blocks: [
+      {
+        id: "warmup",
+        type: "manual",
+        title: "Závodní rozcvičení",
+        repeat: 1,
+        steps: [{ id: "warm", name: "10 min lehce", detail: "Běh a dynamická mobilita." }],
+      },
+      {
+        id: "cooldown",
+        type: "manual",
+        title: "Zklidnění",
+        repeat: 1,
+        steps: [{ id: "cool", name: "8 min volně", detail: "Chůze nebo lehký klus a mobilita." }],
+      },
+    ],
+  };
+  for (const format of ["doubles", "relay"]) {
+    const assignments = buildTeamAssignments({ template: recoveryTemplate, participants, format });
+    assert.ok(assignments.every((assignment) => assignment.mode === "simultaneous"));
+    assert.ok(assignments.every((assignment) => assignment.activeParticipantId === undefined));
+    assert.ok(assignments.every((assignment) => assignment.participantIds.length === 2));
+  }
 });
 
 test("shared workout keeps both athletes on the same steps", () => {
