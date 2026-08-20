@@ -235,9 +235,8 @@ export function buildTeamResult(session: TeamWorkoutSession, events: TeamWorkout
     workoutTitle: session.workoutTemplate.title,
     teamDurationSeconds,
     participants: session.participants.map((participant) => ({
-      participantId: participant.id,
+      ...(state.contributions[participant.id] ?? emptyContribution(participant.id)),
       displayName: participant.displayName,
-      ...state.contributions[participant.id],
       finish: state.participantFinish[participant.id],
     })),
   };
