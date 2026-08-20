@@ -220,6 +220,13 @@ export type EnginnExtraResult = EnginnExtraPlan & {
   durationSeconds: number;
 };
 
+export type TeamWorkoutResultContribution = {
+  reps: number;
+  distanceMeters: number;
+  durationSeconds: number;
+  completedAssignments: number;
+};
+
 export type WorkoutResult = {
   id: string;
   templateId: string;
@@ -232,6 +239,10 @@ export type WorkoutResult = {
   preWorkoutRecovery?: RecoveryRoutineResult;
   postWorkoutRecovery?: RecoveryRoutineResult;
   enginnExtra?: EnginnExtraResult;
+  teamSessionId?: string;
+  teamJoinCode?: string;
+  teamFormat?: "shared" | "doubles" | "relay";
+  teamContribution?: TeamWorkoutResultContribution;
   completedAt: string;
   durationSeconds: number;
   rpe: number;
@@ -239,7 +250,7 @@ export type WorkoutResult = {
   notes: string;
   splits: StepSplit[];
   blockFeedbacks?: BlockFeedback[];
-  source?: "runner" | "screenshot";
+  source?: "runner" | "screenshot" | "team";
   sourceImageName?: string;
   metrics?: WorkoutResultMetrics;
   adaptationDecision?: TrainingAdaptationDecision;
