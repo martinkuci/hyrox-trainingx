@@ -6,6 +6,7 @@ import ConfirmDialog from "@/components/ConfirmDialog";
 import { PlanningShell } from "@/components/planning/PlanningShell";
 import { useHyroxData } from "@/hooks/useHyroxData";
 import { blockFeedbackLabel } from "@/lib/block-feedback";
+import { ENGINN_EXTRA_FOCUS_LABELS } from "@/lib/enginn-extra";
 import {
   buildCategoryInsights,
   buildComparableWorkouts,
@@ -148,6 +149,28 @@ export default function HistoryPage() {
                   {result.metrics && Object.values(result.metrics).some((value) => value !== undefined) && <div className="mt-4 grid grid-cols-2 gap-2">{result.metrics.averageHeartRate !== undefined && <ResultMetric label="Průměrný tep" value={result.metrics.averageHeartRate + " bpm"} />}{result.metrics.maxHeartRate !== undefined && <ResultMetric label="Maximální tep" value={result.metrics.maxHeartRate + " bpm"} />}{result.metrics.calories !== undefined && <ResultMetric label="Kalorie" value={result.metrics.calories + " kcal"} />}{result.metrics.distanceKm !== undefined && <ResultMetric label="Vzdálenost" value={result.metrics.distanceKm.toLocaleString("cs-CZ", { maximumFractionDigits: 2 }) + " km"} />}{result.metrics.watchDurationSeconds !== undefined && <ResultMetric label="Čas podle hodinek" value={formatDuration(result.metrics.watchDurationSeconds)} />}</div>}
                   {result.weights && <div className="mt-4"><p className="text-xs font-bold uppercase tracking-wider text-zinc-500">Váhy</p><p className="mt-1 text-zinc-200">{result.weights}</p></div>}
                   {result.notes && <div className="mt-4"><p className="text-xs font-bold uppercase tracking-wider text-zinc-500">Poznámka</p><p className="mt-1 whitespace-pre-wrap text-zinc-300">{result.notes}</p></div>}
+                  {result.enginnExtra && (
+                    <section className="mt-4 rounded-2xl border border-accent/20 bg-accent-soft p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-xs font-black uppercase tracking-[0.18em] text-accent">Enginn Extra</p>
+                          <p className="mt-1 font-black text-zinc-100">{ENGINN_EXTRA_FOCUS_LABELS[result.enginnExtra.focus]} · plán {result.enginnExtra.durationMinutes} min</p>
+                        </div>
+                        <span className="font-mono text-sm font-black text-accent">{formatDuration(result.enginnExtra.durationSeconds)}</span>
+                      </div>
+                      <ol className="mt-3 space-y-2">
+                        {result.enginnExtra.exercises.map((exercise, index) => (
+                          <li key={`${result.id}-extra-${index}-${exercise.exerciseId}`} className="flex items-start gap-3 rounded-xl bg-surface/70 px-3 py-2.5">
+                            <span className="font-black text-accent">{index + 1}.</span>
+                            <div className="min-w-0">
+                              <Link href={`/exercises/${encodeURIComponent(exercise.exerciseId)}`} className="font-bold text-zinc-100 underline-offset-4 hover:underline">{exercise.name}</Link>
+                              <p className="mt-0.5 text-xs text-zinc-500">{exercise.prescription}</p>
+                            </div>
+                          </li>
+                        ))}
+                      </ol>
+                    </section>
+                  )}
                   <div className="mt-5 space-y-3"><Link href={`/results/import?resultId=${encodeURIComponent(result.id)}`} className="ui-button ui-button-outline ui-button-sm w-full">Doplnit data ze screenshotu</Link><div className="grid grid-cols-[1fr_auto] gap-3"><button type="button" onClick={() => setExpandedId(expanded ? null : result.id)} className="ui-button ui-button-secondary ui-button-sm">{expanded ? "Skrýt detail" : "Zobrazit detail"}</button><button type="button" onClick={() => setPendingDelete(result)} className="ui-button ui-button-danger ui-button-sm">Smazat</button></div></div>
                 </div>
 
