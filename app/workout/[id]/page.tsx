@@ -6,6 +6,7 @@ import { useParams, useSearchParams } from "next/navigation";
 import WorkoutRunner from "@/components/WorkoutRunner";
 import { useHyroxData } from "@/hooks/useHyroxData";
 import { applyExerciseOverrides } from "@/lib/exercise-substitution";
+import { resolveTrainingLocation } from "@/lib/training-context";
 
 function WorkoutPageContent() {
   const params = useParams<{ id: string }>();
@@ -19,6 +20,9 @@ function WorkoutPageContent() {
   const template = baseTemplate
     ? applyExerciseOverrides(baseTemplate, schedule?.exerciseOverrides)
     : undefined;
+  const location = schedule?.trainingLocation
+    ? resolveTrainingLocation(schedule.trainingLocation, data.trainingLocations ?? [])
+    : null;
 
   if (!ready) {
     return (
@@ -34,10 +38,7 @@ function WorkoutPageContent() {
         <section className="ui-card w-full max-w-sm p-7 text-center">
           <h1 className="text-2xl font-bold">Trénink nebyl nalezen</h1>
           <p className="mt-3 text-zinc-400">Možná byl mezitím smazán.</p>
-          <Link
-            href="/"
-            className="ui-button ui-button-primary mt-7 w-full"
-          >
+          <Link href="/" className="ui-button ui-button-primary mt-7 w-full">
             Zpět na přehled
           </Link>
         </section>
@@ -45,18 +46,19 @@ function WorkoutPageContent() {
     );
   }
 
-  return <WorkoutRunner template={template} scheduledWorkoutId={scheduleId} />;
+  return (
+    <WorkoutRunner
+      template={template}
+      scheduledWorkoutId={scheduleId}
+      recoveryEquipment={location?.equipment ?? ["none"]}
+      recoveryLocationLabel={location?.label}
+    />
+  );
 }
 
 export default function WorkoutPage() {
   return (
-    <Suspense
-      fallback={
-        <main className="runner-shell grid min-h-dvh place-items-center text-zinc-400">
-          Načítám trénink…
-        </main>
-      }
-    >
+    <Suspense fallback={<main className="runner-shell grid min-h-dvh place-items-center text-zinc-400">Načítám trénink…</main>}>
       <WorkoutPageContent />
     </Suspense>
   );
