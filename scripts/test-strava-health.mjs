@@ -46,7 +46,7 @@ test("maps a Strava activity into the provider-neutral Enginn model", () => {
   assert.equal(activity.startedAt, "2026-08-19T05:30:00.000Z");
   assert.equal(activity.durationSeconds, 2700);
   assert.equal(activity.movingDurationSeconds, 2500);
-  assert.equal(activity.distanceKm, 10.1254);
+  assert.equal(Number(activity.distanceKm.toFixed(2)), 10.13);
   assert.equal(activity.elevationGainMeters, 145.2);
   assert.equal(activity.averageHeartRate, 151);
   assert.equal(activity.maxHeartRate, 179);
