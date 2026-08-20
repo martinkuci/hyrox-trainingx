@@ -79,6 +79,31 @@ test("short shared distances use practical handoff increments", () => {
   assert.deepEqual(distanceProgressOptions(2000, 0), [100, 250, 500]);
 });
 
+test("short-distance doubles stations keep one active athlete and allow handoff", () => {
+  const shortTemplate = {
+    ...template,
+    id: "short-distance-team-test",
+    blocks: [{
+      id: "short",
+      type: "manual",
+      title: "Čtvrtinová simulace",
+      repeat: 1,
+      steps: [{ id: "bbj", name: "30 m Burpee Broad Jumps", detail: "Stabilní rytmus a dopady.", exerciseId: "burpee-broad-jump" }],
+    }],
+  };
+  const assignments = buildTeamAssignments({ template: shortTemplate, participants, format: "doubles" });
+  assert.equal(assignments[0].mode, "shared-distance");
+  assert.equal(assignments[0].targetDistanceMeters, 30);
+  assert.equal(assignments[0].activeParticipantId, "a");
+  const current = { ...session("doubles", assignments), workoutTemplate: shortTemplate, workoutTemplateId: shortTemplate.id };
+  const initial = deriveTeamWorkoutState(current, []);
+  assert.equal(canParticipantWork(assignments[0], "a", initial), true);
+  assert.equal(canParticipantWork(assignments[0], "b", initial), false);
+  const handed = deriveTeamWorkoutState(current, [{ id: "h", type: "handoff", participantId: "a", nextParticipantId: "b", assignmentId: assignments[0].id, at: "2026-08-20T18:01:00.000Z" }]);
+  assert.equal(canParticipantWork(assignments[0], "a", handed), false);
+  assert.equal(canParticipantWork(assignments[0], "b", handed), true);
+});
+
 test("warmup and cooldown stay shared instead of being assigned to one athlete", () => {
   const recoveryTemplate = {
     ...template,
