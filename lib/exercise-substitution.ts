@@ -1,5 +1,5 @@
-import { exerciseFitsEquipment, findExerciseAlternatives, getExerciseForStep } from "./exercise-catalog";
-import type { EquipmentId, WorkoutStep, WorkoutTemplate } from "./types";
+import { exerciseFitsEquipment, findExerciseAlternatives, getExercise, getExerciseForStep } from "./exercise-catalog";
+import type { EquipmentId, ScheduledExerciseOverride, WorkoutStep, WorkoutTemplate } from "./types";
 
 export type ExerciseSubstitution = {
   blockId: string;
@@ -19,6 +19,36 @@ export function findStepAlternatives(step: WorkoutStep, equipment: EquipmentId[]
 export function stepFitsEquipment(step: WorkoutStep, equipment: EquipmentId[]) {
   const exercise = getExerciseForStep(step);
   return exercise ? exerciseFitsEquipment(exercise, equipment) : true;
+}
+
+export function applyExerciseOverrides(
+  template: WorkoutTemplate,
+  overrides: ScheduledExerciseOverride[] = [],
+): WorkoutTemplate {
+  if (overrides.length === 0) return template;
+  const byStep = new Map(overrides.map((override) => [`${override.blockId}:${override.stepId}`, override]));
+  return {
+    ...template,
+    blocks: template.blocks.map((block) => ({
+      ...block,
+      steps: block.steps.map((step) => {
+        const override = byStep.get(`${block.id}:${step.id}`);
+        if (!override) return step;
+        const replacement = getExercise(override.exerciseId);
+        return replacement
+          ? { ...step, exerciseId: replacement.id, name: replacement.name }
+          : step;
+      }),
+    })),
+  };
+}
+
+export function substitutionsToOverrides(substitutions: ExerciseSubstitution[]): ScheduledExerciseOverride[] {
+  return substitutions.map((substitution) => ({
+    blockId: substitution.blockId,
+    stepId: substitution.stepId,
+    exerciseId: substitution.toExerciseId,
+  }));
 }
 
 export function substituteTemplateExercisesForEquipment(
