@@ -24,7 +24,8 @@ function targetForStep(name: string, detail: string) {
   const text = `${name} ${detail}`;
   const distanceMeters = parseNumberBeforeUnit(text, ["m", "metr(?:ů|u|y)?", "meters?"]);
   const reps = parseNumberBeforeUnit(text, ["x", "rep(?:s)?", "opakování", "opakovani"]);
-  return { distanceMeters, reps };
+  const leadingCount = Number(name.match(/^\s*(\d{1,4})\b/)?.[1] ?? detail.match(/^\s*(\d{1,4})\b/)?.[1] ?? 0) || undefined;
+  return { distanceMeters, reps, leadingCount };
 }
 
 export function createJoinCode(random = Math.random) {
@@ -53,6 +54,7 @@ export function buildTeamAssignments({
       const exercise = getExerciseForStep(step);
       const supported = exercise?.team.modes ?? ["solo"];
       const target = targetForStep(step.name, step.detail);
+      const sharedRepTarget = target.reps ?? target.leadingCount;
       let mode: TeamStepAssignment["mode"] = "simultaneous";
       let assignedIds = participantIds;
       let activeParticipantId: string | undefined;
@@ -63,7 +65,7 @@ export function buildTeamAssignments({
         activeParticipantId = assignedIds[0];
       } else if (format === "doubles") {
         if (supported.includes("shared-distance") && target.distanceMeters) mode = "shared-distance";
-        else if (supported.includes("shared-reps") && target.reps) mode = "shared-reps";
+        else if (supported.includes("shared-reps") && sharedRepTarget) mode = "shared-reps";
         else if (supported.includes("you-go-i-go")) mode = "you-go-i-go";
         else if (supported.includes("simultaneous")) mode = "simultaneous";
         else mode = "solo";
@@ -84,7 +86,7 @@ export function buildTeamAssignments({
         mode,
         participantIds: assignedIds,
         activeParticipantId,
-        targetReps: mode === "shared-reps" ? target.reps : undefined,
+        targetReps: mode === "shared-reps" ? sharedRepTarget : undefined,
         targetDistanceMeters: mode === "shared-distance" ? target.distanceMeters : undefined,
       });
       sequence += 1;
@@ -215,7 +217,9 @@ export function canParticipantWork(assignment: TeamStepAssignment, participantId
   if (!assignment.participantIds.includes(participantId)) return false;
   const progress = state.assignmentProgress[assignment.id];
   if (!progress || progress.teamCompleted) return false;
-  if (assignment.mode === "you-go-i-go" || assignment.mode === "relay") return progress.activeParticipantId === participantId;
+  if (progress.activeParticipantId && ["you-go-i-go", "relay", "shared-reps", "shared-distance"].includes(assignment.mode)) {
+    return progress.activeParticipantId === participantId;
+  }
   return true;
 }
 
