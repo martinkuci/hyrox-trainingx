@@ -4,23 +4,35 @@ import Link from "next/link";
 import { useState } from "react";
 import { EnginnWordmark } from "@/components/EnginnBrand";
 import EnginnExtra from "@/components/EnginnExtra";
+import WorkoutRecoveryRoutine from "@/components/WorkoutRecoveryRoutine";
 import { useHyroxData } from "@/hooks/useHyroxData";
 import { blockFeedbackLabel, blockFeedbackToRpe } from "@/lib/block-feedback";
 import { resolveTrainingLocation } from "@/lib/training-context";
-import type { BlockFeedback, EnginnExtraResult, EquipmentId, StepSplit, WorkoutTemplate } from "@/lib/types";
+import { clearPreWorkoutRecovery, loadPreWorkoutRecovery } from "@/lib/workout-recovery-storage";
+import type { BlockFeedback, EnginnExtraResult, EquipmentId, RecoveryRoutineResult, StepSplit, WorkoutTemplate } from "@/lib/types";
 
 function formatDuration(seconds: number) {
-  const hours = Math.floor(seconds / 3600); const minutes = Math.floor((seconds % 3600) / 60); const remainingSeconds = seconds % 60;
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const remainingSeconds = seconds % 60;
   return [hours, minutes, remainingSeconds].map((value) => String(value).padStart(2, "0")).join(":");
 }
 
-type Props = { template: WorkoutTemplate; scheduledWorkoutId?: string; durationSeconds: number; splits: StepSplit[]; blockFeedbacks: BlockFeedback[] };
+type Props = {
+  template: WorkoutTemplate;
+  scheduledWorkoutId?: string;
+  durationSeconds: number;
+  splits: StepSplit[];
+  blockFeedbacks: BlockFeedback[];
+};
 
 export default function WorkoutResultForm({ template, scheduledWorkoutId, durationSeconds, splits, blockFeedbacks }: Props) {
   const { data, addResult, updateResult, updateScheduledWorkout } = useHyroxData();
   const [notes, setNotes] = useState("");
   const [saved, setSaved] = useState(false);
   const [savedResultId, setSavedResultId] = useState<string>();
+  const [postRecoveryResolved, setPostRecoveryResolved] = useState(false);
+  const [postRecoveryCompleted, setPostRecoveryCompleted] = useState(false);
   const scheduledWorkout = scheduledWorkoutId
     ? data.scheduledWorkouts.find((item) => item.id === scheduledWorkoutId)
     : undefined;
@@ -28,7 +40,7 @@ export default function WorkoutResultForm({ template, scheduledWorkoutId, durati
   const location = scheduledWorkout?.trainingLocation
     ? resolveTrainingLocation(scheduledWorkout.trainingLocation, data.trainingLocations ?? [])
     : null;
-  const extraEquipment: EquipmentId[] = location?.equipment ?? ["none"];
+  const recoveryEquipment: EquipmentId[] = location?.equipment ?? ["none"];
   const rpe = blockFeedbacks.length > 0
     ? Math.round(blockFeedbacks.reduce((sum, feedback) => sum + blockFeedbackToRpe(feedback.rating), 0) / blockFeedbacks.length)
     : 7;
@@ -49,6 +61,7 @@ export default function WorkoutResultForm({ template, scheduledWorkoutId, durati
     : null;
 
   function save() {
+    const preWorkoutRecovery = loadPreWorkoutRecovery(template.id, scheduledWorkoutId);
     const result = addResult({
       templateId: template.id,
       workoutTitle: template.title,
@@ -57,12 +70,27 @@ export default function WorkoutResultForm({ template, scheduledWorkoutId, durati
       metadataSnapshot: template.metadata ? structuredClone(template.metadata) : undefined,
       scheduledWorkoutId,
       exerciseOverridesSnapshot: exerciseOverrides.length > 0 ? structuredClone(exerciseOverrides) : undefined,
-      completedAt: new Date().toISOString(), durationSeconds, rpe, weights: "", notes: notes.trim(), splits, blockFeedbacks,
+      preWorkoutRecovery: preWorkoutRecovery ? structuredClone(preWorkoutRecovery) : undefined,
+      completedAt: new Date().toISOString(),
+      durationSeconds,
+      rpe,
+      weights: "",
+      notes: notes.trim(),
+      splits,
+      blockFeedbacks,
       source: "runner",
     });
+    clearPreWorkoutRecovery(template.id, scheduledWorkoutId);
     if (scheduledWorkoutId) updateScheduledWorkout(scheduledWorkoutId, { status: "completed" });
     setSavedResultId(result.id);
     setSaved(true);
+  }
+
+  function savePostRecovery(result: RecoveryRoutineResult) {
+    if (!savedResultId) return;
+    updateResult(savedResultId, { postWorkoutRecovery: result });
+    setPostRecoveryCompleted(true);
+    setPostRecoveryResolved(true);
   }
 
   function saveEnginnExtra(extra: EnginnExtraResult) {
@@ -78,18 +106,34 @@ export default function WorkoutResultForm({ template, scheduledWorkoutId, durati
             <div className="mx-auto grid size-16 place-items-center rounded-2xl bg-accent-soft text-accent">
               <svg viewBox="0 0 24 24" className="size-8" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="m7 12 3 3 7-7" strokeLinecap="round" strokeLinejoin="round" /></svg>
             </div>
-            <p className="mt-5 text-sm font-black uppercase tracking-[0.2em] text-accent">Hotovo</p>
+            <p className="mt-5 text-sm font-black uppercase tracking-[0.2em] text-accent">Hlavní workout hotový</p>
             <h1 className="mt-2 text-3xl font-black">Výsledek je uložený</h1>
-            <p className="mt-3 text-zinc-400">Hlavní trénink je bezpečně uložený. Pokud máš ještě pár minut, Enginn Extra ti sestaví krátký doplněk podle cíle a dostupného vybavení.</p>
+            <p className="mt-3 text-zinc-400">Hlavní čas a RPE jsou bezpečně uložené. Recovery a Enginn Extra se k výsledku připíšou odděleně a benchmark neovlivní.</p>
             {exerciseOverrides.length > 0 && <p className="ui-feedback ui-feedback-success mt-4 text-sm">Výsledek si pamatuje použitou variantu {exerciseOverrides.length} nahrazených cviků, takže se nebude míchat s přesným benchmarkem originálu.</p>}
           </div>
 
-          <EnginnExtra
-            equipment={extraEquipment}
-            seed={`${template.id}-${scheduledWorkoutId ?? "free"}-${new Date().toISOString().slice(0, 10)}`}
-            locationLabel={location?.label}
-            onComplete={saveEnginnExtra}
-          />
+          {!postRecoveryResolved ? (
+            <WorkoutRecoveryRoutine
+              template={template}
+              equipment={recoveryEquipment}
+              when="after"
+              locationLabel={location?.label}
+              seed={`${template.id}-${scheduledWorkoutId ?? "free"}-post-${new Date().toISOString().slice(0, 10)}`}
+              defaultDuration={8}
+              onComplete={savePostRecovery}
+              onSkip={() => setPostRecoveryResolved(true)}
+            />
+          ) : (
+            <>
+              {postRecoveryCompleted && <p className="ui-feedback ui-feedback-success text-sm">Recovery blok je uložený odděleně od hlavního workoutu.</p>}
+              <EnginnExtra
+                equipment={recoveryEquipment}
+                seed={`${template.id}-${scheduledWorkoutId ?? "free"}-${new Date().toISOString().slice(0, 10)}`}
+                locationLabel={location?.label}
+                onComplete={saveEnginnExtra}
+              />
+            </>
+          )}
 
           <div className="grid gap-3 pb-6">
             <Link href="/" className="ui-button ui-button-primary">Zobrazit doporučení</Link>
