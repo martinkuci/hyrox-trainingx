@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { PlanningShell } from "@/components/planning/PlanningShell";
 import {
@@ -128,6 +129,10 @@ export default function ExerciseLibraryPage() {
                 {exercise.team.modes.map((mode) => <span key={mode} className="ui-chip">{mode}</span>)}
               </div>
             </div>
+
+            <Link href={`/exercises/${encodeURIComponent(exercise.id)}`} className="ui-button ui-button-outline mt-5 w-full">
+              Otevřít detail cviku
+            </Link>
           </article>
         ))}
       </div>
