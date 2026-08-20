@@ -46,7 +46,7 @@ export function getExercise(exerciseId: string | undefined) {
 
 export function inferExerciseFromText(value: string) {
   const text = normalizeExerciseText(value);
-  if (!text) return undefined;
+  if (!text || /(^| )(nebo|or)( |$)/.test(text)) return undefined;
   const padded = ` ${text} `;
   return exercisePhrases.find(({ phrase }) => padded.includes(` ${phrase} `))?.exercise;
 }
