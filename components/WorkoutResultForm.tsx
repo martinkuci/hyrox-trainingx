@@ -15,9 +15,13 @@ function formatDuration(seconds: number) {
 type Props = { template: WorkoutTemplate; scheduledWorkoutId?: string; durationSeconds: number; splits: StepSplit[]; blockFeedbacks: BlockFeedback[] };
 
 export default function WorkoutResultForm({ template, scheduledWorkoutId, durationSeconds, splits, blockFeedbacks }: Props) {
-  const { addResult, updateScheduledWorkout } = useHyroxData();
+  const { data, addResult, updateScheduledWorkout } = useHyroxData();
   const [notes, setNotes] = useState("");
   const [saved, setSaved] = useState(false);
+  const scheduledWorkout = scheduledWorkoutId
+    ? data.scheduledWorkouts.find((item) => item.id === scheduledWorkoutId)
+    : undefined;
+  const exerciseOverrides = scheduledWorkout?.exerciseOverrides ?? [];
   const rpe = blockFeedbacks.length > 0
     ? Math.round(blockFeedbacks.reduce((sum, feedback) => sum + blockFeedbackToRpe(feedback.rating), 0) / blockFeedbacks.length)
     : 7;
@@ -44,6 +48,7 @@ export default function WorkoutResultForm({ template, scheduledWorkoutId, durati
       templateVersion: template.metadata?.templateVersion,
       metadataSnapshot: template.metadata ? structuredClone(template.metadata) : undefined,
       scheduledWorkoutId,
+      exerciseOverridesSnapshot: exerciseOverrides.length > 0 ? structuredClone(exerciseOverrides) : undefined,
       completedAt: new Date().toISOString(), durationSeconds, rpe, weights: "", notes: notes.trim(), splits, blockFeedbacks,
       source: "runner",
     });
@@ -61,6 +66,7 @@ export default function WorkoutResultForm({ template, scheduledWorkoutId, durati
           <p className="mt-6 text-sm font-black uppercase tracking-[0.2em] text-accent">Hotovo</p>
           <h1 className="mt-2 text-3xl font-black">Výsledek je uložený</h1>
           <p className="mt-3 text-zinc-400">Výsledek je uložený. Na přehledu uvidíš, zda podle RPE dává smysl upravit některou z dalších jednotek programu.</p>
+          {exerciseOverrides.length > 0 && <p className="ui-feedback ui-feedback-success mt-4 text-sm">Výsledek si pamatuje použitou variantu {exerciseOverrides.length} nahrazených cviků, takže se nebude míchat s přesným benchmarkem originálu.</p>}
           <div className="mt-8 grid gap-3">
             <Link href="/" className="ui-button ui-button-primary">Zobrazit doporučení</Link>
             <Link href="/history" className="ui-button ui-button-outline">Zobrazit historii</Link>
@@ -75,6 +81,7 @@ export default function WorkoutResultForm({ template, scheduledWorkoutId, durati
       <section className="mx-auto max-w-md">
         <div className="flex justify-center" role="img" aria-label="Enginn"><EnginnWordmark className="h-[1.1rem] w-auto" /></div>
         <div className="mt-4 flex items-start justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[0.22em] text-accent">Trénink dokončen</p><h1 className="mt-1 text-2xl font-black leading-tight">{template.title}</h1></div>{template.metadata?.workoutCode && <p className="ui-chip ui-chip-accent shrink-0">{template.metadata.workoutCode}-V{template.metadata.templateVersion}</p>}</div>
+        {exerciseOverrides.length > 0 && <p className="ui-chip mt-3">Přizpůsobená varianta · {exerciseOverrides.length} změn</p>}
 
         <div className="ui-card ui-card-accent mt-4 grid grid-cols-[1fr_auto] items-end gap-4 p-5">
           <div><p className="text-xs font-bold uppercase tracking-wide text-zinc-500">Celkový čas</p><p className="mt-1 font-mono text-4xl font-black text-accent">{formatDuration(durationSeconds)}</p></div>
