@@ -172,6 +172,16 @@ export default function AccountPage() {
           </Link>
         </section>
         <section className="ui-card mt-6 p-5 sm:p-6">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-accent">Zdraví</p>
+          <h2 className="mt-2 text-xl font-black">Zdraví & regenerace</h2>
+          <p className="mt-2 text-sm leading-6 text-zinc-400">
+            Připravené propojení pro Apple Health a Android Health Connect. V PWA zatím bez přístupu ke zdravotním datům.
+          </p>
+          <Link href="/account/health" className="ui-button ui-button-outline mt-5 w-full">
+            Otevřít zdraví a regeneraci
+          </Link>
+        </section>
+        <section className="ui-card mt-6 p-5 sm:p-6">
           <p className="text-xs font-black uppercase tracking-[0.18em] text-accent">Podpora</p>
           <h2 className="mt-2 text-xl font-black">Nápověda a kontakt</h2>
           <p className="mt-2 text-sm leading-6 text-zinc-400">
