@@ -1,13 +1,16 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
   buildEnginnExtra,
   ENGINN_EXTRA_DURATIONS,
   ENGINN_EXTRA_FOCUS_LABELS,
+  replaceEnginnExtraExercise,
 } from "@/lib/enginn-extra";
 import type {
   EnginnExtraDurationMinutes,
+  EnginnExtraExercise,
   EnginnExtraFocus,
   EnginnExtraResult,
   EquipmentId,
@@ -32,6 +35,8 @@ export default function EnginnExtra({ equipment, seed, locationLabel, onComplete
   const [focus, setFocus] = useState<EnginnExtraFocus>("core");
   const [durationMinutes, setDurationMinutes] = useState<EnginnExtraDurationMinutes>(8);
   const [variant, setVariant] = useState(0);
+  const [slotOverrides, setSlotOverrides] = useState<Record<number, EnginnExtraExercise>>({});
+  const [replacementCounts, setReplacementCounts] = useState<Record<number, number>>({});
   const [remainingSeconds, setRemainingSeconds] = useState(durationMinutes * 60);
   const [running, setRunning] = useState(false);
   const [started, setStarted] = useState(false);
@@ -40,6 +45,14 @@ export default function EnginnExtra({ equipment, seed, locationLabel, onComplete
   const plan = useMemo(
     () => buildEnginnExtra({ equipment, focus, durationMinutes, seed: `${seed}-variant-${variant}` }),
     [durationMinutes, equipment, focus, seed, variant],
+  );
+  const displayedExercises = useMemo(
+    () => plan.exercises.map((exercise, index) => slotOverrides[index] ?? exercise),
+    [plan.exercises, slotOverrides],
+  );
+  const activePlan = useMemo(
+    () => ({ ...plan, exercises: displayedExercises }),
+    [displayedExercises, plan],
   );
 
   useEffect(() => {
@@ -59,20 +72,51 @@ export default function EnginnExtra({ equipment, seed, locationLabel, onComplete
     setRunning(false);
     setCompleted(true);
     onComplete({
-      ...plan,
+      ...activePlan,
       completedAt: new Date().toISOString(),
       durationSeconds: durationMinutes * 60,
     });
-  }, [completed, durationMinutes, onComplete, plan, remainingSeconds, running, started]);
+  }, [activePlan, completed, durationMinutes, onComplete, remainingSeconds, running, started]);
+
+  function resetExerciseChanges() {
+    setSlotOverrides({});
+    setReplacementCounts({});
+  }
 
   function chooseFocus(nextFocus: EnginnExtraFocus) {
     setFocus(nextFocus);
     setVariant(0);
+    resetExerciseChanges();
   }
 
   function chooseDuration(nextDuration: EnginnExtraDurationMinutes) {
     setDurationMinutes(nextDuration);
     setVariant(0);
+    resetExerciseChanges();
+  }
+
+  function chooseAnotherPlan() {
+    setVariant((current) => current + 1);
+    resetExerciseChanges();
+  }
+
+  function replaceExercise(index: number) {
+    const current = displayedExercises[index];
+    if (!current) return;
+    const nextCount = (replacementCounts[index] ?? 0) + 1;
+    const replacement = replaceEnginnExtraExercise({
+      equipment,
+      focus,
+      durationMinutes,
+      currentExerciseId: current.exerciseId,
+      excludedExerciseIds: displayedExercises
+        .filter((_, exerciseIndex) => exerciseIndex !== index)
+        .map((exercise) => exercise.exerciseId),
+      seed: `${seed}-variant-${variant}-slot-${index}-replacement-${nextCount}`,
+    });
+    if (!replacement) return;
+    setSlotOverrides((currentOverrides) => ({ ...currentOverrides, [index]: replacement }));
+    setReplacementCounts((currentCounts) => ({ ...currentCounts, [index]: nextCount }));
   }
 
   function start() {
@@ -88,7 +132,7 @@ export default function EnginnExtra({ equipment, seed, locationLabel, onComplete
     setRunning(false);
     setCompleted(true);
     onComplete({
-      ...plan,
+      ...activePlan,
       completedAt: new Date().toISOString(),
       durationSeconds: elapsed,
     });
@@ -159,15 +203,26 @@ export default function EnginnExtra({ equipment, seed, locationLabel, onComplete
               </div>
               <span className="font-mono text-xl font-black text-accent">{String(durationMinutes).padStart(2, "0")}:00</span>
             </div>
-            {plan.exercises.length > 0 ? (
+            {displayedExercises.length > 0 ? (
               <ol className="mt-3 space-y-2">
-                {plan.exercises.map((exercise, index) => (
-                  <li key={exercise.exerciseId} className="flex gap-3 rounded-xl bg-surface px-3 py-2.5">
-                    <span className="font-black text-accent">{index + 1}.</span>
-                    <div>
-                      <p className="font-bold text-white">{exercise.name}</p>
-                      <p className="mt-0.5 text-xs text-zinc-400">{exercise.prescription}</p>
+                {displayedExercises.map((exercise, index) => (
+                  <li key={`${index}-${exercise.exerciseId}`} className="rounded-xl bg-surface px-3 py-2.5">
+                    <div className="flex gap-3">
+                      <span className="font-black text-accent">{index + 1}.</span>
+                      <div className="min-w-0 flex-1">
+                        <Link href={`/exercises/${encodeURIComponent(exercise.exerciseId)}`} className="font-bold text-white underline-offset-4 hover:underline">
+                          {exercise.name}
+                        </Link>
+                        <p className="mt-0.5 text-xs text-zinc-400">{exercise.prescription}</p>
+                      </div>
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => replaceExercise(index)}
+                      className="mt-2 text-xs font-bold text-accent hover:underline"
+                    >
+                      ↻ Vyměnit cvik
+                    </button>
                   </li>
                 ))}
               </ol>
@@ -179,13 +234,13 @@ export default function EnginnExtra({ equipment, seed, locationLabel, onComplete
           <div className="mt-4 grid grid-cols-[auto_1fr] gap-2">
             <button
               type="button"
-              onClick={() => setVariant((current) => current + 1)}
-              disabled={plan.exercises.length === 0}
+              onClick={chooseAnotherPlan}
+              disabled={displayedExercises.length === 0}
               className="ui-button ui-button-outline disabled:opacity-40"
             >
               Jiná sestava
             </button>
-            <button type="button" onClick={start} disabled={plan.exercises.length === 0} className="ui-button ui-button-primary disabled:opacity-40">
+            <button type="button" onClick={start} disabled={displayedExercises.length === 0} className="ui-button ui-button-primary disabled:opacity-40">
               Spustit Enginn Extra
             </button>
           </div>
@@ -198,8 +253,8 @@ export default function EnginnExtra({ equipment, seed, locationLabel, onComplete
             <p className="mt-2 text-sm text-zinc-400">Opakuj sestavu vlastním tempem. Kvalita pohybu má přednost před počtem kol.</p>
           </div>
           <ol className="mt-5 grid gap-2">
-            {plan.exercises.map((exercise, index) => (
-              <li key={exercise.exerciseId} className="ui-inset flex items-center gap-3 px-4 py-3">
+            {displayedExercises.map((exercise, index) => (
+              <li key={`${index}-${exercise.exerciseId}`} className="ui-inset flex items-center gap-3 px-4 py-3">
                 <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-accent-soft font-black text-accent">{index + 1}</span>
                 <div>
                   <p className="font-black">{exercise.name}</p>
