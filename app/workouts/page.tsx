@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { PlanningShell } from "@/components/planning/PlanningShell";
 import { useHyroxData } from "@/hooks/useHyroxData";
+import { getExerciseForStep } from "@/lib/exercise-catalog";
 import type { WorkoutTemplate } from "@/lib/types";
 import { categoryLabel } from "@/lib/workout-metadata";
 
@@ -160,6 +161,42 @@ export default function WorkoutsPage() {
                   </span>
                 ))}
               </div>
+
+              <details className="ui-inset mt-5 overflow-hidden">
+                <summary className="cursor-pointer list-none px-4 py-3 text-sm font-black text-zinc-200 [&::-webkit-details-marker]:hidden">
+                  Obsah tréninku · otevřít cviky
+                </summary>
+                <div className="space-y-4 border-t border-white/8 px-4 py-4">
+                  {template.blocks.map((block) => (
+                    <section key={block.id}>
+                      <p className="text-xs font-black uppercase tracking-[0.16em] text-accent">{block.title}</p>
+                      <ol className="mt-2 space-y-2">
+                        {block.steps.map((step, index) => {
+                          const exercise = getExerciseForStep(step);
+                          return (
+                            <li key={step.id} className="rounded-xl bg-surface px-3 py-2.5 text-sm">
+                              <div className="flex items-start gap-3">
+                                <span className="font-black text-accent">{index + 1}.</span>
+                                <div className="min-w-0 flex-1">
+                                  {exercise ? (
+                                    <Link href={`/exercises/${encodeURIComponent(exercise.id)}`} className="font-bold text-zinc-100 underline-offset-4 hover:underline">
+                                      {step.name}
+                                    </Link>
+                                  ) : (
+                                    <p className="font-bold text-zinc-100">{step.name}</p>
+                                  )}
+                                  {step.detail && <p className="mt-0.5 text-xs leading-5 text-zinc-500">{step.detail}</p>}
+                                </div>
+                                {exercise && <span className="ui-chip shrink-0 text-[10px]">Jak na to</span>}
+                              </div>
+                            </li>
+                          );
+                        })}
+                      </ol>
+                    </section>
+                  ))}
+                </div>
+              </details>
 
               <div className="mt-6 grid grid-cols-2 gap-3">
                 <Link href={`/workout/${template.id}`} className="ui-button ui-button-accent">
