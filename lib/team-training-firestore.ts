@@ -3,6 +3,7 @@ import type {
   TeamWorkoutEvent,
   TeamWorkoutParticipant,
   TeamWorkoutSession,
+  TeamWorkoutSessionPatch,
   TeamWorkoutSnapshot,
   TeamWorkoutTransport,
 } from "./team-training";
@@ -129,6 +130,14 @@ export class FirestoreTeamWorkoutTransport implements TeamWorkoutTransport {
         revision: snapshot.revision + 1,
       };
     });
+  }
+
+  updateSession(sessionId: string, patch: TeamWorkoutSessionPatch) {
+    return mutateSession(sessionId, (snapshot) => ({
+      ...snapshot,
+      session: { ...snapshot.session, ...patch },
+      revision: snapshot.revision + 1,
+    }));
   }
 
   publishEvent(sessionId: string, event: TeamWorkoutEvent) {
