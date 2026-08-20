@@ -186,6 +186,23 @@ export type TrainingAdaptationDecision = {
   decidedAt: string;
 };
 
+export type RecoveryRoutineIntent = "warmup" | "cooldown" | "mobility" | "prehab";
+export type RecoveryRoutineArea = "full-body" | "ankles-calves" | "hips" | "posterior-chain" | "shoulders" | "thoracic-back" | "core";
+export type RecoveryRoutineExercise = {
+  exerciseId: string;
+  name: string;
+  prescription: string;
+  reason?: string;
+};
+export type RecoveryRoutineResult = {
+  intent: RecoveryRoutineIntent;
+  area: RecoveryRoutineArea;
+  durationMinutes: 5 | 8 | 10 | 15;
+  exercises: RecoveryRoutineExercise[];
+  completedAt: string;
+  durationSeconds: number;
+};
+
 export type EnginnExtraFocus = "core" | "grip" | "legs" | "cardio" | "mobility" | "recovery";
 export type EnginnExtraDurationMinutes = 5 | 8 | 10;
 export type EnginnExtraExercise = {
@@ -212,6 +229,8 @@ export type WorkoutResult = {
   metadataSnapshot?: WorkoutMetadata;
   scheduledWorkoutId?: string;
   exerciseOverridesSnapshot?: ScheduledExerciseOverride[];
+  preWorkoutRecovery?: RecoveryRoutineResult;
+  postWorkoutRecovery?: RecoveryRoutineResult;
   enginnExtra?: EnginnExtraResult;
   completedAt: string;
   durationSeconds: number;
