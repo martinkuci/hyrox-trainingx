@@ -4,7 +4,7 @@ import { Suspense, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { PlanningShell } from "@/components/planning/PlanningShell";
 import { useHyroxData } from "@/hooks/useHyroxData";
-import { EXERCISE_LIBRARY, getExercise } from "@/lib/exercise-library";
+import { EXERCISE_CATEGORY_LABELS, EXERCISE_LIBRARY, getExercise, type ExerciseCategory } from "@/lib/exercise-catalog";
 import type { NewWorkoutTemplate, WorkoutBlock, WorkoutMetadata, WorkoutStep } from "@/lib/types";
 import { convertWorkoutBlock, createWorkoutBlock, WORKOUT_BLOCK_TYPES, workoutBlockTypeDescription, workoutBlockTypeLabel, type WorkoutBlockType } from "@/lib/workout-blocks";
 import { emptyMetadata, normalizeMetadata, WORKOUT_CATEGORIES } from "@/lib/workout-metadata";
@@ -29,6 +29,15 @@ function EditorContent() {
   const [error, setError] = useState("");
   const template = editId ? data.templates.find((item) => item.id === editId) : undefined;
   const knownTags = useMemo(() => Array.from(new Set(data.templates.flatMap((item) => item.tags ?? []))).sort(), [data.templates]);
+  const exercisesByCategory = useMemo(() => {
+    const groups = new Map<ExerciseCategory, typeof EXERCISE_LIBRARY>();
+    for (const exercise of [...EXERCISE_LIBRARY].sort((a, b) => a.name.localeCompare(b.name, "cs"))) {
+      const group = groups.get(exercise.category) ?? [];
+      group.push(exercise);
+      groups.set(exercise.category, group);
+    }
+    return groups;
+  }, []);
   const initialDraft = useMemo<NewWorkoutTemplate>(() => template ? {
     title: template.title, description: template.description, durationMinutes: template.durationMinutes,
     tags: [...(template.tags ?? [])], metadata: template.metadata ? structuredClone(template.metadata) : emptyMetadata(),
@@ -106,10 +115,14 @@ function EditorContent() {
           <label className="block text-xs font-black uppercase tracking-[0.14em] text-zinc-500">Cvik z knihovny
             <select value={step.exerciseId ?? ""} onChange={(event) => selectExercise(blockIndex, stepIndex, event.target.value)} className="ui-field mt-2 text-sm normal-case tracking-normal">
               <option value="">Vlastní cvik / volný text</option>
-              {EXERCISE_LIBRARY.map((exercise) => <option key={exercise.id} value={exercise.id}>{exercise.name}</option>)}
+              {[...exercisesByCategory.entries()].map(([category, exercises]) => (
+                <optgroup key={category} label={EXERCISE_CATEGORY_LABELS[category]}>
+                  {exercises.map((exercise) => <option key={exercise.id} value={exercise.id}>{exercise.name}</option>)}
+                </optgroup>
+              ))}
             </select>
           </label>
-          {selectedExercise && <div className="mt-2 flex flex-wrap gap-2"><span className="ui-chip">{selectedExercise.category}</span><span className="ui-chip">{selectedExercise.movementFamily}</span>{selectedExercise.team.modes.some((mode) => mode !== "solo") && <span className="ui-chip">tým</span>}</div>}
+          {selectedExercise && <div className="mt-2 flex flex-wrap gap-2"><span className="ui-chip">{EXERCISE_CATEGORY_LABELS[selectedExercise.category]}</span><span className="ui-chip">{selectedExercise.movementFamily}</span>{selectedExercise.tags.includes("finisher") && <span className="ui-chip">finisher</span>}{selectedExercise.team.modes.some((mode) => mode !== "solo") && <span className="ui-chip">tým</span>}</div>}
           <div className="mt-3 flex items-center gap-2"><span className="text-xs font-black text-zinc-500">{stepIndex + 1}</span><input value={step.name} onChange={(e) => updateStep(blockIndex, stepIndex, { name: e.target.value, exerciseId: undefined })} placeholder="Cvik" className="min-w-0 flex-1 bg-transparent font-bold outline-none" /><SmallButton label="Nahoru" onClick={() => moveStep(blockIndex, stepIndex, -1)}>↑</SmallButton><SmallButton label="Dolů" onClick={() => moveStep(blockIndex, stepIndex, 1)}>↓</SmallButton><SmallButton label="Smazat" onClick={() => replaceBlock(blockIndex, { ...block, steps: block.steps.filter((_, i) => i !== stepIndex) })}>×</SmallButton></div>
           <input value={step.detail} onChange={(e) => updateStep(blockIndex, stepIndex, { detail: e.target.value })} placeholder="Detail, tempo, vzdálenost, opakování nebo váha" className="mt-3 w-full bg-transparent text-sm text-zinc-400 outline-none" />
         </div>;
