@@ -1,4 +1,4 @@
-export type WorkoutStep = { id: string; name: string; detail: string };
+export type WorkoutStep = { id: string; name: string; detail: string; exerciseId?: string };
 export type ManualWorkoutBlock = { id: string; type: "manual"; title: string; repeat: number; steps: WorkoutStep[] };
 export type TimedRecoveryFields = { restSeconds: number; restName?: string; restDetail?: string };
 export type ForTimeWorkoutBlock = { id: string; type: "for-time"; title: string; rounds: number; steps: WorkoutStep[] } & TimedRecoveryFields;
