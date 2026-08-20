@@ -5,13 +5,20 @@ import { Suspense } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import WorkoutRunner from "@/components/WorkoutRunner";
 import { useHyroxData } from "@/hooks/useHyroxData";
+import { applyExerciseOverrides } from "@/lib/exercise-substitution";
 
 function WorkoutPageContent() {
   const params = useParams<{ id: string }>();
   const searchParams = useSearchParams();
   const { data, ready } = useHyroxData();
-  const template = data.templates.find((item) => item.id === params.id);
+  const baseTemplate = data.templates.find((item) => item.id === params.id);
   const scheduleId = searchParams.get("scheduleId") ?? undefined;
+  const schedule = scheduleId
+    ? data.scheduledWorkouts.find((item) => item.id === scheduleId)
+    : undefined;
+  const template = baseTemplate
+    ? applyExerciseOverrides(baseTemplate, schedule?.exerciseOverrides)
+    : undefined;
 
   if (!ready) {
     return (
@@ -54,4 +61,3 @@ export default function WorkoutPage() {
     </Suspense>
   );
 }
-
