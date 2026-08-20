@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { StatusBadge } from "@/components/planning/StatusBadge";
+import { applyExerciseOverrides } from "@/lib/exercise-substitution";
 import {
   EQUIPMENT_LABELS,
   findLocationAlternatives,
@@ -11,6 +12,7 @@ import {
   TRAINING_LOCATION_PRESETS,
   workoutContentSummary,
 } from "@/lib/training-context";
+import { planTrainingLocationChange } from "@/lib/training-location-change";
 import type {
   ScheduledTrainingLocation,
   ScheduledWorkout,
@@ -49,8 +51,9 @@ export function ScheduledWorkoutContextCard({
   onDelete,
 }: Props) {
   const location: ScheduledTrainingLocation = item.trainingLocation ?? "hybrid-gym";
-  const equipment = requiredEquipmentForTemplate(template);
-  const content = workoutContentSummary(template);
+  const effectiveTemplate = applyExerciseOverrides(template, item.exerciseOverrides);
+  const equipment = requiredEquipmentForTemplate(effectiveTemplate);
+  const content = workoutContentSummary(effectiveTemplate);
   const alternatives = findLocationAlternatives({
     current: template,
     templates,
@@ -59,10 +62,18 @@ export function ScheduledWorkoutContextCard({
   });
   const locationProfile = resolveTrainingLocation(location, locations)
     ?? resolveTrainingLocation("hybrid-gym", locations)!;
-  const fitsLocation = templateFitsLocation(template, location, locations);
+  const fitsLocation = templateFitsLocation(effectiveTemplate, location, locations);
+  const exerciseOverrideCount = item.exerciseOverrides?.length ?? 0;
 
   function changeLocation(next: ScheduledTrainingLocation) {
-    onUpdate({ trainingLocation: next });
+    const plan = planTrainingLocationChange({
+      schedule: item,
+      currentTemplate: template,
+      templates,
+      location: next,
+      customLocations: locations,
+    });
+    onUpdate(plan.updates);
   }
 
   function changeWorkout(templateId: string) {
@@ -70,6 +81,7 @@ export function ScheduledWorkoutContextCard({
     onUpdate({
       templateId,
       originalTemplateId: item.originalTemplateId ?? item.templateId,
+      exerciseOverrides: undefined,
     });
   }
 
@@ -83,6 +95,12 @@ export function ScheduledWorkoutContextCard({
         </div>
         <StatusBadge status={item.status} />
       </div>
+
+      {exerciseOverrideCount > 0 && (
+        <p className="ui-feedback ui-feedback-success mt-4 text-sm font-bold">
+          Enginn upravil {exerciseOverrideCount} {exerciseOverrideCount === 1 ? "cvik" : exerciseOverrideCount < 5 ? "cviky" : "cviků"} podle vybavení tohoto místa. Struktura a cíl tréninku zůstávají zachované.
+        </p>
+      )}
 
       <details className="ui-inset mt-4 p-4" open={item.status === "planned"}>
         <summary className="cursor-pointer list-none font-black">Obsah tréninku a vybavení</summary>
@@ -134,13 +152,13 @@ export function ScheduledWorkoutContextCard({
           </select>
         </label>
         <label>
-          <span className="text-xs font-bold uppercase tracking-wide text-zinc-500">Rychlá změna tréninku</span>
+          <span className="text-xs font-bold uppercase tracking-wide text-zinc-500">Ruční změna celého tréninku</span>
           <select
             value=""
             onChange={(event) => changeWorkout(event.target.value)}
             className="ui-field mt-2 px-3 py-3 text-sm"
           >
-            <option value="">Vybrat kompatibilní alternativu</option>
+            <option value="">Vybrat jiný kompatibilní workout</option>
             {alternatives.map((candidate) => (
               <option key={candidate.id} value={candidate.id}>
                 {candidate.title} · {candidate.durationMinutes} min
@@ -157,7 +175,7 @@ export function ScheduledWorkoutContextCard({
       )}
       {!fitsLocation && item.status === "planned" && (
         <p className="ui-feedback ui-feedback-warning mt-3 text-sm font-bold">
-          Na tomto místě chybí část vybavení pro aktuální trénink. Vyber kompatibilní alternativu nebo jiné místo.
+          Na tomto místě stále chybí vybavení, které zatím Enginn neumí bezpečně nahradit. Můžeš vybrat jiný workout nebo jiné místo.
         </p>
       )}
 
