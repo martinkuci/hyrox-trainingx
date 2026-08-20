@@ -7,6 +7,7 @@ import type {
   WorkoutCategory,
   WorkoutTemplate,
 } from "./types";
+import { getExercise } from "./exercise-catalog";
 import {
   getTrainingDiscipline,
   inferTemplateDisciplineIds,
@@ -24,40 +25,60 @@ export const EQUIPMENT_LABELS: Record<EquipmentId, string> = {
   rower: "veslo",
   "bike-erg": "BikeErg",
   "air-bike": "air bike / assault bike",
+  "stair-climber": "stair climber / schody",
+  elliptical: "eliptický trenažér",
+  "spin-bike": "spinning bike",
   kettlebell: "kettlebell",
   dumbbell: "jednoručky",
   sandbag: "sandbag",
   "medicine-ball": "medicinbal",
   "wall-ball": "wall ball + terč",
   barbell: "osa + kotouče",
+  "trap-bar": "trap bar / hex bar",
+  "ez-bar": "EZ osa",
+  landmine: "landmine adaptér",
   rack: "rack / stojan",
   bench: "lavice",
   box: "box / bedna",
   "pull-up-bar": "hrazda",
+  "dip-bars": "bradla",
+  rings: "gymnastické kruhy",
+  "suspension-trainer": "TRX / závěsný systém",
   "cable-machine": "kladka / cable machine",
+  "lat-pulldown": "lat pulldown",
+  "seated-row-machine": "veslovací posilovací stroj",
+  "chest-press-machine": "chest press stroj",
+  "shoulder-press-machine": "shoulder press stroj",
+  "pec-deck": "pec deck / rear delt",
+  "leg-press": "leg press",
+  "hack-squat": "hack squat",
+  "leg-extension": "leg extension",
+  "leg-curl": "leg curl",
+  "calf-machine": "stroj na lýtka",
+  "hip-abductor-machine": "abductor machine",
+  "hip-adductor-machine": "adductor machine",
+  "hip-thrust-machine": "hip thrust / glute drive stroj",
+  "smith-machine": "Smith machine",
+  "assisted-pullup": "assisted pull-up / dip stroj",
+  "back-extension-bench": "hyperextenze / back extension lavice",
+  ghd: "GHD",
+  "ab-wheel": "ab wheel",
+  "battle-rope": "battle rope",
+  "jump-rope": "švihadlo",
   "resistance-band": "odporové gumy",
+  mat: "podložka",
 };
 
 export const ALL_TRAINING_EQUIPMENT: EquipmentId[] = [
-  "running",
-  "treadmill",
-  "ski-erg",
-  "sled",
-  "rower",
-  "bike-erg",
-  "air-bike",
-  "kettlebell",
-  "dumbbell",
-  "sandbag",
-  "medicine-ball",
-  "wall-ball",
-  "barbell",
-  "rack",
-  "bench",
-  "box",
-  "pull-up-bar",
-  "cable-machine",
-  "resistance-band",
+  "running", "treadmill", "ski-erg", "sled", "rower", "bike-erg", "air-bike",
+  "stair-climber", "elliptical", "spin-bike", "kettlebell", "dumbbell", "sandbag",
+  "medicine-ball", "wall-ball", "barbell", "trap-bar", "ez-bar", "landmine", "rack",
+  "bench", "box", "pull-up-bar", "dip-bars", "rings", "suspension-trainer", "cable-machine",
+  "lat-pulldown", "seated-row-machine", "chest-press-machine", "shoulder-press-machine",
+  "pec-deck", "leg-press", "hack-squat", "leg-extension", "leg-curl", "calf-machine",
+  "hip-abductor-machine", "hip-adductor-machine", "hip-thrust-machine", "smith-machine",
+  "assisted-pullup", "back-extension-bench", "ghd", "ab-wheel", "battle-rope", "jump-rope",
+  "resistance-band", "mat",
 ];
 
 export const TRAINING_LOCATION_PRESETS: Record<
@@ -71,21 +92,23 @@ export const TRAINING_LOCATION_PRESETS: Record<
   },
   home: {
     label: "Doma / minimum",
-    description: "Bez strojů, případně základní volné váhy a gumy.",
-    equipment: ["none", "running", "kettlebell", "dumbbell", "resistance-band"],
+    description: "Vlastní váha a běžné domácí vybavení.",
+    equipment: ["none", "running", "kettlebell", "dumbbell", "resistance-band", "mat", "jump-rope", "suspension-trainer"],
   },
   "standard-gym": {
     label: "Běžné fitko",
-    description: "Běžná silová a kardio výbava bez jistoty kompletní hybridní zóny.",
+    description: "Běžná silová, strojová a kardio výbava bez jistoty kompletní HYROX zóny.",
     equipment: [
-      "none", "treadmill", "rower", "air-bike", "kettlebell", "dumbbell",
-      "medicine-ball", "barbell", "rack", "bench", "box", "pull-up-bar",
-      "cable-machine", "resistance-band",
+      "none", "treadmill", "rower", "spin-bike", "elliptical", "air-bike", "kettlebell", "dumbbell",
+      "medicine-ball", "barbell", "rack", "bench", "box", "pull-up-bar", "dip-bars", "cable-machine",
+      "lat-pulldown", "seated-row-machine", "chest-press-machine", "shoulder-press-machine", "pec-deck",
+      "leg-press", "leg-extension", "leg-curl", "calf-machine", "smith-machine", "assisted-pullup",
+      "back-extension-bench", "resistance-band", "mat",
     ],
   },
   "hybrid-gym": {
     label: "Hybridní fitko",
-    description: "Plná HYROX / functional výbava.",
+    description: "Plná HYROX / functional výbava včetně běžné posilovny.",
     equipment: ["none", ...ALL_TRAINING_EQUIPMENT],
   },
 };
@@ -98,18 +121,48 @@ const EQUIPMENT_ALIASES: Partial<Record<EquipmentId, string[]>> = {
   rower: ["veslo", "rower", "rowing"],
   "bike-erg": ["bikeerg", "bike erg"],
   "air-bike": ["air bike", "assault bike", "echo bike"],
+  "stair-climber": ["stair climber", "stairmaster"],
+  elliptical: ["elliptical", "eliptický"],
+  "spin-bike": ["spin bike", "spinning"],
   kettlebell: ["kettlebell", "kb "],
   dumbbell: ["dumbbell", "jednoručk"],
   sandbag: ["sandbag", "sand bag"],
   "medicine-ball": ["medicine ball", "med ball", "medicinbal"],
   "wall-ball": ["wall ball", "wall-ball", "wallball"],
   barbell: ["barbell", "deadlift", "back squat", "front squat", "osa", "kotouč"],
+  "trap-bar": ["trap bar", "hex bar"],
+  "ez-bar": ["ez bar", "ez osa"],
+  landmine: ["landmine"],
   rack: ["rack", "squat rack", "stojan"],
   bench: ["bench press", "bench", "lavice"],
   box: ["box jump", "box step", "step-over", "step over"],
   "pull-up-bar": ["pull-up", "pull up", "hrazd", "toes to bar"],
+  "dip-bars": ["dip bars", "bradla"],
+  rings: ["rings", "kruhy", "ring row", "ring dip"],
+  "suspension-trainer": ["trx", "suspension trainer"],
   "cable-machine": ["cable", "kladk"],
+  "lat-pulldown": ["lat pulldown"],
+  "seated-row-machine": ["seated row machine"],
+  "chest-press-machine": ["chest press machine"],
+  "shoulder-press-machine": ["shoulder press machine"],
+  "pec-deck": ["pec deck", "rear delt machine"],
+  "leg-press": ["leg press"],
+  "hack-squat": ["hack squat"],
+  "leg-extension": ["leg extension"],
+  "leg-curl": ["leg curl"],
+  "calf-machine": ["calf machine"],
+  "hip-abductor-machine": ["abductor machine"],
+  "hip-adductor-machine": ["adductor machine"],
+  "hip-thrust-machine": ["hip thrust machine", "glute drive"],
+  "smith-machine": ["smith machine"],
+  "assisted-pullup": ["assisted pull-up", "assisted dip"],
+  "back-extension-bench": ["back extension", "hyperextension"],
+  ghd: ["ghd"],
+  "ab-wheel": ["ab wheel"],
+  "battle-rope": ["battle rope"],
+  "jump-rope": ["jump rope", "švihadlo", "double under", "single under"],
   "resistance-band": ["resistance band", "banded", "odporov", "guma"],
+  mat: ["podložka", "mat"],
 };
 
 const PHASE_CATEGORY_ORDER: Record<ProgramPhase, WorkoutCategory[]> = {
@@ -168,11 +221,17 @@ export function equipmentRequirementsForTemplate(template: WorkoutTemplate): Equ
     }
   };
 
-  const workoutPieces = template.blocks.flatMap((block) => [
-    block.title,
-    ...block.steps.map((step) => `${step.name} ${step.detail}`),
-  ]);
-  for (const piece of workoutPieces) addFromPiece(piece);
+  for (const block of template.blocks) {
+    addFromPiece(block.title);
+    for (const step of block.steps) {
+      const exercise = getExercise(step.exerciseId);
+      if (exercise) {
+        for (const requirement of exercise.equipment) add(requirement.anyOf);
+      } else {
+        addFromPiece(`${step.name} ${step.detail}`);
+      }
+    }
+  }
 
   if (requirements.length === 0) {
     for (const piece of [template.title, template.description, ...template.tags]) addFromPiece(piece);
@@ -205,6 +264,10 @@ export function equipmentRequirementLabelsForTemplate(template: WorkoutTemplate)
 }
 
 export function requiredEquipmentForTemplate(template: WorkoutTemplate): EquipmentId[] {
+  const structured = template.blocks.flatMap((block) => block.steps.flatMap((step) => {
+    const exercise = getExercise(step.exerciseId);
+    return exercise?.equipment.flatMap((requirement) => requirement.anyOf.length === 1 ? requirement.anyOf : []) ?? [];
+  }));
   const text = templateSearchText(template);
   const explicit = (Object.entries(EQUIPMENT_ALIASES) as Array<[EquipmentId, string[]]>)
     .filter(([, aliases]) => aliases.some((alias) => text.includes(alias)))
@@ -221,7 +284,7 @@ export function requiredEquipmentForTemplate(template: WorkoutTemplate): Equipme
     unambiguous.push("running");
   }
 
-  return [...new Set([...explicit, ...unambiguous])];
+  return [...new Set([...structured, ...explicit, ...unambiguous])];
 }
 
 export function templateFitsEquipment(template: WorkoutTemplate, equipment: EquipmentId[]) {
