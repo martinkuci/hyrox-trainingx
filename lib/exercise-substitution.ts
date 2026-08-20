@@ -1,4 +1,4 @@
-import { exerciseFitsEquipment, findExerciseAlternatives, getExercise } from "./exercise-catalog";
+import { exerciseFitsEquipment, findExerciseAlternatives, getExerciseForStep } from "./exercise-catalog";
 import type { EquipmentId, WorkoutStep, WorkoutTemplate } from "./types";
 
 export type ExerciseSubstitution = {
@@ -11,12 +11,13 @@ export type ExerciseSubstitution = {
 };
 
 export function findStepAlternatives(step: WorkoutStep, equipment: EquipmentId[]) {
-  if (!step.exerciseId) return [];
-  return findExerciseAlternatives(step.exerciseId, equipment);
+  const exercise = getExerciseForStep(step);
+  if (!exercise) return [];
+  return findExerciseAlternatives(exercise.id, equipment);
 }
 
 export function stepFitsEquipment(step: WorkoutStep, equipment: EquipmentId[]) {
-  const exercise = getExercise(step.exerciseId);
+  const exercise = getExerciseForStep(step);
   return exercise ? exerciseFitsEquipment(exercise, equipment) : true;
 }
 
@@ -30,7 +31,7 @@ export function substituteTemplateExercisesForEquipment(
   const blocks = template.blocks.map((block) => ({
     ...block,
     steps: block.steps.map((step) => {
-      const source = getExercise(step.exerciseId);
+      const source = getExerciseForStep(step);
       if (!source || exerciseFitsEquipment(source, equipment)) return step;
 
       const replacement = findExerciseAlternatives(source.id, equipment)[0];
