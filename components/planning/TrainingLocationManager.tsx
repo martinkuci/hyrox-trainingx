@@ -19,15 +19,27 @@ const setupPresets: Array<{ id: TrainingLocationPresetId; label: string }> = [
 const equipmentGroups: Array<{ label: string; items: EquipmentId[] }> = [
   {
     label: "Kardio",
-    items: ["running", "treadmill", "ski-erg", "rower", "bike-erg", "air-bike"],
+    items: ["running", "treadmill", "ski-erg", "rower", "bike-erg", "air-bike", "stair-climber", "elliptical", "spin-bike"],
   },
   {
-    label: "Hybrid / funkční zóna",
-    items: ["sled", "sandbag", "medicine-ball", "wall-ball", "box"],
+    label: "HYROX / funkční zóna",
+    items: ["sled", "sandbag", "medicine-ball", "wall-ball", "box", "battle-rope", "jump-rope"],
   },
   {
-    label: "Síla a doplňky",
-    items: ["kettlebell", "dumbbell", "barbell", "rack", "bench", "pull-up-bar", "cable-machine", "resistance-band"],
+    label: "Volné váhy a stojany",
+    items: ["kettlebell", "dumbbell", "barbell", "trap-bar", "ez-bar", "landmine", "rack", "bench", "resistance-band"],
+  },
+  {
+    label: "Hrazdy, gymnastika a core",
+    items: ["pull-up-bar", "dip-bars", "rings", "suspension-trainer", "ab-wheel", "ghd", "back-extension-bench", "mat"],
+  },
+  {
+    label: "Posilovací stroje",
+    items: [
+      "cable-machine", "lat-pulldown", "seated-row-machine", "chest-press-machine", "shoulder-press-machine",
+      "pec-deck", "leg-press", "hack-squat", "leg-extension", "leg-curl", "calf-machine",
+      "hip-abductor-machine", "hip-adductor-machine", "hip-thrust-machine", "smith-machine", "assisted-pullup",
+    ],
   },
 ];
 
@@ -47,7 +59,7 @@ function EquipmentChecklist({
   }
 
   return (
-    <div className="mt-4 max-h-[46vh] space-y-4 overflow-y-auto overscroll-contain pr-1">
+    <div className="mt-4 max-h-[52vh] space-y-4 overflow-y-auto overscroll-contain pr-1">
       {equipmentGroups.map((group) => (
         <div key={group.label}>
           <p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">{group.label}</p>
@@ -250,7 +262,7 @@ export function TrainingLocationManager({
           <details className="mt-3 rounded-xl border border-white/8 bg-black/15 p-3 text-xs text-zinc-400">
             <summary className="cursor-pointer font-bold text-zinc-300">Nevím, co některé vybavení znamená</summary>
             <p className="mt-2 leading-5">
-              Klidně ho nech nezaškrtnuté a doplň ho později. SkiErg je stojící tahový ergometr, air bike je větrákové kolo s madly, rack je stojan na osu a sled jsou saně na tlačení nebo tahání.
+              Neznámou položku můžeš nechat nezaškrtnutou a doplnit ji později. Výbava je rozdělená na kardio, HYROX/functional, volné váhy, gymnastiku a klasické posilovací stroje.
             </p>
           </details>
 
