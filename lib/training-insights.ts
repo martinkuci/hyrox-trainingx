@@ -245,12 +245,17 @@ function exerciseVariationKey(result: WorkoutResult) {
     .join("|");
 }
 
+function teamVariationSuffix(result: WorkoutResult) {
+  return result.teamFormat ? `:team:${result.teamFormat}` : "";
+}
+
 function comparisonKey(result: WorkoutResult) {
   const workoutCode = result.workoutCode ?? result.metadataSnapshot?.workoutCode;
   const base = workoutCode ? `code:${workoutCode}` : result.templateId ? `template:${result.templateId}` : null;
   if (!base) return null;
   const variation = exerciseVariationKey(result);
-  return variation === "base" ? base : `${base}:variant:${variation}`;
+  const variantSuffix = variation === "base" ? "" : `:variant:${variation}`;
+  return `${base}${teamVariationSuffix(result)}${variantSuffix}`;
 }
 
 function benchmarkIdentity(result: WorkoutResult) {
@@ -258,15 +263,16 @@ function benchmarkIdentity(result: WorkoutResult) {
   const templateVersion = result.templateVersion ?? result.metadataSnapshot?.templateVersion;
   const variation = exerciseVariationKey(result);
   const variantSuffix = variation === "base" ? "" : `:variant:${variation}`;
+  const teamSuffix = teamVariationSuffix(result);
   if (workoutCode && Number.isInteger(templateVersion) && Number(templateVersion) > 0) {
     return {
-      key: `code:${workoutCode}:v${templateVersion}${variantSuffix}`,
+      key: `code:${workoutCode}:v${templateVersion}${teamSuffix}${variantSuffix}`,
       workoutCode,
       templateVersion: Number(templateVersion),
     };
   }
   if (!result.templateId) return null;
-  return { key: `template:${result.templateId}${variantSuffix}`, workoutCode: null, templateVersion: null };
+  return { key: `template:${result.templateId}${teamSuffix}${variantSuffix}`, workoutCode: null, templateVersion: null };
 }
 
 export function buildComparableWorkouts(
