@@ -6,7 +6,7 @@ import {
 } from "./exercise-library";
 import { EXTENDED_EXERCISE_LIBRARY } from "./exercise-library-extended";
 import { ACCESSORY_EXERCISE_LIBRARY } from "./exercise-library-accessories";
-import type { EquipmentId } from "./types";
+import type { EquipmentId, WorkoutStep } from "./types";
 
 export { EXERCISE_CATEGORY_LABELS };
 export type { ExerciseCategory, ExerciseDefinition };
@@ -19,9 +19,40 @@ export const EXERCISE_LIBRARY: ExerciseDefinition[] = [
 
 const exerciseById = new Map(EXERCISE_LIBRARY.map((exercise) => [exercise.id, exercise]));
 
+function normalizeExerciseText(value: string) {
+  return value
+    .toLocaleLowerCase("cs")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+const exercisePhrases = EXERCISE_LIBRARY
+  .flatMap((exercise) => [exercise.name, ...exercise.aliases].map((phrase) => ({
+    exercise,
+    phrase: normalizeExerciseText(phrase),
+  })))
+  .filter((item, index, all) => (
+    item.phrase.length >= 3
+    && all.findIndex((candidate) => candidate.exercise.id === item.exercise.id && candidate.phrase === item.phrase) === index
+  ))
+  .sort((left, right) => right.phrase.length - left.phrase.length);
+
 export function getExercise(exerciseId: string | undefined) {
   if (!exerciseId) return undefined;
   return exerciseById.get(exerciseId);
+}
+
+export function inferExerciseFromText(value: string) {
+  const text = normalizeExerciseText(value);
+  if (!text) return undefined;
+  const padded = ` ${text} `;
+  return exercisePhrases.find(({ phrase }) => padded.includes(` ${phrase} `))?.exercise;
+}
+
+export function getExerciseForStep(step: Pick<WorkoutStep, "exerciseId" | "name" | "detail">) {
+  return getExercise(step.exerciseId) ?? inferExerciseFromText(`${step.name} ${step.detail}`);
 }
 
 export function exerciseFitsEquipment(exercise: ExerciseDefinition, equipment: EquipmentId[]) {
