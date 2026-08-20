@@ -6,6 +6,7 @@ import ConfirmDialog from "@/components/ConfirmDialog";
 import { PlanningShell } from "@/components/planning/PlanningShell";
 import { useHyroxData } from "@/hooks/useHyroxData";
 import { getExerciseForStep } from "@/lib/exercise-catalog";
+import { inferWorkoutRecoveryAreas } from "@/lib/recovery-builder";
 import type { WorkoutTemplate } from "@/lib/types";
 import { categoryLabel } from "@/lib/workout-metadata";
 
@@ -55,11 +56,14 @@ export default function WorkoutsPage() {
     <PlanningShell
       eyebrow="Knihovna"
       title="Trénovat"
-      description="Vyber hotový trénink, skládej ho z jednotlivých cviků nebo rovnou začni dnešní jednotku."
+      description="Vyber hotový trénink, skládej ho z jednotlivých cviků nebo doplň přípravu a kompenzaci."
       action={
-        <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto">
+        <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:justify-end">
           <Link href="/workouts/generate" className="ui-button ui-button-primary ui-button-sm">
             Sestavit
+          </Link>
+          <Link href="/recovery" className="ui-button ui-button-outline ui-button-sm">
+            Regenerace
           </Link>
           <Link href="/exercises" className="ui-button ui-button-outline ui-button-sm">
             Cviky
@@ -67,7 +71,7 @@ export default function WorkoutsPage() {
           <Link href="/import" className="ui-button ui-button-outline ui-button-sm">
             Import
           </Link>
-          <Link href="/workouts/editor" className="ui-button ui-button-outline ui-button-sm">
+          <Link href="/workouts/editor" className="ui-button ui-button-outline ui-button-sm sm:col-span-2">
             + Ručně
           </Link>
         </div>
@@ -117,6 +121,7 @@ export default function WorkoutsPage() {
       <div className="space-y-4">
         {templates.map((template) => {
           const metadata = template.metadata;
+          const recoveryAreas = inferWorkoutRecoveryAreas(template);
           return (
             <article key={template.id} className="ui-card p-5 sm:p-6">
               <div className="flex flex-wrap items-center gap-2">
@@ -164,6 +169,16 @@ export default function WorkoutsPage() {
                   </span>
                 ))}
               </div>
+
+              {recoveryAreas.length > 0 && (
+                <div className="mt-4 rounded-xl border border-white/8 bg-white/[0.02] px-3 py-3">
+                  <p className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">Pro přípravu / kompenzaci</p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {recoveryAreas.map((area) => <span key={area.area} className="ui-chip text-[10px]">{area.label}</span>)}
+                    <Link href="/recovery" className="ui-chip ui-chip-accent text-[10px]">Sestavit blok</Link>
+                  </div>
+                </div>
+              )}
 
               <details className="ui-inset mt-5 overflow-hidden">
                 <summary className="cursor-pointer list-none px-4 py-3 text-sm font-black text-zinc-200 [&::-webkit-details-marker]:hidden">
