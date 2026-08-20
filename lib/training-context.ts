@@ -7,7 +7,7 @@ import type {
   WorkoutCategory,
   WorkoutTemplate,
 } from "./types";
-import { getExercise } from "./exercise-catalog";
+import { getExerciseForStep } from "./exercise-catalog";
 import {
   getTrainingDiscipline,
   inferTemplateDisciplineIds,
@@ -173,20 +173,6 @@ const PHASE_CATEGORY_ORDER: Record<ProgramPhase, WorkoutCategory[]> = {
   taper: ["recovery", "base-engine", "threshold", "mixed", "strength", "race-simulation", "long-engine", "base-builder"],
 };
 
-function templateSearchText(template: WorkoutTemplate) {
-  return [
-    template.title,
-    template.description,
-    ...template.tags,
-    ...template.blocks.flatMap((block) => [
-      block.title,
-      ...block.steps.flatMap((step) => [step.name, step.detail]),
-    ]),
-  ]
-    .join(" ")
-    .toLocaleLowerCase("cs");
-}
-
 function equipmentMentions(text: string) {
   const normalized = text.toLocaleLowerCase("cs");
   return (Object.entries(EQUIPMENT_ALIASES) as Array<[EquipmentId, string[]]>)
@@ -222,9 +208,8 @@ export function equipmentRequirementsForTemplate(template: WorkoutTemplate): Equ
   };
 
   for (const block of template.blocks) {
-    addFromPiece(block.title);
     for (const step of block.steps) {
-      const exercise = getExercise(step.exerciseId);
+      const exercise = getExerciseForStep(step);
       if (exercise) {
         for (const requirement of exercise.equipment) add(requirement.anyOf);
       } else {
@@ -234,21 +219,24 @@ export function equipmentRequirementsForTemplate(template: WorkoutTemplate): Equ
   }
 
   if (requirements.length === 0) {
-    for (const piece of [template.title, template.description, ...template.tags]) addFromPiece(piece);
+    for (const piece of [
+      ...template.blocks.map((block) => block.title),
+      template.title,
+      template.description,
+      ...template.tags,
+    ]) addFromPiece(piece);
   }
 
-  const disciplines = inferTemplateDisciplineIds(template);
-  for (const disciplineId of disciplines) {
-    if (disciplineId === "run") {
-      if (!requirements.some((item) => item.anyOf.includes("running") || item.anyOf.includes("treadmill"))) {
+  if (requirements.length === 0) {
+    const disciplines = inferTemplateDisciplineIds(template);
+    for (const disciplineId of disciplines) {
+      if (disciplineId === "run") {
         add(["running", "treadmill"]);
+        continue;
       }
-      continue;
+      const options = getTrainingDiscipline(disciplineId)?.equipment ?? [];
+      if (options.length === 1 && options[0] !== "none") add([options[0]]);
     }
-    const options = getTrainingDiscipline(disciplineId)?.equipment ?? [];
-    if (options.length !== 1 || options[0] === "none") continue;
-    const equipment = options[0];
-    if (!requirements.some((item) => item.anyOf.includes(equipment))) add([equipment]);
   }
 
   return requirements;
@@ -264,27 +252,11 @@ export function equipmentRequirementLabelsForTemplate(template: WorkoutTemplate)
 }
 
 export function requiredEquipmentForTemplate(template: WorkoutTemplate): EquipmentId[] {
-  const structured = template.blocks.flatMap((block) => block.steps.flatMap((step) => {
-    const exercise = getExercise(step.exerciseId);
-    return exercise?.equipment.flatMap((requirement) => requirement.anyOf.length === 1 ? requirement.anyOf : []) ?? [];
-  }));
-  const text = templateSearchText(template);
-  const explicit = (Object.entries(EQUIPMENT_ALIASES) as Array<[EquipmentId, string[]]>)
-    .filter(([, aliases]) => aliases.some((alias) => text.includes(alias)))
-    .map(([equipment]) => equipment)
-    .filter((equipment) => equipment !== "running");
-
-  const disciplines = inferTemplateDisciplineIds(template);
-  const unambiguous = disciplines.flatMap((disciplineId) => {
-    const options = getTrainingDiscipline(disciplineId)?.equipment ?? [];
-    return options.length === 1 && options[0] !== "none" ? options : [];
-  });
-
-  if (disciplines.includes("run") && !explicit.includes("treadmill")) {
-    unambiguous.push("running");
-  }
-
-  return [...new Set([...structured, ...explicit, ...unambiguous])];
+  return [...new Set(equipmentRequirementsForTemplate(template).flatMap((requirement) => {
+    if (requirement.anyOf.length === 1) return requirement.anyOf;
+    if (requirement.anyOf.includes("running") && requirement.anyOf.includes("treadmill")) return ["running" as EquipmentId];
+    return [];
+  }))];
 }
 
 export function templateFitsEquipment(template: WorkoutTemplate, equipment: EquipmentId[]) {
