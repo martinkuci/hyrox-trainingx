@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { createTeamJoinCode, isValidTeamJoinCode, normalizeTeamJoinCode } from "../lib/team-join-code.ts";
 import {
   buildTeamAssignments,
   buildTeamResult,
   canParticipantWork,
   canStartTeamSession,
-  createJoinCode,
   deriveTeamWorkoutState,
 } from "../lib/team-workout-engine.ts";
 
@@ -40,8 +40,8 @@ const template = {
 function session(format, assignments = buildTeamAssignments({ template, participants, format })) {
   return {
     version: 1,
-    id: "ENG-7421",
-    joinCode: "ENG-7421",
+    id: "ENG-7K2M-9Q4P",
+    joinCode: "ENG-7K2M-9Q4P",
     workoutTemplateId: template.id,
     workoutTemplate: template,
     format,
@@ -54,8 +54,11 @@ function session(format, assignments = buildTeamAssignments({ template, particip
   };
 }
 
-test("join code uses Enginn multiplayer format", () => {
-  assert.equal(createJoinCode(() => 0.7135), "ENG-7421");
+test("join code uses readable high-entropy Enginn multiplayer format", () => {
+  const code = createTeamJoinCode(() => 0.25);
+  assert.equal(isValidTeamJoinCode(code), true);
+  assert.match(code, /^ENG-[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}$/);
+  assert.equal(normalizeTeamJoinCode(code.replaceAll("-", "")), code);
 });
 
 test("doubles turns SkiErg and Wall Balls into shared targets", () => {
@@ -104,7 +107,7 @@ test("single-station doubles handoff changes who can work", () => {
   assert.equal(canParticipantWork(current.assignments[0], "b", handed), true);
 });
 
-test("shared distance aggregates idempotent event deltas into team progress", () => {
+test("shared distance aggregates event deltas into team progress", () => {
   const current = session("doubles");
   const assignmentId = current.assignments[0].id;
   const state = deriveTeamWorkoutState(current, [
