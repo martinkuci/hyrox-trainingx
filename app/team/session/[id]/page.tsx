@@ -1,9 +1,9 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import TeamWorkoutSession from "@/components/TeamWorkoutSession";
+import TeamWorkoutSessionCompact from "@/components/TeamWorkoutSessionCompact";
 
 export default function TeamSessionPage() {
   const params = useParams<{ id: string }>();
-  return <TeamWorkoutSession sessionId={decodeURIComponent(params.id).toUpperCase()} />;
+  return <TeamWorkoutSessionCompact sessionId={decodeURIComponent(params.id).toUpperCase()} />;
 }
