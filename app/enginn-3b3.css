@@ -16,6 +16,397 @@ ol[aria-label="Tréninková aktivita za 12 týdnů"] > li {
   min-width: 0 !important;
 }
 
+/* -------------------------------------------------------------------------
+   3B.3 ACTIVE TEAM RUNNER
+   The selector intentionally targets only the h-dvh/overflow-hidden live
+   runner. Lobby, briefing, overlays and result pages keep their own layout.
+   Visual direction follows the approved Enginn runner concept: strong hero
+   timer, one full-width progress rail, two tactical data cards, one decisive
+   action area and persistent teammate status at the bottom.
+   ------------------------------------------------------------------------- */
+main.runner-shell.h-dvh.overflow-hidden {
+  --runner-accent: #b8ff4a;
+  --runner-surface: rgba(28, 31, 34, 0.94);
+  --runner-surface-2: rgba(20, 23, 25, 0.96);
+  --runner-border: rgba(255, 255, 255, 0.14);
+  background:
+    radial-gradient(circle at 50% 35%, rgba(132, 198, 43, 0.10), transparent 31%),
+    linear-gradient(180deg, #090c0a 0%, #070909 58%, #060707 100%);
+}
+
+main.runner-shell.h-dvh.overflow-hidden > section {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-auto-rows: max-content;
+  align-content: start;
+  gap: clamp(0.42rem, 1.2dvh, 0.72rem) !important;
+  height: 100dvh !important;
+  max-width: 30rem !important;
+  padding-top: max(0.75rem, env(safe-area-inset-top)) !important;
+  padding-bottom: max(0.55rem, env(safe-area-inset-bottom)) !important;
+}
+
+/* header */
+main.runner-shell.h-dvh.overflow-hidden > section > header {
+  grid-column: 1 / -1;
+  min-height: 2.2rem;
+  padding-inline: 0.1rem;
+}
+
+main.runner-shell.h-dvh.overflow-hidden > section > header > span {
+  max-width: none !important;
+  border-color: rgba(184, 255, 74, 0.46) !important;
+  background: rgba(184, 255, 74, 0.055) !important;
+  color: var(--runner-accent) !important;
+  padding: 0.48rem 0.9rem !important;
+  border-radius: 999px !important;
+  font-size: 0.72rem !important;
+  letter-spacing: 0 !important;
+}
+
+main.runner-shell.h-dvh.overflow-hidden > section > header > div:last-child p:first-child {
+  font-size: 1rem !important;
+  letter-spacing: 0.06em;
+}
+
+main.runner-shell.h-dvh.overflow-hidden > section > header > div:last-child p:last-child {
+  margin-top: 0.1rem;
+  font-size: 0.53rem !important;
+  letter-spacing: 0.18em !important;
+}
+
+/* exercise hero + huge timer */
+main.runner-shell.h-dvh.overflow-hidden > section > section:nth-of-type(1) {
+  position: relative;
+  isolation: isolate;
+  grid-column: 1 / -1;
+  display: block !important;
+  min-height: 12.8rem;
+  padding: 0.15rem 0.35rem 0.2rem !important;
+}
+
+main.runner-shell.h-dvh.overflow-hidden > section > section:nth-of-type(1)::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  left: 50%;
+  bottom: -0.5rem;
+  width: min(86vw, 27rem);
+  height: 9.4rem;
+  transform: translateX(-50%);
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, rgba(155, 231, 58, 0.19) 0%, rgba(120, 195, 38, 0.08) 38%, transparent 72%);
+  filter: blur(4px);
+}
+
+main.runner-shell.h-dvh.overflow-hidden > section > section:nth-of-type(1) > div:first-child {
+  min-width: 0;
+}
+
+main.runner-shell.h-dvh.overflow-hidden > section > section:nth-of-type(1) h1 {
+  max-width: 100%;
+  margin-top: 0.25rem !important;
+  font-size: clamp(2rem, 9.1vw, 3.05rem) !important;
+  line-height: 0.98 !important;
+  letter-spacing: -0.035em;
+}
+
+main.runner-shell.h-dvh.overflow-hidden > section > section:nth-of-type(1) h1 + p {
+  margin-top: 0.55rem !important;
+  font-size: clamp(0.76rem, 3.1vw, 0.92rem) !important;
+  line-height: 1.25rem;
+  color: rgba(212, 212, 216, 0.63) !important;
+}
+
+main.runner-shell.h-dvh.overflow-hidden > section > section:nth-of-type(1) > div:first-child > div:last-child {
+  margin-top: 0.65rem !important;
+  gap: 0.5rem !important;
+}
+
+main.runner-shell.h-dvh.overflow-hidden > section > section:nth-of-type(1) > div:first-child .ui-chip {
+  border: 1px solid rgba(255, 255, 255, 0.13) !important;
+  background: rgba(36, 39, 42, 0.9) !important;
+  padding: 0.43rem 0.86rem !important;
+  font-size: 0.73rem !important;
+  color: rgba(244, 244, 245, 0.86) !important;
+}
+
+main.runner-shell.h-dvh.overflow-hidden > section > section:nth-of-type(1) > div:last-child {
+  position: relative;
+  margin-top: 0.75rem;
+  text-align: center !important;
+}
+
+main.runner-shell.h-dvh.overflow-hidden > section > section:nth-of-type(1) > div:last-child > p:first-child {
+  font-size: clamp(4.75rem, 23vw, 7.25rem) !important;
+  line-height: 0.78 !important;
+  letter-spacing: -0.075em !important;
+  text-align: center;
+  text-shadow: 0 0 30px rgba(184, 255, 74, 0.08);
+}
+
+main.runner-shell.h-dvh.overflow-hidden > section > section:nth-of-type(1) > div:last-child > p:last-child {
+  margin-top: 0.65rem !important;
+  color: var(--runner-accent) !important;
+  font-size: 0.66rem !important;
+  letter-spacing: 0.42em !important;
+}
+
+/* expose progress and pacing as independent grid items */
+main.runner-shell.h-dvh.overflow-hidden > section > section:nth-of-type(2) {
+  display: contents !important;
+}
+
+main.runner-shell.h-dvh.overflow-hidden > section > section:nth-of-type(2) > .ui-inset {
+  border: 1px solid var(--runner-border) !important;
+  background: linear-gradient(145deg, rgba(32, 35, 38, 0.96), rgba(22, 25, 27, 0.96)) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.025), 0 12px 30px rgba(0,0,0,0.12) !important;
+}
+
+/* full width team progress rail */
+main.runner-shell.h-dvh.overflow-hidden > section > section:nth-of-type(2) > .ui-inset:first-child {
+  grid-column: 1 / -1;
+  min-height: 4.35rem;
+  padding: 0.92rem 1.05rem !important;
+  border-radius: 1.55rem !important;
+}
+
+main.runner-shell.h-dvh.overflow-hidden > section > section:nth-of-type(2) > .ui-inset:first-child p {
+  font-size: 0.62rem !important;
+  letter-spacing: 0.19em !important;
+}
+
+main.runner-shell.h-dvh.overflow-hidden > section > section:nth-of-type(2) > .ui-inset:first-child span {
+  font-size: clamp(1.25rem, 5vw, 1.65rem) !important;
+  line-height: 1;
+}
+
+main.runner-shell.h-dvh.overflow-hidden > section > section:nth-of-type(2) > .ui-inset:first-child > div:last-child {
+  height: 0.5rem !important;
+  margin-top: 0.75rem !important;
+  background: rgba(2, 3, 3, 0.62) !important;
+}
+
+main.runner-shell.h-dvh.overflow-hidden > section > section:nth-of-type(2) > .ui-inset:first-child > div:last-child > div {
+  box-shadow: 0 0 12px rgba(184, 255, 74, 0.28);
+}
+
+/* pacing = left tactical card */
+main.runner-shell.h-dvh.overflow-hidden > section > section:nth-of-type(2) > .ui-inset:last-child {
+  grid-column: 1;
+  min-height: 7.3rem;
+  padding: 1rem !important;
+  border-radius: 1.45rem !important;
+  overflow: hidden;
+}
+
+main.runner-shell.h-dvh.overflow-hidden > section > section:nth-of-type(2) > .ui-inset:last-child::after {
+  content: "⌁";
+  position: absolute;
+  right: 1rem;
+  top: 1.05rem;
+  color: var(--runner-accent);
+  font-size: 1.45rem;
+  transform: rotate(-15deg);
+  opacity: 0.9;
+}
+
+main.runner-shell.h-dvh.overflow-hidden > section > section:nth-of-type(2) > .ui-inset:last-child {
+  position: relative;
+}
+
+main.runner-shell.h-dvh.overflow-hidden > section > section:nth-of-type(2) > .ui-inset:last-child button {
+  position: absolute;
+  right: 0.85rem;
+  bottom: 0.75rem;
+  font-size: 0.64rem !important;
+  color: rgba(161, 161, 170, 0.65) !important;
+}
+
+main.runner-shell.h-dvh.overflow-hidden > section > section:nth-of-type(2) > .ui-inset:last-child p:nth-of-type(1) {
+  margin-top: 0.55rem !important;
+  padding-right: 1.9rem;
+  font-size: 0.9rem !important;
+}
+
+main.runner-shell.h-dvh.overflow-hidden > section > section:nth-of-type(2) > .ui-inset:last-child p:nth-of-type(2) {
+  font-size: 0.83rem !important;
+}
+
+/* next = right tactical card */
+main.runner-shell.h-dvh.overflow-hidden > section > section:nth-of-type(3) {
+  grid-column: 2;
+  min-height: 7.3rem;
+  align-self: stretch;
+  display: flex !important;
+  padding: 1rem !important;
+  border: 1px solid var(--runner-border) !important;
+  border-radius: 1.45rem !important;
+  background: linear-gradient(145deg, rgba(32, 35, 38, 0.96), rgba(22, 25, 27, 0.96)) !important;
+}
+
+main.runner-shell.h-dvh.overflow-hidden > section > section:nth-of-type(3) > div:first-child p:last-child {
+  margin-top: 0.55rem;
+  white-space: normal !important;
+  overflow: visible !important;
+  font-size: 0.92rem !important;
+  line-height: 1.2rem;
+}
+
+main.runner-shell.h-dvh.overflow-hidden > section > section:nth-of-type(3) > div:last-child button:first-child {
+  display: none !important;
+}
+
+main.runner-shell.h-dvh.overflow-hidden > section > section:nth-of-type(3) > div:last-child span {
+  width: 2.65rem !important;
+  height: 2.65rem !important;
+  border-color: rgba(184, 255, 74, 0.36) !important;
+  background: rgba(184, 255, 74, 0.045);
+  font-size: 1.25rem;
+  box-shadow: 0 0 18px rgba(184,255,74,0.07);
+}
+
+/* action area: no dead panel; controls sit directly in the composition */
+main.runner-shell.h-dvh.overflow-hidden > section > section:nth-of-type(4) {
+  grid-column: 1 / -1;
+  min-height: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+main.runner-shell.h-dvh.overflow-hidden > section > section:nth-of-type(4) > div {
+  display: block !important;
+}
+
+/* main decisive CTA */
+main.runner-shell.h-dvh.overflow-hidden > section > section:nth-of-type(4) > div > button.ui-button-primary,
+main.runner-shell.h-dvh.overflow-hidden > section > section:nth-of-type(4) > div > .text-center > button.ui-button-primary {
+  min-height: 4rem !important;
+  border: 0 !important;
+  border-radius: 1.45rem !important;
+  background: linear-gradient(180deg, #c3ff66 0%, #a9ef47 100%) !important;
+  color: #0b0d0a !important;
+  font-size: clamp(1rem, 4.5vw, 1.28rem) !important;
+  font-weight: 950 !important;
+  letter-spacing: 0.01em;
+  box-shadow: 0 0 28px rgba(184,255,74,0.16), inset 0 1px 0 rgba(255,255,255,0.32) !important;
+}
+
+/* starter recommendation stays compact above ZAČÍNÁM JÁ */
+main.runner-shell.h-dvh.overflow-hidden > section > section:nth-of-type(4) .text-center > p:first-child {
+  color: var(--runner-accent) !important;
+}
+
+main.runner-shell.h-dvh.overflow-hidden > section > section:nth-of-type(4) .text-center > p:nth-child(2) {
+  font-size: 0.95rem !important;
+}
+
+main.runner-shell.h-dvh.overflow-hidden > section > section:nth-of-type(4) .text-center > p:nth-child(3) {
+  margin-top: 0.25rem !important;
+  font-size: 0.66rem !important;
+  line-height: 1rem !important;
+}
+
+/* shared-distance/shared-reps controls remain fully functional but compact */
+main.runner-shell.h-dvh.overflow-hidden > section > section:nth-of-type(4) .grid.grid-cols-4 {
+  gap: 0.42rem !important;
+}
+
+main.runner-shell.h-dvh.overflow-hidden > section > section:nth-of-type(4) .grid.grid-cols-4 .ui-button {
+  min-height: 2.7rem !important;
+  border-radius: 0.95rem !important;
+  font-size: 0.77rem !important;
+}
+
+main.runner-shell.h-dvh.overflow-hidden > section > section:nth-of-type(4) .ui-field {
+  min-height: 2.65rem !important;
+}
+
+main.runner-shell.h-dvh.overflow-hidden > section > section:nth-of-type(4) button.ui-button-accent.w-full {
+  min-height: 3.7rem !important;
+  border-radius: 1.35rem !important;
+  background: linear-gradient(180deg, #c3ff66 0%, #a9ef47 100%) !important;
+  color: #0b0d0a !important;
+  font-size: 1rem !important;
+  font-weight: 950 !important;
+  box-shadow: 0 0 24px rgba(184,255,74,0.14) !important;
+}
+
+/* host action = deliberate secondary dark strip */
+main.runner-shell.h-dvh.overflow-hidden > section > section:nth-of-type(4) button[class*="mt-2"][class*="text-zinc-600"] {
+  min-height: 2.8rem;
+  margin-top: 0.5rem !important;
+  padding: 0.65rem 0.9rem !important;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 1.15rem;
+  background: linear-gradient(145deg, rgba(29,32,34,0.92), rgba(18,20,21,0.94));
+  color: rgba(212,212,216,0.72) !important;
+  font-size: 0.72rem !important;
+}
+
+main.runner-shell.h-dvh.overflow-hidden > section > section:nth-of-type(4) button[class*="mt-2"][class*="text-zinc-600"]::before {
+  content: "◎";
+  margin-right: 0.55rem;
+  color: var(--runner-accent);
+  font-size: 0.9rem;
+}
+
+/* session-wide thin progress bar is redundant with the full progress card */
+main.runner-shell.h-dvh.overflow-hidden > section > div.shrink-0.h-1 {
+  display: none !important;
+}
+
+/* teammate cards */
+main.runner-shell.h-dvh.overflow-hidden > section > section:nth-of-type(5) {
+  grid-column: 1 / -1;
+  gap: 0.55rem !important;
+  padding-bottom: 0 !important;
+}
+
+main.runner-shell.h-dvh.overflow-hidden > section > section:nth-of-type(5) > .ui-inset {
+  position: relative;
+  min-height: 4.7rem;
+  padding: 0.8rem 0.9rem 0.72rem 3.55rem !important;
+  border: 1px solid rgba(184, 255, 74, 0.28) !important;
+  border-radius: 1.45rem !important;
+  background: linear-gradient(145deg, rgba(27,30,32,0.96), rgba(17,19,20,0.97)) !important;
+}
+
+main.runner-shell.h-dvh.overflow-hidden > section > section:nth-of-type(5) > .ui-inset::before {
+  content: "";
+  position: absolute;
+  left: 0.82rem;
+  top: 50%;
+  width: 2.15rem;
+  height: 2.15rem;
+  transform: translateY(-50%);
+  border: 1px solid rgba(255,255,255,0.16);
+  border-radius: 999px;
+  background: rgba(255,255,255,0.035);
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,0.22);
+}
+
+main.runner-shell.h-dvh.overflow-hidden > section > section:nth-of-type(5) p:first-child {
+  font-size: 0.82rem !important;
+}
+
+main.runner-shell.h-dvh.overflow-hidden > section > section:nth-of-type(5) p:last-child {
+  font-size: 0.66rem !important;
+}
+
+main.runner-shell.h-dvh.overflow-hidden > section > section:nth-of-type(5) span {
+  font-size: 0.7rem !important;
+  color: rgba(244,244,245,0.86) !important;
+}
+
+/* error occupies full width without changing the composition */
+main.runner-shell.h-dvh.overflow-hidden > section > p {
+  grid-column: 1 / -1;
+}
+
 @media (max-width: 420px) {
   ol[aria-label="Tréninková aktivita za 12 týdnů"] {
     gap: 0.125rem !important;
@@ -23,5 +414,65 @@ ol[aria-label="Tréninková aktivita za 12 týdnů"] > li {
 
   ol[aria-label="Tréninková aktivita za 12 týdnů"] span[aria-hidden="true"] {
     max-width: 1.5rem !important;
+  }
+
+  main.runner-shell.h-dvh.overflow-hidden > section {
+    gap: 0.42rem !important;
+  }
+
+  main.runner-shell.h-dvh.overflow-hidden > section > section:nth-of-type(1) {
+    min-height: 11.8rem;
+  }
+
+  main.runner-shell.h-dvh.overflow-hidden > section > section:nth-of-type(2) > .ui-inset:last-child,
+  main.runner-shell.h-dvh.overflow-hidden > section > section:nth-of-type(3) {
+    min-height: 6.75rem;
+    padding: 0.82rem !important;
+  }
+}
+
+@media (max-height: 760px) {
+  main.runner-shell.h-dvh.overflow-hidden > section {
+    gap: 0.32rem !important;
+    padding-top: max(0.45rem, env(safe-area-inset-top)) !important;
+    padding-bottom: max(0.35rem, env(safe-area-inset-bottom)) !important;
+  }
+
+  main.runner-shell.h-dvh.overflow-hidden > section > header {
+    min-height: 1.9rem;
+  }
+
+  main.runner-shell.h-dvh.overflow-hidden > section > section:nth-of-type(1) {
+    min-height: 10.7rem;
+  }
+
+  main.runner-shell.h-dvh.overflow-hidden > section > section:nth-of-type(1) > div:last-child {
+    margin-top: 0.45rem;
+  }
+
+  main.runner-shell.h-dvh.overflow-hidden > section > section:nth-of-type(1) > div:last-child > p:first-child {
+    font-size: clamp(4.1rem, 19vw, 5.8rem) !important;
+  }
+
+  main.runner-shell.h-dvh.overflow-hidden > section > section:nth-of-type(2) > .ui-inset:first-child {
+    min-height: 3.8rem;
+    padding: 0.7rem 0.85rem !important;
+  }
+
+  main.runner-shell.h-dvh.overflow-hidden > section > section:nth-of-type(2) > .ui-inset:last-child,
+  main.runner-shell.h-dvh.overflow-hidden > section > section:nth-of-type(3) {
+    min-height: 5.85rem;
+    padding: 0.72rem 0.8rem !important;
+  }
+
+  main.runner-shell.h-dvh.overflow-hidden > section > section:nth-of-type(4) > div > button.ui-button-primary,
+  main.runner-shell.h-dvh.overflow-hidden > section > section:nth-of-type(4) > div > .text-center > button.ui-button-primary {
+    min-height: 3.45rem !important;
+  }
+
+  main.runner-shell.h-dvh.overflow-hidden > section > section:nth-of-type(5) > .ui-inset {
+    min-height: 4rem;
+    padding-top: 0.55rem !important;
+    padding-bottom: 0.5rem !important;
   }
 }
