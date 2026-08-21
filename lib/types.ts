@@ -245,6 +245,10 @@ export type WorkoutResult = {
   teamContribution?: TeamWorkoutResultContribution;
   completedAt: string;
   durationSeconds: number;
+  sessionDurationSeconds?: number;
+  warmupDurationSeconds?: number;
+  cooldownDurationSeconds?: number;
+  pacingTargetSeconds?: number;
   rpe: number;
   weights: string;
   notes: string;
