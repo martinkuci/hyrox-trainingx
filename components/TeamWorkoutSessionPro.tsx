@@ -634,7 +634,7 @@ export default function TeamWorkoutSessionPro({ sessionId }: { sessionId: string
   }));
 
   function participantLiveStatus(id: string) {
-    if (state.participantFinish[id]) return "✓ session hotová";
+    if (state?.participantFinish[id]) return "✓ session hotová";
     const completed = liveProgress.completedByParticipantIds.includes(id);
     if (completed) return currentPhase === "warmup" ? "✓ rozcvičení hotovo" : currentPhase === "cooldown" ? "✓ zklidnění hotovo" : "✓ hotovo";
     if (starterClaimRequired) return "volba startujícího";
