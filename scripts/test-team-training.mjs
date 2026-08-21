@@ -63,14 +63,14 @@ test("join code uses readable high-entropy Enginn multiplayer format", () => {
   assert.equal(normalizeTeamJoinCode(code.replaceAll("-", "")), code);
 });
 
-test("doubles turns SkiErg and Wall Balls into shared targets", () => {
+test("doubles turns SkiErg and Wall Balls into unclaimed shared targets", () => {
   const assignments = buildTeamAssignments({ template, participants, format: "doubles" });
   assert.equal(assignments[0].mode, "shared-distance");
   assert.equal(assignments[0].targetDistanceMeters, 2000);
-  assert.equal(assignments[0].activeParticipantId, "a");
+  assert.equal(assignments[0].activeParticipantId, undefined);
   assert.equal(assignments[1].mode, "shared-reps");
   assert.equal(assignments[1].targetReps, 100);
-  assert.equal(assignments[1].activeParticipantId, "a");
+  assert.equal(assignments[1].activeParticipantId, undefined);
 });
 
 test("short shared distances use practical handoff increments", () => {
@@ -79,7 +79,7 @@ test("short shared distances use practical handoff increments", () => {
   assert.deepEqual(distanceProgressOptions(2000, 0), [100, 250, 500]);
 });
 
-test("short-distance doubles stations keep one active athlete and allow handoff", () => {
+test("either doubles athlete can claim the station and then hand off", () => {
   const shortTemplate = {
     ...template,
     id: "short-distance-team-test",
@@ -94,14 +94,20 @@ test("short-distance doubles stations keep one active athlete and allow handoff"
   const assignments = buildTeamAssignments({ template: shortTemplate, participants, format: "doubles" });
   assert.equal(assignments[0].mode, "shared-distance");
   assert.equal(assignments[0].targetDistanceMeters, 30);
-  assert.equal(assignments[0].activeParticipantId, "a");
+  assert.equal(assignments[0].activeParticipantId, undefined);
   const current = { ...session("doubles", assignments), workoutTemplate: shortTemplate, workoutTemplateId: shortTemplate.id };
   const initial = deriveTeamWorkoutState(current, []);
-  assert.equal(canParticipantWork(assignments[0], "a", initial), true);
+  assert.equal(canParticipantWork(assignments[0], "a", initial), false);
   assert.equal(canParticipantWork(assignments[0], "b", initial), false);
-  const handed = deriveTeamWorkoutState(current, [{ id: "h", type: "handoff", participantId: "a", nextParticipantId: "b", assignmentId: assignments[0].id, at: "2026-08-20T18:01:00.000Z" }]);
-  assert.equal(canParticipantWork(assignments[0], "a", handed), false);
-  assert.equal(canParticipantWork(assignments[0], "b", handed), true);
+  const claimed = deriveTeamWorkoutState(current, [{ id: "claim", type: "step-started", participantId: "b", assignmentId: assignments[0].id, at: "2026-08-20T18:00:30.000Z" }]);
+  assert.equal(canParticipantWork(assignments[0], "a", claimed), false);
+  assert.equal(canParticipantWork(assignments[0], "b", claimed), true);
+  const handed = deriveTeamWorkoutState(current, [
+    { id: "claim", type: "step-started", participantId: "b", assignmentId: assignments[0].id, at: "2026-08-20T18:00:30.000Z" },
+    { id: "h", type: "handoff", participantId: "b", nextParticipantId: "a", assignmentId: assignments[0].id, at: "2026-08-20T18:01:00.000Z" },
+  ]);
+  assert.equal(canParticipantWork(assignments[0], "a", handed), true);
+  assert.equal(canParticipantWork(assignments[0], "b", handed), false);
 });
 
 test("warmup and cooldown stay shared instead of being assigned to one athlete", () => {
@@ -156,13 +162,20 @@ test("lobby starts only when all joined athletes are ready", () => {
   assert.equal(canStartTeamSession(current, allReady), true);
 });
 
-test("single-station doubles handoff changes who can work", () => {
+test("single-station doubles handoff changes who can work after a claim", () => {
   const current = session("doubles");
-  const started = deriveTeamWorkoutState(current, [{ id: "s", type: "session-started", participantId: "a", at: "2026-08-20T18:00:00.000Z" }]);
-  assert.equal(canParticipantWork(current.assignments[0], "a", started), true);
-  assert.equal(canParticipantWork(current.assignments[0], "b", started), false);
+  const unclaimed = deriveTeamWorkoutState(current, [{ id: "s", type: "session-started", participantId: "a", at: "2026-08-20T18:00:00.000Z" }]);
+  assert.equal(canParticipantWork(current.assignments[0], "a", unclaimed), false);
+  assert.equal(canParticipantWork(current.assignments[0], "b", unclaimed), false);
+  const claimed = deriveTeamWorkoutState(current, [
+    { id: "s", type: "session-started", participantId: "a", at: "2026-08-20T18:00:00.000Z" },
+    { id: "claim", type: "step-started", participantId: "a", assignmentId: current.assignments[0].id, at: "2026-08-20T18:00:05.000Z" },
+  ]);
+  assert.equal(canParticipantWork(current.assignments[0], "a", claimed), true);
+  assert.equal(canParticipantWork(current.assignments[0], "b", claimed), false);
   const handed = deriveTeamWorkoutState(current, [
     { id: "s", type: "session-started", participantId: "a", at: "2026-08-20T18:00:00.000Z" },
+    { id: "claim", type: "step-started", participantId: "a", assignmentId: current.assignments[0].id, at: "2026-08-20T18:00:05.000Z" },
     { id: "h", type: "handoff", participantId: "a", nextParticipantId: "b", assignmentId: current.assignments[0].id, at: "2026-08-20T18:01:00.000Z" },
   ]);
   assert.equal(canParticipantWork(current.assignments[0], "a", handed), false);
@@ -173,6 +186,7 @@ test("shared distance aggregates event deltas into team progress", () => {
   const current = session("doubles");
   const assignmentId = current.assignments[0].id;
   const state = deriveTeamWorkoutState(current, [
+    { id: "claim", type: "step-started", participantId: "a", assignmentId, at: "2026-08-20T18:00:30.000Z" },
     { id: "p1", type: "step-progress", participantId: "a", assignmentId, distanceMetersDelta: 500, at: "2026-08-20T18:01:00.000Z" },
     { id: "h1", type: "handoff", participantId: "a", nextParticipantId: "b", assignmentId, at: "2026-08-20T18:02:00.000Z" },
     { id: "p2", type: "step-progress", participantId: "b", assignmentId, distanceMetersDelta: 1500, at: "2026-08-20T18:04:00.000Z" },
@@ -181,6 +195,8 @@ test("shared distance aggregates event deltas into team progress", () => {
   assert.equal(state.assignmentProgress[assignmentId].teamCompleted, true);
   assert.equal(state.contributions.a.distanceMeters, 500);
   assert.equal(state.contributions.b.distanceMeters, 1500);
+  assert.equal(state.contributions.a.completedAssignments, 1);
+  assert.equal(state.contributions.b.completedAssignments, 1);
 });
 
 test("team result keeps aggregate time separate from personal contributions", () => {
