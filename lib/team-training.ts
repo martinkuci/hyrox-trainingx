@@ -64,6 +64,8 @@ export type TeamWorkoutEvent =
   | { id: string; type: "session-started"; participantId: string; at: string }
   | { id: string; type: "session-paused"; participantId: string; at: string }
   | { id: string; type: "session-resumed"; participantId: string; at: string }
+  | { id: string; type: "workout-ready"; participantId: string; ready: boolean; at: string }
+  | { id: string; type: "workout-started"; participantId: string; at: string }
   | { id: string; type: "step-started"; participantId: string; assignmentId: string; at: string }
   | { id: string; type: "step-progress"; participantId: string; assignmentId: string; at: string; repsDelta?: number; distanceMetersDelta?: number; durationSecondsDelta?: number }
   | { id: string; type: "handoff"; participantId: string; nextParticipantId: string; assignmentId: string; at: string }
