@@ -10,6 +10,7 @@ import { clearActiveTeamSession, saveActiveTeamSession } from "@/lib/team-active
 import {
   adaptiveProgressOptions,
   buildTeamPacingPlan,
+  currentAssignmentElapsedSeconds,
   deriveTeamWorkoutTiming,
   pacingDeltaBeforeAssignment,
   phaseForAssignment,
@@ -25,6 +26,7 @@ import {
   canParticipantWork,
   canStartTeamSession,
   deriveTeamWorkoutState,
+  requiresStarterClaim,
 } from "@/lib/team-workout-engine";
 
 const FORMAT_LABELS = { shared: "Společný workout", doubles: "Partner / Doubles", relay: "Relay" } as const;
@@ -49,8 +51,17 @@ function clock(seconds: number | undefined) {
 
 function pacingStatus(deltaSeconds: number | undefined) {
   if (deltaSeconds === undefined) return undefined;
-  if (Math.abs(deltaSeconds) <= 5) return "Na plánu";
+  if (Math.abs(deltaSeconds) <= 5) return "na plánu";
   return deltaSeconds < 0 ? `${clock(Math.abs(deltaSeconds))} před plánem` : `${clock(deltaSeconds)} za plánem`;
+}
+
+function liveSegmentStatus(deltaSeconds: number | undefined, projected: boolean) {
+  if (deltaSeconds === undefined) return undefined;
+  if (Math.abs(deltaSeconds) <= 5) return projected ? "odhad dokončení je na cíli" : "jsi v cílovém čase";
+  if (deltaSeconds < 0) return projected
+    ? `odhad dokončení ${clock(Math.abs(deltaSeconds))} před cílem`
+    : `do cílového času zbývá ${clock(Math.abs(deltaSeconds))}`;
+  return `${clock(deltaSeconds)} nad cílem úseku`;
 }
 
 function event<T extends TeamWorkoutEvent["type"]>(type: T, payload: Omit<Extract<TeamWorkoutEvent, { type: T }>, "id" | "type" | "at">): Extract<TeamWorkoutEvent, { type: T }> {
@@ -262,6 +273,11 @@ export default function TeamWorkoutSession({ sessionId }: { sessionId: string })
     finally { setBusy(false); }
   }
 
+  async function claimCurrentStep() {
+    if (!me || !current || !progress || progress.activeParticipantId || countdownSeconds > 0 || !requiresStarterClaim(current)) return;
+    await publish(event("step-started", { participantId: me.id, assignmentId: current.id }));
+  }
+
   async function addProgress(kind: "reps" | "distance", value: number) {
     if (!me || !current || !canWork || value <= 0) return;
     await publish(event("step-progress", {
@@ -374,7 +390,7 @@ export default function TeamWorkoutSession({ sessionId }: { sessionId: string })
             <div className="ui-inset p-2"><b>{clock(timing?.cooldownSeconds)}</b><span className="block text-[10px] text-zinc-500">cooldown</span></div>
           </div>
         </div>
-        <div className="mt-4 space-y-3">{teamResult?.participants.map((participant) => <div key={participant.participantId} className="ui-card p-4"><div className="flex items-center justify-between"><p className="font-black">{participant.displayName}</p><span className="ui-chip">{participant.completedAssignments} úseků</span></div><div className="mt-3 grid grid-cols-3 gap-2 text-center text-sm"><div className="ui-inset p-2"><b>{participant.reps}</b><span className="block text-[10px] text-zinc-500">reps</span></div><div className="ui-inset p-2"><b>{participant.distanceMeters} m</b><span className="block text-[10px] text-zinc-500">distance</span></div><div className="ui-inset p-2"><b>{clock(participant.durationSeconds)}</b><span className="block text-[10px] text-zinc-500">tracked work</span></div></div></div>)}</div>
+        <div className="mt-4 space-y-3">{teamResult?.participants.map((participant) => <div key={participant.participantId} className="ui-card p-4"><div className="flex items-center justify-between"><p className="font-black">{participant.displayName}</p><span className="ui-chip">práce na {participant.completedAssignments} úsecích</span></div><div className="mt-3 grid grid-cols-3 gap-2 text-center text-sm"><div className="ui-inset p-2"><b>{participant.reps}</b><span className="block text-[10px] text-zinc-500">reps</span></div><div className="ui-inset p-2"><b>{participant.distanceMeters} m</b><span className="block text-[10px] text-zinc-500">distance</span></div><div className="ui-inset p-2"><b>{clock(participant.durationSeconds)}</b><span className="block text-[10px] text-zinc-500">tracked work</span></div></div></div>)}</div>
         {!existingResult ? <section className="ui-card mt-4 p-5"><p className="font-black">Jak náročný byl trénink?</p><p className="mt-1 text-xs text-zinc-500">1 = velmi lehký · 10 = maximum</p><div className="mt-3 grid grid-cols-5 gap-2">{[1,2,3,4,5,6,7,8,9,10].map((value) => <button key={value} type="button" onClick={() => setRpe(value)} className={rpe === value ? "ui-button ui-button-primary px-2" : "ui-button ui-button-outline px-2"}>{value}</button>)}</div><button type="button" disabled={busy} onClick={() => void savePersonalResult()} className="ui-button ui-button-primary mt-4 w-full">Uložit výsledek</button><p className="mt-3 text-xs leading-5 text-zinc-500">Do týmu se sdílí společný postup. Tvoje hodnocení náročnosti a budoucí Health data zůstávají osobní.</p></section> : <p className="ui-feedback ui-feedback-success mt-4 text-sm">Týmový workout už je uložený v tvojí historii.</p>}
         <div className="mt-4 grid gap-2"><Link href="/" className="ui-button ui-button-primary">Zpět na hlavní obrazovku</Link><Link href="/history" className="ui-button ui-button-outline">Detail výsledku / Historie</Link><Link href="/team" className="ui-button ui-button-ghost">Nový týmový workout</Link></div>
         {error && <p className="ui-feedback mt-4 text-sm text-amber-200">{error}</p>}
@@ -407,16 +423,38 @@ export default function TeamWorkoutSession({ sessionId }: { sessionId: string })
   const currentPacing = pacingPlan[liveCurrent.id];
   const pacingDeltaSeconds = snapshot ? pacingDeltaBeforeAssignment(liveSession.assignments, snapshot.events, state.startedAt, liveCurrent.id, pacingPlan) : undefined;
   const pacingState = currentPhase === "work" ? pacingStatus(pacingDeltaSeconds) : undefined;
+  const segmentElapsedSeconds = currentPhase === "work" && snapshot
+    ? currentAssignmentElapsedSeconds(liveSession.assignments, snapshot.events, state.startedAt, liveCurrent.id, now)
+    : undefined;
+  const progressFraction = liveCurrent.targetDistanceMeters
+    ? Math.min(1, liveProgress.distanceMeters / liveCurrent.targetDistanceMeters)
+    : liveCurrent.targetReps
+      ? Math.min(1, liveProgress.reps / liveCurrent.targetReps)
+      : undefined;
+  const projectedSegmentSeconds = segmentElapsedSeconds !== undefined && progressFraction && progressFraction > 0.08
+    ? Math.round(segmentElapsedSeconds / progressFraction)
+    : undefined;
+  const liveSegmentDeltaSeconds = currentPacing?.targetSeconds && segmentElapsedSeconds !== undefined
+    ? (projectedSegmentSeconds ?? segmentElapsedSeconds) - currentPacing.targetSeconds
+    : undefined;
+  const liveSegmentState = currentPhase === "work" ? liveSegmentStatus(liveSegmentDeltaSeconds, projectedSegmentSeconds !== undefined) : undefined;
   const distanceOptions = adaptiveProgressOptions(liveCurrent.targetDistanceMeters, liveProgress.distanceMeters, "distance");
   const repOptions = adaptiveProgressOptions(liveCurrent.targetReps, liveProgress.reps, "reps");
   const splitSuggestion = suggestedTeamSplit(liveCurrent, liveSession.participants.length);
   const primaryClock = currentPhase === "warmup" ? timing?.warmupSeconds : currentPhase === "cooldown" ? timing?.cooldownSeconds : timing?.workoutSeconds;
   const primaryClockLabel = currentPhase === "warmup" ? "Čas rozcvičení · mimo workout výsledek" : currentPhase === "cooldown" ? "Čas zklidnění · workout čas je zmrazen" : "Workout čas";
+  const starterClaimRequired = currentPhase === "work" && requiresStarterClaim(liveCurrent) && !liveProgress.activeParticipantId;
+  const starterLoads = liveCurrent.participantIds
+    .map((id) => ({ id, seconds: state.contributions[id]?.durationSeconds ?? 0, name: liveSession.participants.find((participant) => participant.id === id)?.displayName ?? "Sportovec" }))
+    .sort((left, right) => left.seconds - right.seconds);
+  const recommendedStarter = starterLoads[0];
+  const starterLoadDifference = starterLoads.length > 1 ? Math.max(0, starterLoads[starterLoads.length - 1].seconds - starterLoads[0].seconds) : 0;
 
   function participantLiveStatus(id: string) {
     const name = liveSession.participants.find((participant) => participant.id === id)?.displayName ?? "Sportovec";
     const completed = liveProgress.completedByParticipantIds.includes(id);
     if (completed) return currentPhase === "warmup" ? "✓ Rozcvičení hotovo" : currentPhase === "cooldown" ? "✓ Zklidnění hotovo" : `✓ ${liveCurrent.stepName} hotovo`;
+    if (starterClaimRequired) return "Volba startujícího";
     if (liveProgress.activeParticipantId === id) return `Na řadě · ${liveCurrent.stepName}`;
     if (liveCurrent.mode === "simultaneous") return currentPhase === "warmup" ? "Rozcvičuje se" : currentPhase === "cooldown" ? "Zklidňuje se" : `Pracuje · ${liveCurrent.stepName}`;
     return `Čeká na předávku od ${activeName ?? name}`;
@@ -442,14 +480,15 @@ export default function TeamWorkoutSession({ sessionId }: { sessionId: string })
 
       {target && <div className="ui-card ui-card-accent mt-5 p-5 text-center"><p className="text-xs uppercase tracking-wider text-zinc-500">Týmový postup</p><p className="mt-2 text-3xl font-black text-accent">{target}</p></div>}
 
-      {currentPacing && <div className="ui-inset mt-4 px-4 py-3"><div className="flex items-center justify-between gap-3"><p className="text-[10px] font-black uppercase tracking-[0.16em] text-accent">Pacing</p>{currentPacing.targetSeconds && <span className="font-mono text-sm font-black text-accent">cíl {clock(currentPacing.targetSeconds)}</span>}</div>{pacingState && <p className={pacingDeltaSeconds !== undefined && pacingDeltaSeconds > 5 ? "mt-1 text-sm font-black text-amber-300" : "mt-1 text-sm font-black text-accent"}>Po předchozích úsecích: {pacingState}</p>}<p className="mt-1 text-xs leading-5 text-zinc-400">{currentPacing.cue}</p>{currentPacing.paceLabel && <p className="mt-1 text-xs font-semibold text-zinc-300">Tempo pohybu: {currentPacing.paceLabel}</p>}{currentPacing.splitSuggestion && <p className="mt-1 text-xs font-semibold leading-5 text-zinc-300">{currentPacing.splitSuggestion}</p>}</div>}
+      {currentPacing && currentPhase === "work" && <div className="ui-inset mt-4 px-4 py-3"><div className="flex items-center justify-between gap-3"><p className="text-[10px] font-black uppercase tracking-[0.16em] text-accent">Pacing</p>{currentPacing.targetSeconds && <span className="font-mono text-sm font-black text-accent">úsek {clock(segmentElapsedSeconds)} / {clock(currentPacing.targetSeconds)}</span>}</div>{liveSegmentState && <p className={liveSegmentDeltaSeconds !== undefined && liveSegmentDeltaSeconds > 5 ? "mt-1 text-sm font-black text-amber-300" : "mt-1 text-sm font-black text-accent"}>{liveSegmentState}</p>}{pacingState && <p className="mt-1 text-[11px] text-zinc-500">Předchozí úseky: {pacingState}</p>}<div className="mt-2 flex flex-wrap gap-2">{currentPacing.paceLabel && <span className="ui-chip">{currentPacing.paceLabel}</span>}{currentPacing.splitSuggestion && <span className="text-[11px] leading-5 text-zinc-400">{currentPacing.splitSuggestion}</span>}</div></div>}
+      {currentPacing && currentPhase !== "work" && <div className="ui-inset mt-4 px-4 py-3"><p className="text-[10px] font-black uppercase tracking-[0.16em] text-accent">Pacing</p><p className="mt-1 text-xs leading-5 text-zinc-400">{currentPacing.cue}</p></div>}
 
       <div className="runner-next-card ui-inset mt-4 flex items-center justify-between gap-3 px-4 py-3 text-left"><div className="min-w-0"><p className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">Následuje</p><p className="mt-0.5 font-black leading-5">{next?.stepName ?? "Týmový výsledek"}</p>{next?.stepDetail && <p className="mt-0.5 truncate text-xs text-zinc-400">{next.stepDetail}</p>}</div><span className="text-accent" aria-hidden="true">→</span></div>
 
       <div className="mt-3 grid grid-cols-2 gap-2"><button type="button" disabled={!previous} onClick={() => setShowPrevious(true)} className="ui-button ui-button-outline ui-button-sm">← Předchozí cvik</button>{liveCurrent.exerciseId ? <Link href={`/exercises/${encodeURIComponent(liveCurrent.exerciseId)}`} className="ui-button ui-button-outline ui-button-sm">Detail cviku</Link> : <span />}</div>
 
       <section className="ui-card mt-4 p-5">
-        {canWork ? <>
+        {starterClaimRequired ? <div className="text-center"><p className="text-xs font-black uppercase tracking-[0.18em] text-zinc-500">Kdo začíná?</p><p className="mt-2 text-2xl font-black">Rozhodněte podle situace</p><p className="mt-2 text-sm leading-6 text-zinc-400">{starterLoadDifference >= 10 && recommendedStarter ? `Doporučený start: ${recommendedStarter.name} · zatím odpracoval o ${clock(starterLoadDifference)} méně.` : "Dosavadní zátěž je vyrovnaná. Začněte podle pocitu, dechu a toho, kdo je právě připravený."}</p><button type="button" disabled={busy} onClick={() => void claimCurrentStep()} className="ui-button ui-button-primary mt-4 w-full">ZAČÍNÁM JÁ</button><p className="mt-2 text-[11px] leading-5 text-zinc-500">Kdo stiskne první, vezme první úsek. Druhému telefonu se stav okamžitě synchronizuje.</p></div> : canWork ? <>
           {liveCurrent.mode === "shared-reps" && <div className="grid grid-cols-3 gap-2">{repOptions.map((value) => <button key={value} type="button" disabled={busy} onClick={() => void addProgress("reps", value)} className="ui-button ui-button-primary">+{value}</button>)}</div>}
           {liveCurrent.mode === "shared-distance" && <div className="grid grid-cols-3 gap-2">{distanceOptions.map((value) => <button key={value} type="button" disabled={busy} onClick={() => void addProgress("distance", value)} className="ui-button ui-button-primary">+{value} m</button>)}</div>}
           {(liveCurrent.mode === "shared-reps" || liveCurrent.mode === "shared-distance") && <><div className="mt-3 grid grid-cols-[1fr_auto] gap-2"><input type="number" min="1" inputMode="numeric" value={customProgress} onChange={(event) => setCustomProgress(event.target.value)} placeholder={liveCurrent.mode === "shared-distance" ? "Jiná vzdálenost" : "Jiný počet"} className="ui-field" /><button type="button" disabled={busy || !Number(customProgress)} onClick={() => void addCustomProgress(liveCurrent.mode === "shared-distance" ? "distance" : "reps")} className="ui-button ui-button-outline">Přidat</button></div><p className="mt-3 text-xs leading-5 text-zinc-500">Můžeš přidat více hodnot po sobě. <b className="text-zinc-300">PŘEDAT</b> zmáčkni až ve chvíli, kdy stanoviště skutečně přebírá partner.</p>{splitSuggestion && <p className="mt-2 text-xs font-bold leading-5 text-accent">{splitSuggestion}</p>}</>}
