@@ -7,7 +7,7 @@ import { PlanningShell } from "@/components/planning/PlanningShell";
 import { useHyroxData } from "@/hooks/useHyroxData";
 import { loadCloudUser } from "@/lib/firebase-rest";
 import { createTeamJoinCode, isValidTeamJoinCode, normalizeTeamJoinCode } from "@/lib/team-join-code";
-import { recommendedWorkoutTargetSeconds, workoutPacingSummary } from "@/lib/team-pacing";
+import { recommendedWorkoutTargetSeconds } from "@/lib/team-pacing";
 import { loadRecentTeammates, loadTeamProfile, saveTeamProfile } from "@/lib/team-profile";
 import { teamWorkoutTransport } from "@/lib/team-training-firestore";
 import type { TeamPacingSource, TeamWorkoutFormat, TeamWorkoutParticipant, TeamWorkoutSession } from "@/lib/team-training";
@@ -63,7 +63,9 @@ export default function TeamTrainingPage() {
   const [displayName, setDisplayName] = useState(initialProfile.displayName);
   const [format, setFormat] = useState<TeamWorkoutFormat>("doubles");
   const formatRef = useRef<TeamWorkoutFormat>("doubles");
-  const [carouselIndex, setCarouselIndex] = useState(0);
+  const [selectedWorkoutIndex, setSelectedWorkoutIndex] = useState(0);
+  const [pickerIndex, setPickerIndex] = useState(0);
+  const [workoutPickerOpen, setWorkoutPickerOpen] = useState(true);
   const [participantLimit, setParticipantLimit] = useState(2);
   const [scheduledFor, setScheduledFor] = useState("");
   const [joinCode, setJoinCode] = useState("");
@@ -71,13 +73,14 @@ export default function TeamTrainingPage() {
   const [error, setError] = useState<string>();
   const [pacingSource, setPacingSource] = useState<TeamPacingSource>("auto");
   const [customPacingTarget, setCustomPacingTarget] = useState("");
-  const [showPacingDetail, setShowPacingDetail] = useState(false);
   const touchStartX = useRef<number | null>(null);
   const recent = useMemo(() => loadRecentTeammates(), []);
 
   const templates = useMemo(() => data.templates.filter((template) => template.blocks.some((block) => block.steps.length > 0)), [data.templates]);
-  const safeIndex = templates.length ? Math.min(carouselIndex, templates.length - 1) : 0;
-  const selectedTemplate = templates[safeIndex];
+  const safeSelectedIndex = templates.length ? Math.min(selectedWorkoutIndex, templates.length - 1) : 0;
+  const safePickerIndex = templates.length ? Math.min(pickerIndex, templates.length - 1) : 0;
+  const selectedTemplate = templates[safeSelectedIndex];
+  const pickerTemplate = templates[safePickerIndex];
   const isRaceSimulation = selectedTemplate?.metadata?.category === "race-simulation";
   const previousResult = useMemo(() => {
     if (!selectedTemplate) return undefined;
@@ -99,10 +102,8 @@ export default function TeamTrainingPage() {
     : pacingSource === "history"
       ? previousResult?.durationSeconds ?? automaticTargetSeconds
       : automaticTargetSeconds;
-  const pacing = selectedTemplate
-    ? workoutPacingSummary(selectedTemplate, format, format === "relay" ? participantLimit : 2, selectedPacingTargetSeconds)
-    : undefined;
-  const dotIndexes = visibleCarouselIndexes(templates.length, safeIndex);
+  const pickerTargetSeconds = pickerTemplate ? recommendedWorkoutTargetSeconds(pickerTemplate) : undefined;
+  const dotIndexes = visibleCarouselIndexes(templates.length, safePickerIndex);
 
   function selectFormat(item: TeamWorkoutFormat) {
     formatRef.current = item;
@@ -110,10 +111,22 @@ export default function TeamTrainingPage() {
     if (item !== "relay") setParticipantLimit(2);
   }
 
+  function openWorkoutPicker() {
+    setPickerIndex(safeSelectedIndex);
+    setWorkoutPickerOpen(true);
+  }
+
   function moveCarousel(direction: -1 | 1) {
     if (!templates.length) return;
-    setCarouselIndex((current) => (current + direction + templates.length) % templates.length);
-    setShowPacingDetail(false);
+    setPickerIndex((current) => (current + direction + templates.length) % templates.length);
+  }
+
+  function confirmWorkout() {
+    if (!pickerTemplate) return;
+    setSelectedWorkoutIndex(safePickerIndex);
+    setPacingSource("auto");
+    setCustomPacingTarget("");
+    setWorkoutPickerOpen(false);
   }
 
   function participant(role: "host" | "athlete"): TeamWorkoutParticipant {
@@ -219,73 +232,19 @@ export default function TeamTrainingPage() {
               })}
             </div>
 
-            <div className="mt-6 flex min-w-0 items-end justify-between gap-3">
-              <div className="min-w-0"><p className="text-xs font-black uppercase tracking-[0.18em] text-zinc-500">Workout</p><p className="mt-1 text-xs text-zinc-500">Swipe doleva / doprava nebo použij šipky.</p></div>
-              {templates.length > 0 && <span className="ui-chip shrink-0">{safeIndex + 1}/{templates.length}</span>}
-            </div>
-
-            {selectedTemplate && (
-              <div
-                className="ui-card ui-card-accent mt-3 w-full min-w-0 max-w-full overflow-hidden p-5"
-                onTouchStart={(event) => { touchStartX.current = event.touches[0]?.clientX ?? null; }}
-                onTouchEnd={(event) => {
-                  const start = touchStartX.current;
-                  const end = event.changedTouches[0]?.clientX;
-                  touchStartX.current = null;
-                  if (start === null || end === undefined || Math.abs(start - end) < 45) return;
-                  moveCarousel(start > end ? 1 : -1);
-                }}
-              >
-                <div className="flex min-w-0 items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1"><h2 className="break-words text-2xl font-black leading-tight">{selectedTemplate.title}</h2><p className="mt-2 break-words text-sm leading-6 text-zinc-400">{selectedTemplate.description}</p></div>
-                  <span className="ui-chip shrink-0">{selectedTemplate.durationMinutes} min</span>
-                </div>
-
-                {selectedTemplate.metadata?.goal && <p className="ui-inset mt-4 break-words px-4 py-3 text-sm leading-6 text-zinc-300"><b className="text-white">Cíl:</b> {selectedTemplate.metadata.goal}</p>}
-
-                <div className="mt-4 min-w-0 space-y-2">
-                  {selectedTemplate.blocks.map((block, index) => (
-                    <div key={block.id} className="ui-inset min-w-0 px-4 py-3">
-                      <div className="flex min-w-0 items-center gap-2"><span className="ui-chip shrink-0">{index + 1}</span><p className="min-w-0 break-words font-black">{phaseLabel(block.title)}</p></div>
-                      <p className="mt-2 break-words text-xs leading-5 text-zinc-400">{block.steps.map((step) => step.name).join(" · ")}</p>
-                    </div>
-                  ))}
-                </div>
-
-                {pacing && (
-                  <div className="mt-4 rounded-2xl border border-accent/30 bg-black/20 p-4">
-                    <div className="flex items-center justify-between gap-3"><p className="text-xs font-black uppercase tracking-[0.16em] text-accent">Pacing</p><span className="ui-chip">měřená část</span></div>
-                    <p className="mt-2 font-black">{pacing.title}</p>
-                    <button type="button" onClick={() => setShowPacingDetail((value) => !value)} className="mt-2 text-xs font-bold text-accent">{showPacingDetail ? "Skrýt detail" : "Zobrazit detail pacingu"}</button>
-                    {showPacingDetail && <div className="mt-2">{pacing.running && <p className="text-xs leading-5 text-zinc-400">Běh: {pacing.running}</p>}<p className="mt-2 text-xs leading-5 text-zinc-400">{pacing.formatCue}</p><p className="mt-2 text-[11px] leading-5 text-zinc-600">Warm-up a cooldown se do výsledného workout času nezapočítávají.</p></div>}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {templates.length > 1 && (
-              <div className="mt-3 flex w-full min-w-0 items-center gap-3 overflow-hidden">
-                <button type="button" aria-label="Předchozí workout" onClick={() => moveCarousel(-1)} className="ui-button ui-button-outline ui-button-sm shrink-0">←</button>
-                <div className="flex min-w-0 flex-1 items-center justify-center gap-2 overflow-hidden">
-                  {dotIndexes[0] > 0 && <span className="text-xs text-zinc-600">…</span>}
-                  {dotIndexes.map((index) => <button key={templates[index].id} type="button" aria-label={`Workout ${index + 1}`} onClick={() => { setCarouselIndex(index); setShowPacingDetail(false); }} className={index === safeIndex ? "h-2.5 w-2.5 shrink-0 rounded-full bg-accent" : "h-2.5 w-2.5 shrink-0 rounded-full bg-zinc-700"} />)}
-                  {dotIndexes[dotIndexes.length - 1] < templates.length - 1 && <span className="text-xs text-zinc-600">…</span>}
-                </div>
-                <button type="button" aria-label="Další workout" onClick={() => moveCarousel(1)} className="ui-button ui-button-outline ui-button-sm shrink-0">→</button>
-              </div>
-            )}
+            <div className="mt-6 flex items-center justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[0.18em] text-zinc-500">Workout</p><p className="mt-1 text-xs text-zinc-500">Detail se vybírá v plovoucím carouselu.</p></div>{selectedTemplate && <span className="ui-chip shrink-0">{safeSelectedIndex + 1}/{templates.length}</span>}</div>
+            {selectedTemplate ? <div className="ui-inset mt-3 p-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="font-black leading-5">{selectedTemplate.title}</p><p className="mt-1 max-h-10 overflow-hidden text-xs leading-5 text-zinc-500">{selectedTemplate.description}</p></div><span className="ui-chip shrink-0">{selectedTemplate.durationMinutes} min</span></div><div className="mt-3 flex items-center justify-between gap-3"><span className="text-xs text-zinc-500">{selectedTemplate.blocks.length} bloků · cíl {formatTarget(automaticTargetSeconds)}</span><button type="button" onClick={openWorkoutPicker} className="ui-button ui-button-outline ui-button-sm shrink-0">Změnit workout</button></div></div> : <button type="button" onClick={openWorkoutPicker} className="ui-button ui-button-outline mt-3 w-full">Vybrat workout</button>}
 
             <section className="ui-inset mt-5 min-w-0 p-4">
-              <div className="flex items-center justify-between gap-3"><div className="min-w-0"><p className="text-xs font-black uppercase tracking-[0.18em] text-zinc-500">Pacing cíl</p><p className="mt-1 text-xs text-zinc-500">{isRaceSimulation ? "Pro nováčka použij odhad, zkušený sportovec může zadat cíl celého HYROXu nebo vyjít z historie." : "Zvol odhad, svůj předchozí výkon nebo vlastní cílový čas workoutu."}</p></div><span className="ui-chip shrink-0">{formatTarget(selectedPacingTargetSeconds)}</span></div>
+              <div className="flex items-center justify-between gap-3"><div className="min-w-0"><p className="text-xs font-black uppercase tracking-[0.18em] text-zinc-500">Pacing cíl</p><p className="mt-1 text-xs text-zinc-500">{isRaceSimulation ? "Nováček může nechat doporučený odhad, zkušený sportovec může vyjít z historie nebo cíle celého HYROXu." : "Zvol doporučený odhad, svůj předchozí výkon nebo vlastní cílový čas workoutu."}</p></div><span className="ui-chip shrink-0">{formatTarget(selectedPacingTargetSeconds)}</span></div>
               <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
-                <button type="button" onClick={() => setPacingSource("auto")} className={pacingSource === "auto" ? "ui-button ui-button-primary ui-button-sm" : "ui-button ui-button-outline ui-button-sm"}>Automaticky</button>
+                <button type="button" onClick={() => setPacingSource("auto")} className={pacingSource === "auto" ? "ui-button ui-button-primary ui-button-sm" : "ui-button ui-button-outline ui-button-sm"}>Doporučený cíl</button>
                 {previousResult && <button type="button" onClick={() => setPacingSource("history")} className={pacingSource === "history" ? "ui-button ui-button-primary ui-button-sm" : "ui-button ui-button-outline ui-button-sm"}>Z historie</button>}
                 <button type="button" onClick={() => setPacingSource("custom")} className={pacingSource === "custom" ? "ui-button ui-button-primary ui-button-sm" : "ui-button ui-button-outline ui-button-sm"}>{isRaceSimulation ? "Cíl závodu" : "Vlastní cíl"}</button>
               </div>
-              {pacingSource === "auto" && <p className="mt-3 text-xs leading-5 text-zinc-500">Automatický cíl vychází z typu aktivit, vzdáleností/opakování a u HYROX simulací i z rozdílné náročnosti jednotlivých stanovišť a přechodů.</p>}
-              {pacingSource === "history" && previousResult && <p className="mt-3 text-xs leading-5 text-zinc-500">Používám nejlepší uložený čas tohoto workoutu: <b className="text-zinc-300">{formatTarget(previousResult.durationSeconds)}</b>. Pro pokus o zlepšení můžeš zadat vlastní nižší cíl.</p>}
-              {pacingSource === "history" && !previousResult && <p className="mt-3 text-xs leading-5 text-zinc-500">Pro tento workout zatím historie není, proto používám automatický odhad.</p>}
-              {pacingSource === "custom" && <div className="mt-3"><input value={customPacingTarget} onChange={(event) => setCustomPacingTarget(event.target.value)} placeholder={isRaceSimulation ? "např. 1:30:00 · cíl celého HYROXu" : "např. 36:00 · cíl workoutu"} inputMode="numeric" className="ui-field" /><p className={customPacingTarget && !customInputSeconds ? "mt-2 text-xs text-amber-300" : "mt-2 text-xs text-zinc-500"}>{customPacingTarget && !customInputSeconds ? "Čas zadej jako minuty, mm:ss nebo h:mm:ss." : isRaceSimulation && customInputSeconds ? `Cíl celého HYROXu ${formatTarget(customInputSeconds)} → cíl této simulace ${formatTarget(customWorkoutTargetSeconds)}. Enginn podle toho přepočítá jednotlivé běhy a stanoviště.` : "Enginn z cílového času dopočítá rozdílné cíle jednotlivých částí workoutu."}</p></div>}
+              {pacingSource === "auto" && <p className="mt-3 text-xs leading-5 text-zinc-500">Cíl vychází z typu aktivit, vzdáleností/opakování a rozdílné náročnosti jednotlivých částí.</p>}
+              {pacingSource === "history" && previousResult && <p className="mt-3 text-xs leading-5 text-zinc-500">Používám nejlepší uložený čas tohoto workoutu: <b className="text-zinc-300">{formatTarget(previousResult.durationSeconds)}</b>.</p>}
+              {pacingSource === "custom" && <div className="mt-3"><input value={customPacingTarget} onChange={(event) => setCustomPacingTarget(event.target.value)} placeholder={isRaceSimulation ? "např. 1:30:00 · cíl celého HYROXu" : "např. 36:00 · cíl workoutu"} inputMode="numeric" className="ui-field" /><p className={customPacingTarget && !customInputSeconds ? "mt-2 text-xs text-amber-300" : "mt-2 text-xs text-zinc-500"}>{customPacingTarget && !customInputSeconds ? "Čas zadej jako minuty, mm:ss nebo h:mm:ss." : isRaceSimulation && customInputSeconds ? `Cíl celého HYROXu ${formatTarget(customInputSeconds)} → cíl této simulace ${formatTarget(customWorkoutTargetSeconds)}.` : "Enginn z cílového času dopočítá rozdílné cíle jednotlivých částí workoutu."}</p></div>}
             </section>
 
             {format === "relay" && (
@@ -319,6 +278,42 @@ export default function TeamTrainingPage() {
       )}
 
       {error && <p className="ui-feedback mt-5 text-sm text-amber-200">{error}</p>}
+
+      {user && workoutPickerOpen && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/80 p-3 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="workout-picker-title">
+          <div className="grid max-h-[calc(100dvh-1.5rem)] w-full max-w-md grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden rounded-[2rem] border border-zinc-800 bg-zinc-950 shadow-2xl">
+            <header className="flex items-center justify-between gap-3 border-b border-zinc-800 px-4 py-3">
+              <div className="min-w-0"><p className="text-[10px] font-black uppercase tracking-[0.2em] text-accent">Vybrat workout</p><h2 id="workout-picker-title" className="mt-0.5 text-lg font-black">{pickerTemplate?.title ?? "Načítám workouty…"}</h2></div>
+              <div className="flex shrink-0 items-center gap-2">{templates.length > 0 && <span className="ui-chip">{safePickerIndex + 1}/{templates.length}</span>}<button type="button" onClick={() => setWorkoutPickerOpen(false)} className="ui-button ui-button-ghost ui-button-sm" aria-label="Zavřít výběr workoutu">×</button></div>
+            </header>
+
+            <div className="min-h-0 overflow-hidden px-4 py-3">
+              {pickerTemplate ? <div
+                className="grid h-full min-h-0 grid-rows-[auto_auto_minmax(0,1fr)]"
+                onTouchStart={(event) => { touchStartX.current = event.touches[0]?.clientX ?? null; }}
+                onTouchEnd={(event) => {
+                  const start = touchStartX.current;
+                  const end = event.changedTouches[0]?.clientX;
+                  touchStartX.current = null;
+                  if (start === null || end === undefined || Math.abs(start - end) < 45) return;
+                  moveCarousel(start > end ? 1 : -1);
+                }}
+              >
+                <div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="max-h-10 overflow-hidden text-sm leading-5 text-zinc-400">{pickerTemplate.description}</p>{pickerTemplate.metadata?.goal && <p className="mt-1 max-h-10 overflow-hidden text-xs leading-5 text-zinc-500"><b className="text-zinc-300">Cíl:</b> {pickerTemplate.metadata.goal}</p>}</div><div className="shrink-0 text-right"><span className="ui-chip">{pickerTemplate.durationMinutes} min</span><p className="mt-1 text-[10px] text-zinc-600">měřená část ~ {formatTarget(pickerTargetSeconds)}</p></div></div>
+                <p className="mt-3 text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">Bloky a cviky</p>
+                <div className="mt-2 min-h-0 overflow-y-auto overscroll-contain pr-1">
+                  <div className="space-y-1.5">{pickerTemplate.blocks.map((block, index) => <div key={block.id} className="ui-inset grid grid-cols-[auto_1fr] gap-2 px-3 py-2"><span className="ui-chip h-fit shrink-0">{index + 1}</span><div className="min-w-0"><p className="text-sm font-black leading-5">{phaseLabel(block.title)}</p><p className="max-h-10 overflow-hidden text-[11px] leading-5 text-zinc-500">{block.steps.map((step) => step.name).join(" · ")}</p></div></div>)}</div>
+                </div>
+              </div> : <div className="grid h-full place-items-center text-sm text-zinc-500">Načítám knihovnu workoutů…</div>}
+            </div>
+
+            <footer className="border-t border-zinc-800 px-4 py-3">
+              {templates.length > 1 && <div className="flex items-center gap-3"><button type="button" aria-label="Předchozí workout" onClick={() => moveCarousel(-1)} className="ui-button ui-button-outline ui-button-sm shrink-0">←</button><div className="flex min-w-0 flex-1 items-center justify-center gap-2 overflow-hidden">{dotIndexes[0] > 0 && <span className="text-xs text-zinc-600">…</span>}{dotIndexes.map((index) => <button key={templates[index].id} type="button" aria-label={`Workout ${index + 1}`} onClick={() => setPickerIndex(index)} className={index === safePickerIndex ? "h-2.5 w-2.5 shrink-0 rounded-full bg-accent" : "h-2.5 w-2.5 shrink-0 rounded-full bg-zinc-700"} />)}{dotIndexes[dotIndexes.length - 1] < templates.length - 1 && <span className="text-xs text-zinc-600">…</span>}</div><button type="button" aria-label="Další workout" onClick={() => moveCarousel(1)} className="ui-button ui-button-outline ui-button-sm shrink-0">→</button></div>}
+              <button type="button" disabled={!pickerTemplate} onClick={confirmWorkout} className="ui-button ui-button-primary mt-3 w-full">Vybrat tento workout</button>
+            </footer>
+          </div>
+        </div>
+      )}
     </PlanningShell>
   );
 }
