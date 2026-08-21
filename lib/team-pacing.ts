@@ -26,6 +26,7 @@ export type TeamPacingEntry = {
 export type TeamWorkoutTiming = {
   sessionSeconds: number;
   warmupSeconds: number;
+  briefingSeconds: number;
   workoutSeconds: number;
   cooldownSeconds: number;
   workoutStarted: boolean;
@@ -54,6 +55,10 @@ function isErgAssignment(assignment: TeamStepAssignment) {
 
 export function phaseForAssignment(assignment: TeamStepAssignment) {
   return classifyWorkoutPhase(assignment.blockTitle, assignment.stepName, assignment.stepDetail ?? "");
+}
+
+export function workoutStartedAt(events: TeamWorkoutEvent[]) {
+  return events.find((item) => item.type === "workout-started")?.at;
 }
 
 function movementWeight(assignment: TeamStepAssignment, runOrdinal: number) {
@@ -218,7 +223,9 @@ function assignmentStartAt(
 ) {
   const firstWorkIndex = assignments.findIndex((assignment) => phaseForAssignment(assignment) === "work");
   if (firstWorkIndex < 0 || currentIndex < firstWorkIndex) return undefined;
-  if (currentIndex === firstWorkIndex) return firstWorkIndex > 0 ? completionTime(assignments[firstWorkIndex - 1], events) : startedAt;
+  if (currentIndex === firstWorkIndex) {
+    return workoutStartedAt(events) ?? (firstWorkIndex > 0 ? completionTime(assignments[firstWorkIndex - 1], events) : startedAt);
+  }
   return completionTime(assignments[currentIndex - 1], events);
 }
 
@@ -234,7 +241,7 @@ export function currentAssignmentElapsedSeconds(
   const startAt = assignmentStartAt(assignments, events, startedAt, currentIndex);
   if (!startAt) return undefined;
   const startMs = Date.parse(startAt);
-  if (!Number.isFinite(startMs)) return undefined;
+  if (!Number.isFinite(startMs) || nowMs < startMs) return 0;
   return Math.max(0, Math.floor((nowMs - startMs) / 1000));
 }
 
@@ -250,7 +257,7 @@ export function pacingDeltaBeforeAssignment(
   if (currentIndex < 0 || phaseForAssignment(assignments[currentIndex]) !== "work") return undefined;
   const firstWorkIndex = assignments.findIndex((assignment) => phaseForAssignment(assignment) === "work");
   if (firstWorkIndex < 0 || currentIndex <= firstWorkIndex) return 0;
-  const beforeFirstWork = firstWorkIndex > 0 ? completionTime(assignments[firstWorkIndex - 1], events) : startedAt;
+  const beforeFirstWork = workoutStartedAt(events) ?? (firstWorkIndex > 0 ? completionTime(assignments[firstWorkIndex - 1], events) : startedAt);
   const beforeCurrent = completionTime(assignments[currentIndex - 1], events);
   if (!beforeFirstWork || !beforeCurrent) return undefined;
   const actualBeforeCurrent = Math.max(0, (Date.parse(beforeCurrent) - Date.parse(beforeFirstWork)) / 1000);
@@ -267,27 +274,44 @@ export function deriveTeamWorkoutTiming(
   nowMs: number,
 ): TeamWorkoutTiming {
   const startMs = startedAt ? Date.parse(startedAt) : NaN;
-  if (!Number.isFinite(startMs)) return { sessionSeconds: 0, warmupSeconds: 0, workoutSeconds: 0, cooldownSeconds: 0, workoutStarted: false, workoutCompleted: false };
+  if (!Number.isFinite(startMs)) {
+    return { sessionSeconds: 0, warmupSeconds: 0, briefingSeconds: 0, workoutSeconds: 0, cooldownSeconds: 0, workoutStarted: false, workoutCompleted: false };
+  }
+
   const sessionEndMs = completedAt ? Date.parse(completedAt) : nowMs;
   const workIndexes = assignments.map((assignment, index) => phaseForAssignment(assignment) === "work" ? index : -1).filter((index) => index >= 0);
   if (!workIndexes.length) {
     const sessionSeconds = Math.max(0, Math.floor((sessionEndMs - startMs) / 1000));
-    return { sessionSeconds, warmupSeconds: sessionSeconds, workoutSeconds: 0, cooldownSeconds: 0, workoutStarted: false, workoutCompleted: false };
+    return { sessionSeconds, warmupSeconds: sessionSeconds, briefingSeconds: 0, workoutSeconds: 0, cooldownSeconds: 0, workoutStarted: false, workoutCompleted: false };
   }
 
   const firstWorkIndex = workIndexes[0];
   const lastWorkIndex = workIndexes[workIndexes.length - 1];
-  const preceding = firstWorkIndex > 0 ? completionTime(assignments[firstWorkIndex - 1], events) : startedAt;
-  const workoutStartMs = preceding ? Date.parse(preceding) : NaN;
+  const warmupCompletedAt = firstWorkIndex > 0 ? completionTime(assignments[firstWorkIndex - 1], events) : startedAt;
+  const warmupEndMs = warmupCompletedAt ? Date.parse(warmupCompletedAt) : NaN;
+  const explicitWorkoutStartedAt = workoutStartedAt(events);
+  const workoutStartValue = explicitWorkoutStartedAt ?? warmupCompletedAt;
+  const workoutStartMs = workoutStartValue ? Date.parse(workoutStartValue) : NaN;
   const lastWorkCompletedAt = completionTime(assignments[lastWorkIndex], events);
   const workoutEndMs = lastWorkCompletedAt ? Date.parse(lastWorkCompletedAt) : nowMs;
   const workoutStarted = Number.isFinite(workoutStartMs) && nowMs >= workoutStartMs;
   const workoutCompleted = Boolean(lastWorkCompletedAt);
   const sessionSeconds = Math.max(0, Math.floor((sessionEndMs - startMs) / 1000));
-  const warmupSeconds = workoutStarted ? Math.max(0, Math.floor((workoutStartMs - startMs) / 1000)) : sessionSeconds;
-  const workoutSeconds = workoutStarted ? Math.max(0, Math.floor((Math.min(workoutEndMs, sessionEndMs) - workoutStartMs) / 1000)) : 0;
-  const cooldownSeconds = workoutCompleted ? Math.max(0, sessionSeconds - warmupSeconds - workoutSeconds) : 0;
-  return { sessionSeconds, warmupSeconds, workoutSeconds, cooldownSeconds, workoutStarted, workoutCompleted };
+
+  const warmupSeconds = Number.isFinite(warmupEndMs)
+    ? Math.max(0, Math.floor((Math.min(warmupEndMs, sessionEndMs) - startMs) / 1000))
+    : sessionSeconds;
+  const briefingSeconds = Number.isFinite(warmupEndMs) && Number.isFinite(workoutStartMs)
+    ? Math.max(0, Math.floor((Math.min(workoutStartMs, sessionEndMs) - warmupEndMs) / 1000))
+    : 0;
+  const workoutSeconds = workoutStarted
+    ? Math.max(0, Math.floor((Math.min(workoutEndMs, sessionEndMs) - workoutStartMs) / 1000))
+    : 0;
+  const cooldownSeconds = workoutCompleted
+    ? Math.max(0, sessionSeconds - warmupSeconds - briefingSeconds - workoutSeconds)
+    : 0;
+
+  return { sessionSeconds, warmupSeconds, briefingSeconds, workoutSeconds, cooldownSeconds, workoutStarted, workoutCompleted };
 }
 
 export function workoutPacingSummary(
