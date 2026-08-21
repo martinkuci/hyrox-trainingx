@@ -1,0 +1,27 @@
+html,
+body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+/* The 12-week chart used an inline minimum width that could force the whole
+   mobile results page to shrink/shift. Keep all 12 columns inside the card. */
+ol[aria-label="Tréninková aktivita za 12 týdnů"] {
+  min-width: 0 !important;
+  grid-template-columns: repeat(12, minmax(0, 1fr)) !important;
+  gap: 0.25rem !important;
+}
+
+ol[aria-label="Tréninková aktivita za 12 týdnů"] > li {
+  min-width: 0 !important;
+}
+
+@media (max-width: 420px) {
+  ol[aria-label="Tréninková aktivita za 12 týdnů"] {
+    gap: 0.125rem !important;
+  }
+
+  ol[aria-label="Tréninková aktivita za 12 týdnů"] span[aria-hidden="true"] {
+    max-width: 1.5rem !important;
+  }
+}
