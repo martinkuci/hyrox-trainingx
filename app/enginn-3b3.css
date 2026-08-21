@@ -476,3 +476,227 @@ main.runner-shell.h-dvh.overflow-hidden > section > p {
     padding-bottom: 0.5rem !important;
   }
 }
+
+/* -------------------------------------------------------------------------
+   Stable live-runner chrome.
+   Header + exercise hero + timer stay fixed at the top. Participant status is
+   always reserved at the bottom, with the live action immediately above it.
+   Only the middle information area is allowed to compress on short screens.
+   ------------------------------------------------------------------------- */
+main.runner-shell.h-dvh.overflow-hidden > section {
+  position: relative;
+  box-sizing: border-box;
+}
+
+/* Work phase: reserve space for the persistent teammate dock. */
+main.runner-shell.h-dvh.overflow-hidden > section:not(:has(> div.ui-inset)) {
+  padding-bottom: max(5.35rem, calc(env(safe-area-inset-bottom) + 4.8rem)) !important;
+}
+
+main.runner-shell.h-dvh.overflow-hidden > section:not(:has(> div.ui-inset)) > section:nth-of-type(5) {
+  position: absolute !important;
+  z-index: 12;
+  left: 0;
+  right: 0;
+  bottom: max(0.25rem, env(safe-area-inset-bottom));
+}
+
+/* If station controls are tall, compress only the variable middle, not the
+   hero, CTA or teammate dock. */
+main.runner-shell.h-dvh.overflow-hidden > section:not(:has(> div.ui-inset)):has(section:nth-of-type(4) .grid.grid-cols-4) > section:nth-of-type(2) > .ui-inset:last-child,
+main.runner-shell.h-dvh.overflow-hidden > section:not(:has(> div.ui-inset)):has(section:nth-of-type(4) .grid.grid-cols-4) > section:nth-of-type(3),
+main.runner-shell.h-dvh.overflow-hidden > section:not(:has(> div.ui-inset)):has(section:nth-of-type(4) .text-center) > section:nth-of-type(2) > .ui-inset:last-child,
+main.runner-shell.h-dvh.overflow-hidden > section:not(:has(> div.ui-inset)):has(section:nth-of-type(4) .text-center) > section:nth-of-type(3) {
+  min-height: 5.4rem !important;
+  padding-top: 0.72rem !important;
+  padding-bottom: 0.72rem !important;
+}
+
+/* Warm-up / cooldown have a different DOM shape (a direct .ui-inset instead
+   of the work progress section). Remap those elements into the same stable
+   frame instead of letting work-phase nth-of-type rules scramble them. */
+main.runner-shell.h-dvh.overflow-hidden > section:has(> div.ui-inset) {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+  grid-template-rows: max-content max-content minmax(0, 1fr) max-content max-content !important;
+  grid-auto-rows: unset !important;
+  align-content: stretch !important;
+}
+
+main.runner-shell.h-dvh.overflow-hidden > section:has(> div.ui-inset) > header {
+  grid-column: 1 / -1;
+  grid-row: 1;
+}
+
+main.runner-shell.h-dvh.overflow-hidden > section:has(> div.ui-inset) > section:nth-of-type(1) {
+  grid-column: 1 / -1;
+  grid-row: 2;
+}
+
+main.runner-shell.h-dvh.overflow-hidden > section:has(> div.ui-inset) > div.ui-inset {
+  grid-column: 1;
+  grid-row: 3;
+  align-self: start;
+  min-height: 5.4rem;
+  padding: 0.9rem 1rem !important;
+  border: 1px solid var(--runner-border) !important;
+  border-radius: 1.35rem !important;
+  background: linear-gradient(145deg, rgba(32,35,38,0.96), rgba(22,25,27,0.96)) !important;
+  color: rgba(212,212,216,0.72) !important;
+  line-height: 1.3rem;
+}
+
+main.runner-shell.h-dvh.overflow-hidden > section:has(> div.ui-inset) > section:nth-of-type(2) {
+  display: flex !important;
+  grid-column: 2;
+  grid-row: 3;
+  align-self: start;
+  min-height: 5.4rem !important;
+  padding: 0.9rem 1rem !important;
+  border: 1px solid var(--runner-border) !important;
+  border-radius: 1.35rem !important;
+  background: linear-gradient(145deg, rgba(32,35,38,0.96), rgba(22,25,27,0.96)) !important;
+}
+
+main.runner-shell.h-dvh.overflow-hidden > section:has(> div.ui-inset) > section:nth-of-type(2) > div:first-child p:last-child {
+  margin-top: 0.45rem;
+  white-space: normal !important;
+  overflow: visible !important;
+  font-size: 0.9rem !important;
+}
+
+main.runner-shell.h-dvh.overflow-hidden > section:has(> div.ui-inset) > section:nth-of-type(2) > div:last-child button:first-child {
+  display: none !important;
+}
+
+main.runner-shell.h-dvh.overflow-hidden > section:has(> div.ui-inset) > section:nth-of-type(2) > div:last-child span {
+  width: 2.4rem !important;
+  height: 2.4rem !important;
+  border-color: rgba(184,255,74,0.36) !important;
+  color: var(--runner-accent) !important;
+}
+
+/* Phase action is a fixed bottom row, immediately above participants. */
+main.runner-shell.h-dvh.overflow-hidden > section:has(> div.ui-inset) > section:nth-of-type(3) {
+  grid-column: 1 / -1 !important;
+  grid-row: 4 !important;
+  display: block !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+main.runner-shell.h-dvh.overflow-hidden > section:has(> div.ui-inset) > section:nth-of-type(3) > div {
+  display: block !important;
+}
+
+main.runner-shell.h-dvh.overflow-hidden > section:has(> div.ui-inset) > section:nth-of-type(3) button.ui-button-primary {
+  min-height: 3.9rem !important;
+  width: 100%;
+  border: 0 !important;
+  border-radius: 1.35rem !important;
+  background: linear-gradient(180deg, #c3ff66 0%, #a9ef47 100%) !important;
+  color: #0b0d0a !important;
+  font-size: clamp(1rem, 4.5vw, 1.25rem) !important;
+  font-weight: 950 !important;
+  box-shadow: 0 0 26px rgba(184,255,74,0.14) !important;
+}
+
+main.runner-shell.h-dvh.overflow-hidden > section:has(> div.ui-inset) > section:nth-of-type(3) button[class*="mt-2"][class*="text-zinc-600"] {
+  min-height: 2.35rem;
+  margin-top: 0.4rem !important;
+  padding: 0.45rem 0.75rem !important;
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 1rem;
+  background: rgba(22,25,27,0.82);
+  color: rgba(161,161,170,0.58) !important;
+  font-size: 0.66rem !important;
+}
+
+/* Participant dock is always the last row. */
+main.runner-shell.h-dvh.overflow-hidden > section:has(> div.ui-inset) > section:nth-of-type(4) {
+  grid-column: 1 / -1 !important;
+  grid-row: 5 !important;
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+}
+
+main.runner-shell.h-dvh.overflow-hidden > section:has(> div.ui-inset) > section:nth-of-type(4) > .ui-inset {
+  position: relative;
+  min-height: 4.25rem;
+  padding: 0.7rem 0.8rem !important;
+  border: 1px solid rgba(184,255,74,0.25) !important;
+  border-radius: 1.25rem !important;
+  background: linear-gradient(145deg, rgba(27,30,32,0.96), rgba(17,19,20,0.97)) !important;
+}
+
+main.runner-shell.h-dvh.overflow-hidden > section:has(> div.ui-inset) > section:nth-of-type(4) p:first-child {
+  font-size: 0.82rem !important;
+}
+
+main.runner-shell.h-dvh.overflow-hidden > section:has(> div.ui-inset) > section:nth-of-type(4) p:last-child,
+main.runner-shell.h-dvh.overflow-hidden > section:has(> div.ui-inset) > section:nth-of-type(4) span {
+  font-size: 0.66rem !important;
+}
+
+/* Completed primary work action should read as a stable state, not as another
+   clickable lime CTA. */
+main.runner-shell.h-dvh.overflow-hidden button.ui-button-primary:disabled {
+  border: 1px solid rgba(184,255,74,0.18) !important;
+  background: linear-gradient(145deg, rgba(34,38,31,0.88), rgba(18,21,18,0.92)) !important;
+  color: rgba(212,212,216,0.72) !important;
+  box-shadow: none !important;
+  opacity: 1 !important;
+}
+
+/* Short browser viewports: shrink only secondary middle content. CTA and
+   teammate dock retain their tap targets and fixed positions. */
+@media (max-height: 720px) {
+  main.runner-shell.h-dvh.overflow-hidden > section > section:nth-of-type(1) {
+    min-height: 9.7rem;
+  }
+
+  main.runner-shell.h-dvh.overflow-hidden > section > section:nth-of-type(1) h1 + p {
+    margin-top: 0.3rem !important;
+  }
+
+  main.runner-shell.h-dvh.overflow-hidden > section > section:nth-of-type(1) > div:first-child > div:last-child {
+    margin-top: 0.4rem !important;
+  }
+
+  main.runner-shell.h-dvh.overflow-hidden > section > section:nth-of-type(1) > div:last-child {
+    margin-top: 0.28rem;
+  }
+
+  main.runner-shell.h-dvh.overflow-hidden > section > section:nth-of-type(1) > div:last-child > p:first-child {
+    font-size: clamp(3.8rem, 18vw, 5.2rem) !important;
+  }
+
+  main.runner-shell.h-dvh.overflow-hidden > section:not(:has(> div.ui-inset)) > section:nth-of-type(2) > .ui-inset:last-child,
+  main.runner-shell.h-dvh.overflow-hidden > section:not(:has(> div.ui-inset)) > section:nth-of-type(3) {
+    min-height: 4.8rem !important;
+    padding: 0.6rem 0.7rem !important;
+  }
+
+  main.runner-shell.h-dvh.overflow-hidden > section:has(> div.ui-inset) > div.ui-inset,
+  main.runner-shell.h-dvh.overflow-hidden > section:has(> div.ui-inset) > section:nth-of-type(2) {
+    min-height: 4.4rem !important;
+    padding: 0.65rem 0.75rem !important;
+  }
+
+  main.runner-shell.h-dvh.overflow-hidden > section:has(> div.ui-inset) > section:nth-of-type(3) button.ui-button-primary {
+    min-height: 3.45rem !important;
+  }
+
+  main.runner-shell.h-dvh.overflow-hidden > section:has(> div.ui-inset) > section:nth-of-type(4) > .ui-inset {
+    min-height: 3.75rem;
+    padding-top: 0.5rem !important;
+    padding-bottom: 0.45rem !important;
+  }
+}
