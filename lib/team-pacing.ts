@@ -1,4 +1,4 @@
-import type { TeamStepAssignment, TeamWorkoutFormat } from "./team-training";
+import type { TeamStepAssignment, TeamWorkoutEvent, TeamWorkoutFormat } from "./team-training";
 import type { WorkoutTemplate } from "./types";
 
 export type TeamWorkoutPhase = "warmup" | "work" | "cooldown";
@@ -8,6 +8,15 @@ export type TeamPacingEntry = {
   targetSeconds?: number;
   cue: string;
   splitSuggestion?: string;
+};
+
+export type TeamWorkoutTiming = {
+  sessionSeconds: number;
+  warmupSeconds: number;
+  workoutSeconds: number;
+  cooldownSeconds: number;
+  workoutStarted: boolean;
+  workoutCompleted: boolean;
 };
 
 function normalized(...values: Array<string | undefined>) {
@@ -87,6 +96,22 @@ function niceShare(value: number, target: number) {
   return Math.max(step, Math.round(value / step) * step);
 }
 
+export function adaptiveProgressOptions(target: number | undefined, current: number, kind: "distance" | "reps") {
+  if (!target || target <= 0) return kind === "distance" ? [100, 250, 500] : [1, 5, 10];
+  const remaining = Math.max(0, target - Math.max(0, current));
+  if (!remaining) return [];
+  const step = kind === "distance"
+    ? target <= 50 ? 5 : target <= 200 ? 10 : target <= 1000 ? 25 : target <= 2000 ? 50 : 100
+    : target <= 20 ? 1 : target <= 60 ? 5 : 10;
+  const fractions = [0.25, 0.5, 0.75];
+  const values = fractions.map((fraction) => {
+    const raw = target * fraction;
+    const rounded = fraction === 0.75 ? Math.floor(raw / step) * step : Math.round(raw / step) * step;
+    return Math.max(step, Math.min(remaining, rounded));
+  });
+  return [...new Set(values)].sort((left, right) => left - right);
+}
+
 export function suggestedTeamSplit(assignment: TeamStepAssignment, participantCount: number) {
   const people = Math.max(1, participantCount);
   if (assignment.targetDistanceMeters && people > 1) {
@@ -141,6 +166,59 @@ export function buildTeamPacingPlan({
   }
 
   return entries;
+}
+
+function completionTime(assignment: TeamStepAssignment, events: TeamWorkoutEvent[]) {
+  let reps = 0;
+  let distance = 0;
+  const completedBy = new Set<string>();
+  for (const item of events) {
+    if (!("assignmentId" in item) || item.assignmentId !== assignment.id) continue;
+    if (item.type === "team-step-completed") return item.at;
+    if (item.type === "step-progress") {
+      reps += Math.max(0, item.repsDelta ?? 0);
+      distance += Math.max(0, item.distanceMetersDelta ?? 0);
+      if (assignment.targetReps && reps >= assignment.targetReps) return item.at;
+      if (assignment.targetDistanceMeters && distance >= assignment.targetDistanceMeters) return item.at;
+    }
+    if (item.type === "participant-step-completed") {
+      completedBy.add(item.participantId);
+      if (assignment.mode === "you-go-i-go" && !assignment.targetReps && !assignment.targetDistanceMeters) return item.at;
+      if (["simultaneous", "relay", "solo"].includes(assignment.mode) && assignment.participantIds.every((id) => completedBy.has(id))) return item.at;
+    }
+  }
+  return undefined;
+}
+
+export function deriveTeamWorkoutTiming(
+  assignments: TeamStepAssignment[],
+  events: TeamWorkoutEvent[],
+  startedAt: string | undefined,
+  completedAt: string | undefined,
+  nowMs: number,
+): TeamWorkoutTiming {
+  const startMs = startedAt ? Date.parse(startedAt) : NaN;
+  if (!Number.isFinite(startMs)) return { sessionSeconds: 0, warmupSeconds: 0, workoutSeconds: 0, cooldownSeconds: 0, workoutStarted: false, workoutCompleted: false };
+  const sessionEndMs = completedAt ? Date.parse(completedAt) : nowMs;
+  const workIndexes = assignments.map((assignment, index) => phaseForAssignment(assignment) === "work" ? index : -1).filter((index) => index >= 0);
+  if (!workIndexes.length) {
+    const sessionSeconds = Math.max(0, Math.floor((sessionEndMs - startMs) / 1000));
+    return { sessionSeconds, warmupSeconds: sessionSeconds, workoutSeconds: 0, cooldownSeconds: 0, workoutStarted: false, workoutCompleted: false };
+  }
+
+  const firstWorkIndex = workIndexes[0];
+  const lastWorkIndex = workIndexes[workIndexes.length - 1];
+  const preceding = firstWorkIndex > 0 ? completionTime(assignments[firstWorkIndex - 1], events) : startedAt;
+  const workoutStartMs = preceding ? Date.parse(preceding) : NaN;
+  const lastWorkCompletedAt = completionTime(assignments[lastWorkIndex], events);
+  const workoutEndMs = lastWorkCompletedAt ? Date.parse(lastWorkCompletedAt) : nowMs;
+  const workoutStarted = Number.isFinite(workoutStartMs) && nowMs >= workoutStartMs;
+  const workoutCompleted = Boolean(lastWorkCompletedAt);
+  const sessionSeconds = Math.max(0, Math.floor((sessionEndMs - startMs) / 1000));
+  const warmupSeconds = workoutStarted ? Math.max(0, Math.floor((workoutStartMs - startMs) / 1000)) : sessionSeconds;
+  const workoutSeconds = workoutStarted ? Math.max(0, Math.floor((Math.min(workoutEndMs, sessionEndMs) - workoutStartMs) / 1000)) : 0;
+  const cooldownSeconds = workoutCompleted ? Math.max(0, sessionSeconds - warmupSeconds - workoutSeconds) : 0;
+  return { sessionSeconds, warmupSeconds, workoutSeconds, cooldownSeconds, workoutStarted, workoutCompleted };
 }
 
 export function workoutPacingSummary(template: WorkoutTemplate, format: TeamWorkoutFormat, participantCount: number) {
