@@ -5,6 +5,7 @@ export type TeamWorkoutFormat = "shared" | "doubles" | "relay";
 export type TeamWorkoutSessionStatus = "lobby" | "ready" | "running" | "paused" | "completed" | "cancelled";
 export type TeamParticipantStatus = "invited" | "joined" | "ready" | "active" | "finished" | "left";
 export type TeamParticipantRole = "host" | "athlete";
+export type TeamPacingSource = "auto" | "custom" | "history";
 
 export type TeamWorkoutParticipant = {
   id: string;
@@ -49,10 +50,12 @@ export type TeamWorkoutSession = {
   scheduledFor?: string;
   startedAt?: string;
   completedAt?: string;
+  pacingTargetSeconds?: number;
+  pacingSource?: TeamPacingSource;
 };
 
 export type TeamWorkoutSessionPatch = Partial<Pick<TeamWorkoutSession,
-  "format" | "status" | "participantLimit" | "assignments" | "scheduledFor" | "startedAt" | "completedAt"
+  "format" | "status" | "participantLimit" | "assignments" | "scheduledFor" | "startedAt" | "completedAt" | "pacingTargetSeconds" | "pacingSource"
 >>;
 
 export type TeamWorkoutEvent =

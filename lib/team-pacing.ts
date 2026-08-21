@@ -3,6 +3,7 @@ import {
   classifyWorkoutPhase,
   normalizedWorkoutText,
   recommendedWorkoutTargetSeconds,
+  referencePacingSeconds,
   type WorkoutPacingPhase,
 } from "./workout-pacing";
 import type { WorkoutTemplate } from "./types";
@@ -14,6 +15,10 @@ export { recommendedWorkoutTargetSeconds } from "./workout-pacing";
 export type TeamPacingEntry = {
   assignmentId: string;
   targetSeconds?: number;
+  movementTargetSeconds?: number;
+  transitionSeconds?: number;
+  cumulativeTargetSeconds?: number;
+  paceLabel?: string;
   cue: string;
   splitSuggestion?: string;
 };
@@ -31,27 +36,35 @@ function normalized(...values: Array<string | undefined>) {
   return normalizedWorkoutText(...values);
 }
 
+function clockShort(seconds: number) {
+  const safe = Math.max(0, Math.round(seconds));
+  const minutes = Math.floor(safe / 60);
+  return `${minutes}:${String(safe % 60).padStart(2, "0")}`;
+}
+
+function isRunAssignment(assignment: TeamStepAssignment) {
+  const text = normalized(assignment.exerciseId, assignment.stepName, assignment.stepDetail);
+  return text.includes("run") || text.includes("beh") || text.includes("klus");
+}
+
+function isErgAssignment(assignment: TeamStepAssignment) {
+  const text = normalized(assignment.exerciseId, assignment.stepName, assignment.stepDetail);
+  return text.includes("ski") || text.includes("row") || text.includes("vesl");
+}
+
 export function phaseForAssignment(assignment: TeamStepAssignment) {
   return classifyWorkoutPhase(assignment.blockTitle, assignment.stepName, assignment.stepDetail ?? "");
 }
 
-function assignmentWeight(assignment: TeamStepAssignment) {
-  const text = normalized(assignment.exerciseId, assignment.stepName, assignment.stepDetail);
-  if (phaseForAssignment(assignment) !== "work") return 0;
-  if (assignment.targetDistanceMeters) {
-    if (text.includes("run") || text.includes("beh")) return Math.max(45, assignment.targetDistanceMeters * 0.30);
-    if (text.includes("ski") || text.includes("row") || text.includes("vesl")) return Math.max(40, assignment.targetDistanceMeters * 0.24);
-    if (text.includes("burpee") || text.includes("broad jump")) return Math.max(45, assignment.targetDistanceMeters * 3.2);
-    if (text.includes("carry") || text.includes("lunge") || text.includes("vypad")) return Math.max(40, assignment.targetDistanceMeters * 1.8);
-    return Math.max(45, assignment.targetDistanceMeters * 0.8);
-  }
-  if (assignment.targetReps) {
-    if (text.includes("burpee")) return Math.max(40, assignment.targetReps * 4);
-    if (text.includes("wall-ball") || text.includes("wall ball")) return Math.max(35, assignment.targetReps * 2.2);
-    if (text.includes("lunge") || text.includes("vypad")) return Math.max(35, assignment.targetReps * 2.1);
-    return Math.max(35, assignment.targetReps * 2.5);
-  }
-  return 75;
+function movementWeight(assignment: TeamStepAssignment, runOrdinal: number) {
+  return referencePacingSeconds({
+    name: assignment.stepName,
+    detail: assignment.stepDetail,
+    exerciseId: assignment.exerciseId,
+    distanceMeters: assignment.targetDistanceMeters,
+    reps: assignment.targetReps,
+    runOrdinal: isRunAssignment(assignment) ? runOrdinal : undefined,
+  });
 }
 
 function niceShare(value: number, target: number) {
@@ -88,6 +101,23 @@ export function suggestedTeamSplit(assignment: TeamStepAssignment, participantCo
   return undefined;
 }
 
+function teamPaceLabel(assignment: TeamStepAssignment, movementTargetSeconds: number) {
+  if (assignment.targetDistanceMeters && isErgAssignment(assignment)) {
+    const per500 = Math.max(1, Math.round(movementTargetSeconds * 500 / assignment.targetDistanceMeters));
+    return `${Math.floor(per500 / 60)}:${String(per500 % 60).padStart(2, "0")} / 500 m`;
+  }
+  if (assignment.targetDistanceMeters && isRunAssignment(assignment) && assignment.targetDistanceMeters >= 400) {
+    const perKm = Math.max(1, Math.round(movementTargetSeconds * 1000 / assignment.targetDistanceMeters));
+    return `${Math.floor(perKm / 60)}:${String(perKm % 60).padStart(2, "0")} / km`;
+  }
+  return undefined;
+}
+
+function transitionReserveFor(targetSeconds: number, workCount: number) {
+  if (workCount <= 1) return 0;
+  return Math.max(0, Math.min(Math.round(targetSeconds * 0.055), (workCount - 1) * 25));
+}
+
 export function buildTeamPacingPlan({
   assignments,
   targetWorkoutSeconds,
@@ -102,8 +132,20 @@ export function buildTeamPacingPlan({
   format: TeamWorkoutFormat;
 }): Record<string, TeamPacingEntry> {
   const workAssignments = assignments.filter((assignment) => phaseForAssignment(assignment) === "work");
-  const totalWeight = workAssignments.reduce((sum, assignment) => sum + assignmentWeight(assignment), 0) || 1;
+  const targetSeconds = Math.max(5 * 60, Math.round(targetWorkoutSeconds));
+  const transitionReserve = transitionReserveFor(targetSeconds, workAssignments.length);
+  const transitionPerGap = workAssignments.length > 1 ? transitionReserve / (workAssignments.length - 1) : 0;
+  let runOrdinal = 0;
+  const weighted = workAssignments.map((assignment) => {
+    const weight = movementWeight(assignment, runOrdinal);
+    if (isRunAssignment(assignment)) runOrdinal += 1;
+    return { assignment, weight };
+  });
+  const totalWeight = weighted.reduce((sum, item) => sum + item.weight, 0) || 1;
+  const movementBudget = Math.max(1, targetSeconds - transitionReserve);
   const entries: Record<string, TeamPacingEntry> = {};
+  let cumulative = 0;
+  let workIndex = 0;
 
   for (const assignment of assignments) {
     const phase = phaseForAssignment(assignment);
@@ -117,21 +159,36 @@ export function buildTeamPacingPlan({
       continue;
     }
 
-    const targetSeconds = Math.max(15, Math.round((assignmentWeight(assignment) / totalWeight) * targetWorkoutSeconds));
-    const text = normalized(assignment.exerciseId, assignment.stepName);
-    let cue = `Orientační cíl úseku ${Math.floor(targetSeconds / 60)}:${String(targetSeconds % 60).padStart(2, "0")}.`;
-    if ((text.includes("run") || text.includes("beh")) && runningTarget) cue += ` ${runningTarget}`;
-    else if (text.includes("ski") || text.includes("row") || text.includes("vesl")) cue += " Drž rovnoměrné /500 m a nepřepal první záběry.";
-    else cue += " Drž tempo, které zvládneš zopakovat bez výrazného propadu techniky.";
+    const weightedItem = weighted[workIndex];
+    const movementTargetSeconds = Math.max(15, Math.round((weightedItem?.weight ?? 1) / totalWeight * movementBudget));
+    const transitionSeconds = workIndex === 0 ? 0 : Math.round(transitionPerGap);
+    const assignmentTargetSeconds = movementTargetSeconds + transitionSeconds;
+    cumulative += assignmentTargetSeconds;
+    const paceLabel = teamPaceLabel(assignment, movementTargetSeconds);
+    let cue = `Cíl úseku cca ${clockShort(assignmentTargetSeconds)}.`;
+    if (transitionSeconds > 0) cue += ` Z toho cca ${clockShort(transitionSeconds)} je rezerva na přesun/přechod.`;
+    if (isRunAssignment(assignment) && runningTarget) cue += ` ${paceLabel ? `Tempo pohybu ${paceLabel}. ` : ""}${runningTarget}`;
+    else if (isErgAssignment(assignment)) cue += ` ${paceLabel ? `Tempo pohybu ${paceLabel}. ` : ""}Začni kontrolovaně a drž stejný záběr.`;
+    else cue += " Drž tempo, které dokážeš zopakovat bez výrazného propadu techniky.";
 
     const splitSuggestion = format === "doubles" ? suggestedTeamSplit(assignment, participantCount) : undefined;
-    entries[assignment.id] = { assignmentId: assignment.id, targetSeconds, cue, splitSuggestion };
+    entries[assignment.id] = {
+      assignmentId: assignment.id,
+      targetSeconds: assignmentTargetSeconds,
+      movementTargetSeconds,
+      transitionSeconds,
+      cumulativeTargetSeconds: cumulative,
+      paceLabel,
+      cue,
+      splitSuggestion,
+    };
+    workIndex += 1;
   }
 
   return entries;
 }
 
-function completionTime(assignment: TeamStepAssignment, events: TeamWorkoutEvent[]) {
+export function completionTime(assignment: TeamStepAssignment, events: TeamWorkoutEvent[]) {
   let reps = 0;
   let distance = 0;
   const completedBy = new Set<string>();
@@ -151,6 +208,27 @@ function completionTime(assignment: TeamStepAssignment, events: TeamWorkoutEvent
     }
   }
   return undefined;
+}
+
+export function pacingDeltaBeforeAssignment(
+  assignments: TeamStepAssignment[],
+  events: TeamWorkoutEvent[],
+  startedAt: string | undefined,
+  currentAssignmentId: string,
+  plan: Record<string, TeamPacingEntry>,
+) {
+  if (!startedAt) return undefined;
+  const currentIndex = assignments.findIndex((assignment) => assignment.id === currentAssignmentId);
+  if (currentIndex < 0 || phaseForAssignment(assignments[currentIndex]) !== "work") return undefined;
+  const firstWorkIndex = assignments.findIndex((assignment) => phaseForAssignment(assignment) === "work");
+  if (firstWorkIndex < 0 || currentIndex <= firstWorkIndex) return 0;
+  const beforeFirstWork = firstWorkIndex > 0 ? completionTime(assignments[firstWorkIndex - 1], events) : startedAt;
+  const beforeCurrent = completionTime(assignments[currentIndex - 1], events);
+  if (!beforeFirstWork || !beforeCurrent) return undefined;
+  const actualBeforeCurrent = Math.max(0, (Date.parse(beforeCurrent) - Date.parse(beforeFirstWork)) / 1000);
+  const previousWork = assignments.slice(firstWorkIndex, currentIndex).filter((assignment) => phaseForAssignment(assignment) === "work");
+  const targetBeforeCurrent = previousWork.reduce((sum, assignment) => sum + (plan[assignment.id]?.targetSeconds ?? 0), 0);
+  return Math.round(actualBeforeCurrent - targetBeforeCurrent);
 }
 
 export function deriveTeamWorkoutTiming(
@@ -184,8 +262,13 @@ export function deriveTeamWorkoutTiming(
   return { sessionSeconds, warmupSeconds, workoutSeconds, cooldownSeconds, workoutStarted, workoutCompleted };
 }
 
-export function workoutPacingSummary(template: WorkoutTemplate, format: TeamWorkoutFormat, participantCount: number) {
-  const targetSeconds = recommendedWorkoutTargetSeconds(template);
+export function workoutPacingSummary(
+  template: WorkoutTemplate,
+  format: TeamWorkoutFormat,
+  participantCount: number,
+  targetOverrideSeconds?: number,
+) {
+  const targetSeconds = Math.max(5 * 60, Math.round(targetOverrideSeconds ?? recommendedWorkoutTargetSeconds(template)));
   const targetMinutes = Math.round(targetSeconds / 60);
   const running = template.metadata?.runningTarget;
   const formatCue = format === "doubles"
@@ -195,7 +278,7 @@ export function workoutPacingSummary(template: WorkoutTemplate, format: TeamWork
       : "Každý drží vlastní tempo, ale tým vidí společný průběh.";
   return {
     targetSeconds,
-    title: `Orientační workout cíl: ${targetMinutes} min`,
+    title: `Cíl měřené části: ${targetMinutes} min`,
     running,
     formatCue,
   };
