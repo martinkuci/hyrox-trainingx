@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import WorkoutRecoveryRoutine from "@/components/WorkoutRecoveryRoutine";
 import WorkoutRunner from "@/components/WorkoutRunner";
 import { loadWorkoutCheckpoint, makeWorkoutKey } from "@/lib/workout-checkpoint";
+import { applyWorkoutPacingToTemplate } from "@/lib/workout-pacing";
 import { loadPreWorkoutRecovery, savePreWorkoutRecovery } from "@/lib/workout-recovery-storage";
 import type { EquipmentId, WorkoutTemplate } from "@/lib/types";
 
@@ -21,6 +22,7 @@ export default function WorkoutExperience({
   recoveryLocationLabel,
 }: Props) {
   const workoutKey = useMemo(() => makeWorkoutKey(template.id, scheduledWorkoutId), [scheduledWorkoutId, template.id]);
+  const pacedTemplate = useMemo(() => applyWorkoutPacingToTemplate(template), [template]);
   const hasMainWorkoutCheckpoint = useMemo(() => {
     const checkpoint = loadWorkoutCheckpoint();
     return checkpoint?.workoutKey === workoutKey;
@@ -51,5 +53,5 @@ export default function WorkoutExperience({
     );
   }
 
-  return <WorkoutRunner template={template} scheduledWorkoutId={scheduledWorkoutId} />;
+  return <WorkoutRunner template={pacedTemplate} scheduledWorkoutId={scheduledWorkoutId} />;
 }
