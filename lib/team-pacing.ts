@@ -210,6 +210,34 @@ export function completionTime(assignment: TeamStepAssignment, events: TeamWorko
   return undefined;
 }
 
+function assignmentStartAt(
+  assignments: TeamStepAssignment[],
+  events: TeamWorkoutEvent[],
+  startedAt: string | undefined,
+  currentIndex: number,
+) {
+  const firstWorkIndex = assignments.findIndex((assignment) => phaseForAssignment(assignment) === "work");
+  if (firstWorkIndex < 0 || currentIndex < firstWorkIndex) return undefined;
+  if (currentIndex === firstWorkIndex) return firstWorkIndex > 0 ? completionTime(assignments[firstWorkIndex - 1], events) : startedAt;
+  return completionTime(assignments[currentIndex - 1], events);
+}
+
+export function currentAssignmentElapsedSeconds(
+  assignments: TeamStepAssignment[],
+  events: TeamWorkoutEvent[],
+  startedAt: string | undefined,
+  currentAssignmentId: string,
+  nowMs: number,
+) {
+  const currentIndex = assignments.findIndex((assignment) => assignment.id === currentAssignmentId);
+  if (currentIndex < 0 || phaseForAssignment(assignments[currentIndex]) !== "work") return undefined;
+  const startAt = assignmentStartAt(assignments, events, startedAt, currentIndex);
+  if (!startAt) return undefined;
+  const startMs = Date.parse(startAt);
+  if (!Number.isFinite(startMs)) return undefined;
+  return Math.max(0, Math.floor((nowMs - startMs) / 1000));
+}
+
 export function pacingDeltaBeforeAssignment(
   assignments: TeamStepAssignment[],
   events: TeamWorkoutEvent[],
