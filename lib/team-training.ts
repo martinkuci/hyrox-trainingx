@@ -32,6 +32,8 @@ export type TeamStepAssignment = {
   activeParticipantId?: string;
   targetReps?: number;
   targetDistanceMeters?: number;
+  round?: number;
+  totalRounds?: number;
 };
 
 export type TeamWorkoutSession = {
