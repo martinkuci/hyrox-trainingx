@@ -10,6 +10,7 @@ export type ActiveTeamSession = {
   format: TeamWorkoutFormat;
   status: TeamWorkoutSessionStatus;
   startedAt?: string;
+  personalFinished?: boolean;
   updatedAt: string;
 };
 
