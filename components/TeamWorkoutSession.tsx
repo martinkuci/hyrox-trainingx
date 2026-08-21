@@ -7,6 +7,14 @@ import RunnerBrandButton from "@/components/RunnerBrandButton";
 import { useHyroxData } from "@/hooks/useHyroxData";
 import { loadCloudUser } from "@/lib/firebase-rest";
 import { clearActiveTeamSession, saveActiveTeamSession } from "@/lib/team-active-session";
+import {
+  adaptiveProgressOptions,
+  buildTeamPacingPlan,
+  deriveTeamWorkoutTiming,
+  phaseForAssignment,
+  recommendedWorkoutTargetSeconds,
+  suggestedTeamSplit,
+} from "@/lib/team-pacing";
 import { loadTeamProfile, rememberTeammates } from "@/lib/team-profile";
 import type { TeamStepAssignment, TeamWorkoutEvent, TeamWorkoutSnapshot } from "@/lib/team-training";
 import { teamWorkoutTransport } from "@/lib/team-training-firestore";
@@ -16,7 +24,6 @@ import {
   canParticipantWork,
   canStartTeamSession,
   deriveTeamWorkoutState,
-  distanceProgressOptions,
 } from "@/lib/team-workout-engine";
 
 const FORMAT_LABELS = { shared: "Společný workout", doubles: "Partner / Doubles", relay: "Relay" } as const;
@@ -51,14 +58,15 @@ function targetLabel(assignment: TeamStepAssignment, reps: number, distance: num
 
 function modeLabel(assignment: TeamStepAssignment) {
   if (assignment.mode !== "simultaneous") return MODE_LABELS[assignment.mode];
-  const text = `${assignment.blockTitle} ${assignment.stepName} ${assignment.stepDetail}`
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
-  if (["rozcvi", "warmup", "warm-up", "zklid", "cooldown", "cool-down", "mobilit", "recovery", "regener", "stretch", "prota"].some((token) => text.includes(token))) {
-    return "společně / volně";
-  }
+  if (phaseForAssignment(assignment) !== "work") return "společně / volně";
   return MODE_LABELS.simultaneous;
+}
+
+function phaseTitle(assignment: TeamStepAssignment) {
+  const phase = phaseForAssignment(assignment);
+  if (phase === "warmup") return "Rozcvičení";
+  if (phase === "cooldown") return "Zklidnění";
+  return assignment.blockTitle;
 }
 
 export default function TeamWorkoutSession({ sessionId }: { sessionId: string }) {
@@ -71,6 +79,7 @@ export default function TeamWorkoutSession({ sessionId }: { sessionId: string })
   const [rpe, setRpe] = useState(7);
   const [now, setNow] = useState(() => Date.now());
   const [showPrevious, setShowPrevious] = useState(false);
+  const [customProgress, setCustomProgress] = useState("");
   const audioContextRef = useRef<AudioContext | null>(null);
   const lastCountdownCueRef = useRef<number | null>(null);
   const participantId = user ? `athlete-${user.uid}` : "";
@@ -120,10 +129,26 @@ export default function TeamWorkoutSession({ sessionId }: { sessionId: string })
   const countdownSeconds = state?.status === "running" && Number.isFinite(startMs)
     ? Math.max(0, Math.ceil((startMs - now) / 1000))
     : 0;
-  const teamElapsedSeconds = Number.isFinite(startMs) && now >= startMs ? Math.max(0, Math.floor((now - startMs) / 1000)) : 0;
   const canWork = baseCanWork && countdownSeconds === 0;
   const previous = state && session && state.currentAssignmentIndex > 0 ? session.assignments[state.currentAssignmentIndex - 1] : undefined;
   const next = state && session ? session.assignments[state.currentAssignmentIndex + 1] : undefined;
+  const pacingTargetSeconds = session ? recommendedWorkoutTargetSeconds(session.workoutTemplate) : 0;
+  const pacingPlan = useMemo(() => session && session.assignments.length ? buildTeamPacingPlan({
+    assignments: session.assignments,
+    targetWorkoutSeconds: recommendedWorkoutTargetSeconds(session.workoutTemplate),
+    participantCount: session.participants.length,
+    runningTarget: session.workoutTemplate.metadata?.runningTarget,
+    format: session.format,
+  }) : {}, [session]);
+  const previewAssignments = useMemo(() => session ? buildTeamAssignments({ template: session.workoutTemplate, participants: session.participants, format: session.format }) : [], [session]);
+  const previewPacingPlan = useMemo(() => session && previewAssignments.length ? buildTeamPacingPlan({
+    assignments: previewAssignments,
+    targetWorkoutSeconds: recommendedWorkoutTargetSeconds(session.workoutTemplate),
+    participantCount: session.participants.length,
+    runningTarget: session.workoutTemplate.metadata?.runningTarget,
+    format: session.format,
+  }) : {}, [previewAssignments, session]);
+  const timing = useMemo(() => session && state && snapshot ? deriveTeamWorkoutTiming(session.assignments, snapshot.events, state.startedAt, state.completedAt, now) : undefined, [now, session, snapshot, state]);
 
   function ensureAudio() {
     try {
@@ -231,12 +256,19 @@ export default function TeamWorkoutSession({ sessionId }: { sessionId: string })
   }
 
   async function addProgress(kind: "reps" | "distance", value: number) {
-    if (!me || !current || !canWork) return;
+    if (!me || !current || !canWork || value <= 0) return;
     await publish(event("step-progress", {
       participantId: me.id,
       assignmentId: current.id,
       ...(kind === "reps" ? { repsDelta: value } : { distanceMetersDelta: value }),
     }));
+  }
+
+  async function addCustomProgress(kind: "reps" | "distance") {
+    const value = Math.max(0, Number(customProgress));
+    if (!value) return;
+    setCustomProgress("");
+    await addProgress(kind, value);
   }
 
   async function completeMyStep() {
@@ -269,10 +301,10 @@ export default function TeamWorkoutSession({ sessionId }: { sessionId: string })
   }, [isHost, me, session, snapshot?.events, state]);
 
   async function savePersonalResult() {
-    if (!session || !state || !me || !teamResult || existingResult) return;
+    if (!session || !state || !me || !teamResult || existingResult || !timing) return;
     setBusy(true); setError(undefined);
     try {
-      const durationSeconds = teamResult.teamDurationSeconds ?? Math.max(1, Math.round((Date.now() - Date.parse(state.startedAt ?? new Date().toISOString())) / 1000));
+      const durationSeconds = Math.max(1, timing.workoutSeconds || teamResult.teamDurationSeconds || 1);
       await teamWorkoutTransport.publishEvent(session.id, event("participant-finished", { participantId: me.id, durationSeconds, rpe }));
       const contribution = state.contributions[me.id] ?? { participantId: me.id, reps: 0, distanceMeters: 0, durationSeconds: 0, completedAssignments: 0 };
       addResult({
@@ -294,7 +326,7 @@ export default function TeamWorkoutSession({ sessionId }: { sessionId: string })
         durationSeconds,
         rpe,
         weights: "",
-        notes: `Týmový workout · ${FORMAT_LABELS[session.format]}`,
+        notes: `Týmový workout · ${FORMAT_LABELS[session.format]} · celkem ${clock(timing.sessionSeconds)} · warm-up ${clock(timing.warmupSeconds)} · cooldown ${clock(timing.cooldownSeconds)} · pacing cíl ${clock(pacingTargetSeconds)}`,
         splits: [],
         source: "team",
       });
@@ -321,10 +353,19 @@ export default function TeamWorkoutSession({ sessionId }: { sessionId: string })
       <section className="mx-auto w-full max-w-md py-5">
         <p className="text-xs font-black uppercase tracking-[0.2em] text-accent">Team Result</p>
         <h1 className="mt-1 text-3xl font-black">{session.workoutTemplate.title}</h1>
-        <div className="ui-card ui-card-accent mt-5 p-5"><p className="text-xs font-black uppercase tracking-wider text-zinc-500">Týmový čas</p><p className="mt-1 font-mono text-5xl font-black text-accent">{clock(teamResult?.teamDurationSeconds)}</p><p className="mt-2 text-sm text-zinc-400">{FORMAT_LABELS[session.format]} · {session.joinCode}</p></div>
+        <div className="ui-card ui-card-accent mt-5 p-5">
+          <p className="text-xs font-black uppercase tracking-wider text-zinc-500">Workout čas</p>
+          <p className="mt-1 font-mono text-5xl font-black text-accent">{clock(timing?.workoutSeconds)}</p>
+          <p className="mt-2 text-sm text-zinc-400">{FORMAT_LABELS[session.format]} · {session.joinCode}</p>
+          <div className="mt-4 grid grid-cols-3 gap-2 text-center text-xs">
+            <div className="ui-inset p-2"><b>{clock(timing?.warmupSeconds)}</b><span className="block text-[10px] text-zinc-500">warm-up</span></div>
+            <div className="ui-inset p-2"><b>{clock(timing?.sessionSeconds)}</b><span className="block text-[10px] text-zinc-500">celkem</span></div>
+            <div className="ui-inset p-2"><b>{clock(timing?.cooldownSeconds)}</b><span className="block text-[10px] text-zinc-500">cooldown</span></div>
+          </div>
+        </div>
         <div className="mt-4 space-y-3">{teamResult?.participants.map((participant) => <div key={participant.participantId} className="ui-card p-4"><div className="flex items-center justify-between"><p className="font-black">{participant.displayName}</p><span className="ui-chip">{participant.completedAssignments} úseků</span></div><div className="mt-3 grid grid-cols-3 gap-2 text-center text-sm"><div className="ui-inset p-2"><b>{participant.reps}</b><span className="block text-[10px] text-zinc-500">reps</span></div><div className="ui-inset p-2"><b>{participant.distanceMeters} m</b><span className="block text-[10px] text-zinc-500">distance</span></div><div className="ui-inset p-2"><b>{clock(participant.durationSeconds)}</b><span className="block text-[10px] text-zinc-500">tracked work</span></div></div></div>)}</div>
-        {!existingResult ? <section className="ui-card mt-4 p-5"><p className="font-black">Jak těžké to pro tebe bylo?</p><div className="mt-3 grid grid-cols-5 gap-2">{[1,2,3,4,5,6,7,8,9,10].map((value) => <button key={value} type="button" onClick={() => setRpe(value)} className={rpe === value ? "ui-button ui-button-primary px-2" : "ui-button ui-button-outline px-2"}>{value}</button>)}</div><button type="button" disabled={busy} onClick={() => void savePersonalResult()} className="ui-button ui-button-primary mt-4 w-full">Uložit do mojí historie</button><p className="mt-3 text-xs leading-5 text-zinc-500">Do týmu se sdílí společný postup. Tvoje RPE a budoucí Health data zůstávají ve tvém osobním výsledku.</p></section> : <p className="ui-feedback ui-feedback-success mt-4 text-sm">Týmový workout už je uložený v tvojí historii.</p>}
-        <div className="mt-4 grid gap-2"><Link href="/history" className="ui-button ui-button-primary">Historie</Link><Link href="/team" className="ui-button ui-button-outline">Další týmový workout</Link></div>
+        {!existingResult ? <section className="ui-card mt-4 p-5"><p className="font-black">Jak náročný byl trénink?</p><p className="mt-1 text-xs text-zinc-500">1 = velmi lehký · 10 = maximum</p><div className="mt-3 grid grid-cols-5 gap-2">{[1,2,3,4,5,6,7,8,9,10].map((value) => <button key={value} type="button" onClick={() => setRpe(value)} className={rpe === value ? "ui-button ui-button-primary px-2" : "ui-button ui-button-outline px-2"}>{value}</button>)}</div><button type="button" disabled={busy} onClick={() => void savePersonalResult()} className="ui-button ui-button-primary mt-4 w-full">Uložit výsledek</button><p className="mt-3 text-xs leading-5 text-zinc-500">Do týmu se sdílí společný postup. Tvoje hodnocení náročnosti a budoucí Health data zůstávají osobní.</p></section> : <p className="ui-feedback ui-feedback-success mt-4 text-sm">Týmový workout už je uložený v tvojí historii.</p>}
+        <div className="mt-4 grid gap-2"><Link href="/" className="ui-button ui-button-primary">Zpět na hlavní obrazovku</Link><Link href="/history" className="ui-button ui-button-outline">Detail výsledku / Historie</Link><Link href="/team" className="ui-button ui-button-ghost">Nový týmový workout</Link></div>
         {error && <p className="ui-feedback mt-4 text-sm text-amber-200">{error}</p>}
       </section>
     </main>
@@ -337,6 +378,7 @@ export default function TeamWorkoutSession({ sessionId }: { sessionId: string })
       <div className="ui-card ui-card-accent mt-5 p-5 text-center"><p className="text-xs uppercase tracking-[0.2em] text-zinc-500">Join kód</p><p className="mt-2 font-mono text-4xl font-black text-accent">{session.joinCode}</p><button type="button" onClick={() => void shareSession()} className="ui-button ui-button-outline mt-4 w-full">Sdílet pozvánku</button></div>
       {session.scheduledFor && <p className="ui-feedback mt-4 text-sm">Naplánováno: <b>{new Date(session.scheduledFor).toLocaleString("cs-CZ")}</b></p>}
       <section className="ui-card mt-4 p-5"><div className="flex items-center justify-between"><h2 className="font-black">Tým</h2><span className="ui-chip">{session.participants.length}/{session.participantLimit}</span></div><div className="mt-3 space-y-2">{session.participants.map((participant) => <div key={participant.id} className="ui-inset flex items-center justify-between px-4 py-3"><div><p className="font-bold">{participant.displayName}</p><p className="text-xs text-zinc-500">{participant.role === "host" ? "Host" : "Sportovec"}</p></div><span className={state.readyParticipantIds.includes(participant.id) ? "ui-chip ui-chip-accent" : "ui-chip"}>{state.readyParticipantIds.includes(participant.id) ? "READY" : "čeká"}</span></div>)}</div></section>
+      <section className="ui-card mt-4 p-5"><div className="flex items-center justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[0.18em] text-accent">Pacing plán</p><p className="mt-1 font-black">Cíl workout části {clock(pacingTargetSeconds)}</p></div><span className="ui-chip">orientační</span></div><p className="mt-2 text-xs leading-5 text-zinc-500">Warm-up a cooldown jsou synchronizované, ale do workout času se nepočítají.</p><div className="mt-3 space-y-2">{previewAssignments.filter((assignment) => phaseForAssignment(assignment) === "work").slice(0, 4).map((assignment) => <div key={assignment.id} className="ui-inset px-4 py-3"><div className="flex items-center justify-between gap-3"><p className="font-bold">{assignment.stepName}</p><span className="font-mono text-sm text-accent">{clock(previewPacingPlan[assignment.id]?.targetSeconds)}</span></div><p className="mt-1 text-xs leading-5 text-zinc-500">{previewPacingPlan[assignment.id]?.splitSuggestion ?? previewPacingPlan[assignment.id]?.cue}</p></div>)}</div></section>
       <button type="button" disabled={busy} onClick={() => void toggleReady()} className={ready ? "ui-button ui-button-outline mt-4 w-full" : "ui-button ui-button-primary mt-4 w-full"}>{ready ? "Nejsem připraven" : "Jsem READY"}</button>
       {isHost && <button type="button" disabled={busy || !canStartTeamSession(session, state)} onClick={() => void startSession()} className="ui-button ui-button-accent mt-2 w-full">START TEAM WORKOUT · 10 s</button>}
       {isHost && !canStartTeamSession(session, state) && <p className="mt-3 text-center text-xs text-zinc-500">Start se odemkne, až budou alespoň dva sportovci READY.</p>}
@@ -345,59 +387,57 @@ export default function TeamWorkoutSession({ sessionId }: { sessionId: string })
   );
 
   if (!current || !progress) return <main className="runner-shell grid min-h-dvh place-items-center text-zinc-400">Synchronizuji další úsek…</main>;
+  const currentPhase = phaseForAssignment(current);
   const target = targetLabel(current, progress.reps, progress.distanceMeters);
   const activeName = session.participants.find((participant) => participant.id === progress.activeParticipantId)?.displayName;
-  const distanceOptions = distanceProgressOptions(current.targetDistanceMeters, progress.distanceMeters);
+  const currentPacing = pacingPlan[current.id];
+  const distanceOptions = adaptiveProgressOptions(current.targetDistanceMeters, progress.distanceMeters, "distance");
+  const repOptions = adaptiveProgressOptions(current.targetReps, progress.reps, "reps");
+  const splitSuggestion = suggestedTeamSplit(current, session.participants.length);
+  const primaryClock = currentPhase === "warmup" ? timing?.warmupSeconds : currentPhase === "cooldown" ? timing?.cooldownSeconds : timing?.workoutSeconds;
+  const primaryClockLabel = currentPhase === "warmup" ? "Čas rozcvičení · mimo workout výsledek" : currentPhase === "cooldown" ? "Čas zklidnění · workout čas je zmrazen" : "Workout čas";
+
+  function participantLiveStatus(id: string) {
+    const name = session.participants.find((participant) => participant.id === id)?.displayName ?? "Sportovec";
+    const completed = progress.completedByParticipantIds.includes(id);
+    if (completed) return currentPhase === "warmup" ? "✓ Rozcvičení hotovo" : currentPhase === "cooldown" ? "✓ Zklidnění hotovo" : `✓ ${current.stepName} hotovo`;
+    if (progress.activeParticipantId === id) return `Na řadě · ${current.stepName}`;
+    if (current.mode === "simultaneous") return currentPhase === "warmup" ? "Rozcvičuje se" : currentPhase === "cooldown" ? "Zklidňuje se" : `Pracuje · ${current.stepName}`;
+    return `Čeká na předávku od ${activeName ?? name}`;
+  }
 
   if (countdownSeconds > 0) return (
     <main className="runner-shell safe-screen flex min-h-dvh flex-col px-5 text-center text-white">
-      <header className="mx-auto grid w-full max-w-md grid-cols-[1fr_auto_1fr] items-center gap-2">
-        <span className="justify-self-start ui-chip ui-chip-accent">{FORMAT_LABELS[session.format]}</span>
-        <RunnerBrandButton onClick={minimizeSession} />
-        <span className="justify-self-end font-mono text-sm text-zinc-500">{current.sequence + 1}/{session.assignments.length}</span>
-      </header>
-      <section className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center py-8">
-        <p className="text-sm font-black uppercase tracking-[0.25em] text-accent">Připrav se</p>
-        <p className="mt-4 text-8xl font-black tabular-nums">{countdownSeconds}</p>
-        <p className="mt-7 text-xs font-black uppercase tracking-[0.2em] text-zinc-500">{current.blockTitle}</p>
-        <h1 className="mt-2 text-5xl font-black leading-tight">{current.stepName}</h1>
-        {current.stepDetail && <p className="mt-3 text-xl font-semibold leading-7 text-zinc-300">{current.stepDetail}</p>}
-        <p className="mt-7 text-sm text-zinc-500">Odpočet je synchronizovaný pro všechny telefony v session.</p>
-      </section>
+      <header className="mx-auto grid w-full max-w-md grid-cols-[1fr_auto_1fr] items-center gap-2"><span className="justify-self-start ui-chip ui-chip-accent">{FORMAT_LABELS[session.format]}</span><RunnerBrandButton onClick={minimizeSession} /><span className="justify-self-end font-mono text-sm text-zinc-500">{current.sequence + 1}/{session.assignments.length}</span></header>
+      <section className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center py-8"><p className="text-sm font-black uppercase tracking-[0.25em] text-accent">Připrav se</p><p className="mt-4 text-8xl font-black tabular-nums">{countdownSeconds}</p><p className="mt-7 text-xs font-black uppercase tracking-[0.2em] text-zinc-500">{phaseTitle(current)}</p><h1 className="mt-2 text-5xl font-black leading-tight">{current.stepName}</h1>{current.stepDetail && <p className="mt-3 text-xl font-semibold leading-7 text-zinc-300">{current.stepDetail}</p>}<p className="mt-7 text-sm text-zinc-500">Odpočet je synchronizovaný pro všechny telefony v session.</p></section>
     </main>
   );
 
   return (
     <main className="runner-shell safe-screen min-h-dvh px-4 text-white"><section className="mx-auto w-full max-w-md py-3">
-      <header className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-        <span className="justify-self-start ui-chip ui-chip-accent">{FORMAT_LABELS[session.format]}</span>
-        <RunnerBrandButton onClick={minimizeSession} />
-        <div className="justify-self-end text-right"><p className="font-mono text-lg font-black text-zinc-200">{clock(teamElapsedSeconds)}</p><p className="text-[9px] uppercase tracking-wider text-zinc-600">týmový čas</p></div>
-      </header>
+      <header className="grid grid-cols-[1fr_auto_1fr] items-center gap-2"><span className="justify-self-start ui-chip ui-chip-accent">{FORMAT_LABELS[session.format]}</span><RunnerBrandButton onClick={minimizeSession} /><div className="justify-self-end text-right"><p className="font-mono text-lg font-black text-zinc-200">{clock(timing?.sessionSeconds)}</p><p className="text-[9px] uppercase tracking-wider text-zinc-600">session celkem</p></div></header>
 
-      <div className="mt-4 flex items-center justify-between gap-3"><p className="text-xs font-black uppercase tracking-[0.2em] text-accent">{current.blockTitle}</p><span className="font-mono text-sm text-zinc-500">{current.sequence + 1}/{session.assignments.length}</span></div>
+      <div className="mt-4 flex items-center justify-between gap-3"><p className="text-xs font-black uppercase tracking-[0.2em] text-accent">{phaseTitle(current)}</p><span className="font-mono text-sm text-zinc-500">{current.sequence + 1}/{session.assignments.length}</span></div>
       <h1 className="mt-1 text-4xl font-black leading-tight">{current.stepName}</h1>
       {current.stepDetail && <p className="mt-2 text-lg text-zinc-400">{current.stepDetail}</p>}
       <div className="mt-4 flex flex-wrap gap-2"><span className="ui-chip">{modeLabel(current)}</span>{activeName && <span className="ui-chip ui-chip-accent">Na řadě: {activeName}</span>}{current.exerciseId && <Link href={`/exercises/${encodeURIComponent(current.exerciseId)}`} className="ui-chip">Jak na to</Link>}</div>
 
-      <div className="mt-5 text-center"><p className="font-mono text-5xl font-black tracking-tight">{clock(teamElapsedSeconds)}</p><p className="mt-1 text-sm text-zinc-500">Celkový čas session</p></div>
+      <div className="mt-5 text-center"><p className="font-mono text-5xl font-black tracking-tight">{clock(primaryClock)}</p><p className="mt-1 text-sm text-zinc-500">{primaryClockLabel}</p>{currentPhase !== "work" && <p className="mt-1 text-xs text-zinc-600">Workout čas: {clock(timing?.workoutSeconds)}</p>}</div>
 
       {target && <div className="ui-card ui-card-accent mt-5 p-5 text-center"><p className="text-xs uppercase tracking-wider text-zinc-500">Týmový postup</p><p className="mt-2 text-3xl font-black text-accent">{target}</p></div>}
 
-      <div className="runner-next-card ui-inset mt-4 flex items-center justify-between gap-3 px-4 py-3 text-left">
-        <div className="min-w-0"><p className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">Následuje</p><p className="mt-0.5 font-black leading-5">{next?.stepName ?? "Týmový výsledek"}</p>{next?.stepDetail && <p className="mt-0.5 truncate text-xs text-zinc-400">{next.stepDetail}</p>}</div><span className="text-accent" aria-hidden="true">→</span>
-      </div>
+      {currentPacing && <div className="ui-inset mt-4 px-4 py-3"><div className="flex items-center justify-between gap-3"><p className="text-[10px] font-black uppercase tracking-[0.16em] text-accent">Pacing</p>{currentPacing.targetSeconds && <span className="font-mono text-sm font-black text-accent">cíl {clock(currentPacing.targetSeconds)}</span>}</div><p className="mt-1 text-xs leading-5 text-zinc-400">{currentPacing.cue}</p>{currentPacing.splitSuggestion && <p className="mt-1 text-xs font-semibold leading-5 text-zinc-300">{currentPacing.splitSuggestion}</p>}</div>}
 
-      <div className="mt-3 grid grid-cols-2 gap-2">
-        <button type="button" disabled={!previous} onClick={() => setShowPrevious(true)} className="ui-button ui-button-outline ui-button-sm">← Předchozí cvik</button>
-        {current.exerciseId ? <Link href={`/exercises/${encodeURIComponent(current.exerciseId)}`} className="ui-button ui-button-outline ui-button-sm">Detail cviku</Link> : <span />}
-      </div>
+      <div className="runner-next-card ui-inset mt-4 flex items-center justify-between gap-3 px-4 py-3 text-left"><div className="min-w-0"><p className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">Následuje</p><p className="mt-0.5 font-black leading-5">{next?.stepName ?? "Týmový výsledek"}</p>{next?.stepDetail && <p className="mt-0.5 truncate text-xs text-zinc-400">{next.stepDetail}</p>}</div><span className="text-accent" aria-hidden="true">→</span></div>
+
+      <div className="mt-3 grid grid-cols-2 gap-2"><button type="button" disabled={!previous} onClick={() => setShowPrevious(true)} className="ui-button ui-button-outline ui-button-sm">← Předchozí cvik</button>{current.exerciseId ? <Link href={`/exercises/${encodeURIComponent(current.exerciseId)}`} className="ui-button ui-button-outline ui-button-sm">Detail cviku</Link> : <span />}</div>
 
       <section className="ui-card mt-4 p-5">
         {canWork ? <>
-          {current.mode === "shared-reps" && <div className="grid grid-cols-3 gap-2">{[1,5,10].map((value) => <button key={value} type="button" disabled={busy} onClick={() => void addProgress("reps", value)} className="ui-button ui-button-primary">+{value}</button>)}</div>}
+          {current.mode === "shared-reps" && <div className="grid grid-cols-3 gap-2">{repOptions.map((value) => <button key={value} type="button" disabled={busy} onClick={() => void addProgress("reps", value)} className="ui-button ui-button-primary">+{value}</button>)}</div>}
           {current.mode === "shared-distance" && <div className="grid grid-cols-3 gap-2">{distanceOptions.map((value) => <button key={value} type="button" disabled={busy} onClick={() => void addProgress("distance", value)} className="ui-button ui-button-primary">+{value} m</button>)}</div>}
-          {(current.mode === "simultaneous" || current.mode === "solo" || current.mode === "relay") && <button type="button" disabled={busy || progress.completedByParticipantIds.includes(me.id)} onClick={() => void completeMyStep()} className="ui-button ui-button-primary w-full">{progress.completedByParticipantIds.includes(me.id) ? "Hotovo · čekám na tým" : "MŮJ ÚSEK HOTOVO"}</button>}
+          {(current.mode === "shared-reps" || current.mode === "shared-distance") && <><div className="mt-3 grid grid-cols-[1fr_auto] gap-2"><input type="number" min="1" inputMode="numeric" value={customProgress} onChange={(event) => setCustomProgress(event.target.value)} placeholder={current.mode === "shared-distance" ? "Jiná vzdálenost" : "Jiný počet"} className="ui-field" /><button type="button" disabled={busy || !Number(customProgress)} onClick={() => void addCustomProgress(current.mode === "shared-distance" ? "distance" : "reps")} className="ui-button ui-button-outline">Přidat</button></div><p className="mt-3 text-xs leading-5 text-zinc-500">Můžeš přidat více hodnot po sobě. <b className="text-zinc-300">PŘEDAT</b> zmáčkni až ve chvíli, kdy stanoviště skutečně přebírá partner.</p>{splitSuggestion && <p className="mt-2 text-xs font-bold leading-5 text-accent">{splitSuggestion}</p>}</>}
+          {(current.mode === "simultaneous" || current.mode === "solo" || current.mode === "relay") && <button type="button" disabled={busy || progress.completedByParticipantIds.includes(me.id)} onClick={() => void completeMyStep()} className="ui-button ui-button-primary w-full">{progress.completedByParticipantIds.includes(me.id) ? "Hotovo · čekám na tým" : currentPhase === "warmup" ? "ROZCVIČENÍ HOTOVO" : currentPhase === "cooldown" ? "ZKLIDNĚNÍ HOTOVO" : "MŮJ ÚSEK HOTOVO"}</button>}
           {current.mode === "you-go-i-go" && <div className="grid gap-2"><button type="button" disabled={busy} onClick={() => void handoff()} className="ui-button ui-button-accent w-full">PŘEDAT →</button><button type="button" disabled={busy} onClick={() => void completeMyStep()} className="ui-button ui-button-outline w-full">Stanice hotová</button></div>}
           {progress.activeParticipantId && current.mode !== "you-go-i-go" && current.participantIds.length > 1 && <button type="button" disabled={busy} onClick={() => void handoff()} className="ui-button ui-button-accent mt-3 w-full">PŘEDAT →</button>}
         </> : <div className="text-center"><p className="text-2xl font-black">Připrav se</p><p className="mt-2 text-zinc-400">Teď pracuje {activeName ?? "tvůj týmový parťák"}. Na tvém telefonu se další stav přepne automaticky.</p>{next && <div className="ui-inset mt-4 px-4 py-3 text-left"><p className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">Potom následuje</p><p className="mt-1 font-black">{next.stepName}</p>{next.stepDetail && <p className="mt-1 text-xs text-zinc-400">{next.stepDetail}</p>}</div>}</div>}
@@ -405,21 +445,12 @@ export default function TeamWorkoutSession({ sessionId }: { sessionId: string })
       </section>
 
       <div className="mt-4 h-1 overflow-hidden rounded-full bg-elevated"><div className="h-full rounded-full bg-accent transition-[width] duration-200" style={{ width: `${((current.sequence + 1) / Math.max(1, session.assignments.length)) * 100}%` }} /></div>
-      <section className="mt-4 grid grid-cols-2 gap-2">{session.participants.map((participant) => { const contribution = state.contributions[participant.id]; return <div key={participant.id} className="ui-card p-3"><p className="truncate text-sm font-black">{participant.displayName}</p><p className="mt-1 text-xs text-zinc-500">{contribution?.reps ?? 0} reps · {contribution?.distanceMeters ?? 0} m</p></div>; })}</section>
-      <p className="mt-5 text-center text-xs text-zinc-600">Session {session.joinCode} · stav se synchronizuje mezi telefony. Osobní RPE a Health data se nesdílí.</p>
+      <section className="mt-4 grid grid-cols-2 gap-2">{session.participants.map((participant) => { const contribution = state.contributions[participant.id]; return <div key={participant.id} className="ui-card p-3"><p className="truncate text-sm font-black">{participant.displayName}</p><p className="mt-1 text-xs font-semibold text-zinc-300">{participantLiveStatus(participant.id)}</p><p className="mt-1 text-[11px] text-zinc-500">{contribution?.reps ?? 0} reps · {contribution?.distanceMeters ?? 0} m</p></div>; })}</section>
+      <p className="mt-5 text-center text-xs text-zinc-600">Session {session.joinCode} · stav se synchronizuje mezi telefony. Hodnocení náročnosti a Health data se nesdílí.</p>
       {error && <p className="ui-feedback mt-4 text-sm text-amber-200">{error}</p>}
 
       {showPrevious && previous && (
-        <div className="runner-shell fixed inset-0 z-[90] overflow-y-auto text-white" role="dialog" aria-modal="true" aria-labelledby="team-previous-title">
-          <div className="safe-screen mx-auto min-h-dvh w-full max-w-md px-5">
-            <div className="flex items-center justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[0.2em] text-accent">Předchozí úsek · {previous.sequence + 1}/{session.assignments.length}</p><h2 id="team-previous-title" className="mt-1 text-3xl font-black">{previous.stepName}</h2></div><span className="font-mono text-lg font-black text-zinc-300">{clock(teamElapsedSeconds)}</span></div>
-            <p className="mt-3 text-sm font-black uppercase tracking-[0.16em] text-zinc-500">{previous.blockTitle}</p>
-            {previous.stepDetail && <p className="mt-3 text-lg leading-7 text-zinc-300">{previous.stepDetail}</p>}
-            <div className="ui-card mt-5 p-4"><p className="text-xs uppercase tracking-wider text-zinc-500">Režim</p><p className="mt-1 font-black">{modeLabel(previous)}</p></div>
-            <div className="mt-6 grid gap-3">{previous.exerciseId && <Link href={`/exercises/${encodeURIComponent(previous.exerciseId)}`} className="ui-button ui-button-outline w-full">Jak na předchozí cvik</Link>}<button type="button" onClick={() => setShowPrevious(false)} className="ui-button ui-button-primary ui-button-lg w-full">Zpět na aktuální cvik</button></div>
-            <p className="mt-4 text-center text-xs text-zinc-500">Pouze náhled. Týmový postup se tím nevrací zpět.</p>
-          </div>
-        </div>
+        <div className="runner-shell fixed inset-0 z-[90] overflow-y-auto text-white" role="dialog" aria-modal="true" aria-labelledby="team-previous-title"><div className="safe-screen mx-auto min-h-dvh w-full max-w-md px-5"><div className="flex items-center justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[0.2em] text-accent">Předchozí úsek · {previous.sequence + 1}/{session.assignments.length}</p><h2 id="team-previous-title" className="mt-1 text-3xl font-black">{previous.stepName}</h2></div><span className="font-mono text-lg font-black text-zinc-300">{clock(timing?.sessionSeconds)}</span></div><p className="mt-3 text-sm font-black uppercase tracking-[0.16em] text-zinc-500">{phaseTitle(previous)}</p>{previous.stepDetail && <p className="mt-3 text-lg leading-7 text-zinc-300">{previous.stepDetail}</p>}<div className="ui-card mt-5 p-4"><p className="text-xs uppercase tracking-wider text-zinc-500">Režim</p><p className="mt-1 font-black">{modeLabel(previous)}</p></div><div className="mt-6 grid gap-3">{previous.exerciseId && <Link href={`/exercises/${encodeURIComponent(previous.exerciseId)}`} className="ui-button ui-button-outline w-full">Jak na předchozí cvik</Link>}<button type="button" onClick={() => setShowPrevious(false)} className="ui-button ui-button-primary ui-button-lg w-full">Zpět na aktuální cvik</button></div><p className="mt-4 text-center text-xs text-zinc-500">Pouze náhled. Týmový postup se tím nevrací zpět.</p></div></div>
       )}
     </section></main>
   );
