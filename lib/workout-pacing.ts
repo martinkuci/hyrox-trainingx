@@ -115,11 +115,11 @@ function occurrenceCount(block: WorkoutBlock, stepIndex: number) {
   if (block.type === "for-time") return Math.max(1, block.rounds);
   if (block.type === "interval" || block.type === "tabata") {
     if (!block.steps.length) return 0;
-    return Array.from({ length: block.rounds }, (_, round) => round % block.steps.length === stepIndex ? 1 : 0).reduce((sum, value) => sum + value, 0);
+    return Array.from({ length: block.rounds }, (_, round) => round % block.steps.length === stepIndex).filter(Boolean).length;
   }
   if (block.type === "emom") {
     if (!block.steps.length) return 0;
-    return Array.from({ length: block.minutes }, (_, minute) => minute % block.steps.length === stepIndex ? 1 : 0).reduce((sum, value) => sum + value, 0);
+    return Array.from({ length: block.minutes }, (_, minute) => minute % block.steps.length === stepIndex).filter(Boolean).length;
   }
   return 1;
 }
