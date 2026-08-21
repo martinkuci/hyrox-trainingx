@@ -324,6 +324,10 @@ export default function TeamWorkoutSession({ sessionId }: { sessionId: string })
         },
         completedAt: new Date().toISOString(),
         durationSeconds,
+        sessionDurationSeconds: timing.sessionSeconds,
+        warmupDurationSeconds: timing.warmupSeconds,
+        cooldownDurationSeconds: timing.cooldownSeconds,
+        pacingTargetSeconds,
         rpe,
         weights: "",
         notes: `Týmový workout · ${FORMAT_LABELS[session.format]} · celkem ${clock(timing.sessionSeconds)} · warm-up ${clock(timing.warmupSeconds)} · cooldown ${clock(timing.cooldownSeconds)} · pacing cíl ${clock(pacingTargetSeconds)}`,
@@ -387,40 +391,43 @@ export default function TeamWorkoutSession({ sessionId }: { sessionId: string })
   );
 
   if (!current || !progress) return <main className="runner-shell grid min-h-dvh place-items-center text-zinc-400">Synchronizuji další úsek…</main>;
-  const currentPhase = phaseForAssignment(current);
-  const target = targetLabel(current, progress.reps, progress.distanceMeters);
-  const activeName = session.participants.find((participant) => participant.id === progress.activeParticipantId)?.displayName;
-  const currentPacing = pacingPlan[current.id];
-  const distanceOptions = adaptiveProgressOptions(current.targetDistanceMeters, progress.distanceMeters, "distance");
-  const repOptions = adaptiveProgressOptions(current.targetReps, progress.reps, "reps");
-  const splitSuggestion = suggestedTeamSplit(current, session.participants.length);
+  const liveSession = session;
+  const liveProgress = progress;
+  const liveCurrent = current;
+  const currentPhase = phaseForAssignment(liveCurrent);
+  const target = targetLabel(liveCurrent, liveProgress.reps, liveProgress.distanceMeters);
+  const activeName = liveSession.participants.find((participant) => participant.id === liveProgress.activeParticipantId)?.displayName;
+  const currentPacing = pacingPlan[liveCurrent.id];
+  const distanceOptions = adaptiveProgressOptions(liveCurrent.targetDistanceMeters, liveProgress.distanceMeters, "distance");
+  const repOptions = adaptiveProgressOptions(liveCurrent.targetReps, liveProgress.reps, "reps");
+  const splitSuggestion = suggestedTeamSplit(liveCurrent, liveSession.participants.length);
   const primaryClock = currentPhase === "warmup" ? timing?.warmupSeconds : currentPhase === "cooldown" ? timing?.cooldownSeconds : timing?.workoutSeconds;
   const primaryClockLabel = currentPhase === "warmup" ? "Čas rozcvičení · mimo workout výsledek" : currentPhase === "cooldown" ? "Čas zklidnění · workout čas je zmrazen" : "Workout čas";
 
   function participantLiveStatus(id: string) {
-    const name = session.participants.find((participant) => participant.id === id)?.displayName ?? "Sportovec";
-    const completed = progress.completedByParticipantIds.includes(id);
-    if (completed) return currentPhase === "warmup" ? "✓ Rozcvičení hotovo" : currentPhase === "cooldown" ? "✓ Zklidnění hotovo" : `✓ ${current.stepName} hotovo`;
-    if (progress.activeParticipantId === id) return `Na řadě · ${current.stepName}`;
-    if (current.mode === "simultaneous") return currentPhase === "warmup" ? "Rozcvičuje se" : currentPhase === "cooldown" ? "Zklidňuje se" : `Pracuje · ${current.stepName}`;
+    const name = liveSession.participants.find((participant) => participant.id === id)?.displayName ?? "Sportovec";
+    const completed = liveProgress.completedByParticipantIds.includes(id);
+    if (completed) return currentPhase === "warmup" ? "✓ Rozcvičení hotovo" : currentPhase === "cooldown" ? "✓ Zklidnění hotovo" : `✓ ${liveCurrent.stepName} hotovo`;
+    if (liveProgress.activeParticipantId === id) return `Na řadě · ${liveCurrent.stepName}`;
+    if (liveCurrent.mode === "simultaneous") return currentPhase === "warmup" ? "Rozcvičuje se" : currentPhase === "cooldown" ? "Zklidňuje se" : `Pracuje · ${liveCurrent.stepName}`;
     return `Čeká na předávku od ${activeName ?? name}`;
   }
 
   if (countdownSeconds > 0) return (
     <main className="runner-shell safe-screen flex min-h-dvh flex-col px-5 text-center text-white">
-      <header className="mx-auto grid w-full max-w-md grid-cols-[1fr_auto_1fr] items-center gap-2"><span className="justify-self-start ui-chip ui-chip-accent">{FORMAT_LABELS[session.format]}</span><RunnerBrandButton onClick={minimizeSession} /><span className="justify-self-end font-mono text-sm text-zinc-500">{current.sequence + 1}/{session.assignments.length}</span></header>
-      <section className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center py-8"><p className="text-sm font-black uppercase tracking-[0.25em] text-accent">Připrav se</p><p className="mt-4 text-8xl font-black tabular-nums">{countdownSeconds}</p><p className="mt-7 text-xs font-black uppercase tracking-[0.2em] text-zinc-500">{phaseTitle(current)}</p><h1 className="mt-2 text-5xl font-black leading-tight">{current.stepName}</h1>{current.stepDetail && <p className="mt-3 text-xl font-semibold leading-7 text-zinc-300">{current.stepDetail}</p>}<p className="mt-7 text-sm text-zinc-500">Odpočet je synchronizovaný pro všechny telefony v session.</p></section>
+      <header className="mx-auto grid w-full max-w-md grid-cols-[1fr_auto_1fr] items-center gap-2"><span className="justify-self-start ui-chip ui-chip-accent">{FORMAT_LABELS[liveSession.format]}</span><RunnerBrandButton onClick={minimizeSession} /><span className="justify-self-end font-mono text-sm text-zinc-500">{liveCurrent.sequence + 1}/{liveSession.assignments.length}</span></header>
+      <section className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center py-8"><p className="text-sm font-black uppercase tracking-[0.25em] text-accent">Připrav se</p><p className="mt-4 text-8xl font-black tabular-nums">{countdownSeconds}</p><p className="mt-7 text-xs font-black uppercase tracking-[0.2em] text-zinc-500">{phaseTitle(liveCurrent)}</p><h1 className="mt-2 text-5xl font-black leading-tight">{liveCurrent.stepName}</h1>{liveCurrent.stepDetail && <p className="mt-3 text-xl font-semibold leading-7 text-zinc-300">{liveCurrent.stepDetail}</p>}<p className="mt-7 text-sm text-zinc-500">Odpočet je synchronizovaný pro všechny telefony v session.</p></section>
     </main>
   );
 
   return (
     <main className="runner-shell safe-screen min-h-dvh px-4 text-white"><section className="mx-auto w-full max-w-md py-3">
-      <header className="grid grid-cols-[1fr_auto_1fr] items-center gap-2"><span className="justify-self-start ui-chip ui-chip-accent">{FORMAT_LABELS[session.format]}</span><RunnerBrandButton onClick={minimizeSession} /><div className="justify-self-end text-right"><p className="font-mono text-lg font-black text-zinc-200">{clock(timing?.sessionSeconds)}</p><p className="text-[9px] uppercase tracking-wider text-zinc-600">session celkem</p></div></header>
+      <header className="grid grid-cols-[1fr_auto_1fr] items-center gap-2"><span className="justify-self-start ui-chip ui-chip-accent">{FORMAT_LABELS[liveSession.format]}</span><RunnerBrandButton onClick={minimizeSession} /><div className="justify-self-end text-right"><p className="font-mono text-lg font-black text-zinc-200">{clock(timing?.sessionSeconds)}</p><p className="text-[9px] uppercase tracking-wider text-zinc-600">session celkem</p></div></header>
 
-      <div className="mt-4 flex items-center justify-between gap-3"><p className="text-xs font-black uppercase tracking-[0.2em] text-accent">{phaseTitle(current)}</p><span className="font-mono text-sm text-zinc-500">{current.sequence + 1}/{session.assignments.length}</span></div>
-      <h1 className="mt-1 text-4xl font-black leading-tight">{current.stepName}</h1>
-      {current.stepDetail && <p className="mt-2 text-lg text-zinc-400">{current.stepDetail}</p>}
-      <div className="mt-4 flex flex-wrap gap-2"><span className="ui-chip">{modeLabel(current)}</span>{activeName && <span className="ui-chip ui-chip-accent">Na řadě: {activeName}</span>}{current.exerciseId && <Link href={`/exercises/${encodeURIComponent(current.exerciseId)}`} className="ui-chip">Jak na to</Link>}</div>
+      <div className="mt-4 flex items-center justify-between gap-3"><p className="text-xs font-black uppercase tracking-[0.2em] text-accent">{phaseTitle(liveCurrent)}</p><span className="font-mono text-sm text-zinc-500">{liveCurrent.sequence + 1}/{liveSession.assignments.length}</span></div>
+      <h1 className="mt-1 text-4xl font-black leading-tight">{liveCurrent.stepName}</h1>
+      {liveCurrent.stepDetail && <p className="mt-2 text-lg text-zinc-400">{liveCurrent.stepDetail}</p>}
+      <div className="mt-4 flex flex-wrap gap-2"><span className="ui-chip">{modeLabel(liveCurrent)}</span>{activeName && <span className="ui-chip ui-chip-accent">Na řadě: {activeName}</span>}{liveCurrent.exerciseId && <Link href={`/exercises/${encodeURIComponent(liveCurrent.exerciseId)}`} className="ui-chip">Jak na to</Link>}</div>
 
       <div className="mt-5 text-center"><p className="font-mono text-5xl font-black tracking-tight">{clock(primaryClock)}</p><p className="mt-1 text-sm text-zinc-500">{primaryClockLabel}</p>{currentPhase !== "work" && <p className="mt-1 text-xs text-zinc-600">Workout čas: {clock(timing?.workoutSeconds)}</p>}</div>
 
@@ -430,27 +437,27 @@ export default function TeamWorkoutSession({ sessionId }: { sessionId: string })
 
       <div className="runner-next-card ui-inset mt-4 flex items-center justify-between gap-3 px-4 py-3 text-left"><div className="min-w-0"><p className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">Následuje</p><p className="mt-0.5 font-black leading-5">{next?.stepName ?? "Týmový výsledek"}</p>{next?.stepDetail && <p className="mt-0.5 truncate text-xs text-zinc-400">{next.stepDetail}</p>}</div><span className="text-accent" aria-hidden="true">→</span></div>
 
-      <div className="mt-3 grid grid-cols-2 gap-2"><button type="button" disabled={!previous} onClick={() => setShowPrevious(true)} className="ui-button ui-button-outline ui-button-sm">← Předchozí cvik</button>{current.exerciseId ? <Link href={`/exercises/${encodeURIComponent(current.exerciseId)}`} className="ui-button ui-button-outline ui-button-sm">Detail cviku</Link> : <span />}</div>
+      <div className="mt-3 grid grid-cols-2 gap-2"><button type="button" disabled={!previous} onClick={() => setShowPrevious(true)} className="ui-button ui-button-outline ui-button-sm">← Předchozí cvik</button>{liveCurrent.exerciseId ? <Link href={`/exercises/${encodeURIComponent(liveCurrent.exerciseId)}`} className="ui-button ui-button-outline ui-button-sm">Detail cviku</Link> : <span />}</div>
 
       <section className="ui-card mt-4 p-5">
         {canWork ? <>
-          {current.mode === "shared-reps" && <div className="grid grid-cols-3 gap-2">{repOptions.map((value) => <button key={value} type="button" disabled={busy} onClick={() => void addProgress("reps", value)} className="ui-button ui-button-primary">+{value}</button>)}</div>}
-          {current.mode === "shared-distance" && <div className="grid grid-cols-3 gap-2">{distanceOptions.map((value) => <button key={value} type="button" disabled={busy} onClick={() => void addProgress("distance", value)} className="ui-button ui-button-primary">+{value} m</button>)}</div>}
-          {(current.mode === "shared-reps" || current.mode === "shared-distance") && <><div className="mt-3 grid grid-cols-[1fr_auto] gap-2"><input type="number" min="1" inputMode="numeric" value={customProgress} onChange={(event) => setCustomProgress(event.target.value)} placeholder={current.mode === "shared-distance" ? "Jiná vzdálenost" : "Jiný počet"} className="ui-field" /><button type="button" disabled={busy || !Number(customProgress)} onClick={() => void addCustomProgress(current.mode === "shared-distance" ? "distance" : "reps")} className="ui-button ui-button-outline">Přidat</button></div><p className="mt-3 text-xs leading-5 text-zinc-500">Můžeš přidat více hodnot po sobě. <b className="text-zinc-300">PŘEDAT</b> zmáčkni až ve chvíli, kdy stanoviště skutečně přebírá partner.</p>{splitSuggestion && <p className="mt-2 text-xs font-bold leading-5 text-accent">{splitSuggestion}</p>}</>}
-          {(current.mode === "simultaneous" || current.mode === "solo" || current.mode === "relay") && <button type="button" disabled={busy || progress.completedByParticipantIds.includes(me.id)} onClick={() => void completeMyStep()} className="ui-button ui-button-primary w-full">{progress.completedByParticipantIds.includes(me.id) ? "Hotovo · čekám na tým" : currentPhase === "warmup" ? "ROZCVIČENÍ HOTOVO" : currentPhase === "cooldown" ? "ZKLIDNĚNÍ HOTOVO" : "MŮJ ÚSEK HOTOVO"}</button>}
-          {current.mode === "you-go-i-go" && <div className="grid gap-2"><button type="button" disabled={busy} onClick={() => void handoff()} className="ui-button ui-button-accent w-full">PŘEDAT →</button><button type="button" disabled={busy} onClick={() => void completeMyStep()} className="ui-button ui-button-outline w-full">Stanice hotová</button></div>}
-          {progress.activeParticipantId && current.mode !== "you-go-i-go" && current.participantIds.length > 1 && <button type="button" disabled={busy} onClick={() => void handoff()} className="ui-button ui-button-accent mt-3 w-full">PŘEDAT →</button>}
+          {liveCurrent.mode === "shared-reps" && <div className="grid grid-cols-3 gap-2">{repOptions.map((value) => <button key={value} type="button" disabled={busy} onClick={() => void addProgress("reps", value)} className="ui-button ui-button-primary">+{value}</button>)}</div>}
+          {liveCurrent.mode === "shared-distance" && <div className="grid grid-cols-3 gap-2">{distanceOptions.map((value) => <button key={value} type="button" disabled={busy} onClick={() => void addProgress("distance", value)} className="ui-button ui-button-primary">+{value} m</button>)}</div>}
+          {(liveCurrent.mode === "shared-reps" || liveCurrent.mode === "shared-distance") && <><div className="mt-3 grid grid-cols-[1fr_auto] gap-2"><input type="number" min="1" inputMode="numeric" value={customProgress} onChange={(event) => setCustomProgress(event.target.value)} placeholder={liveCurrent.mode === "shared-distance" ? "Jiná vzdálenost" : "Jiný počet"} className="ui-field" /><button type="button" disabled={busy || !Number(customProgress)} onClick={() => void addCustomProgress(liveCurrent.mode === "shared-distance" ? "distance" : "reps")} className="ui-button ui-button-outline">Přidat</button></div><p className="mt-3 text-xs leading-5 text-zinc-500">Můžeš přidat více hodnot po sobě. <b className="text-zinc-300">PŘEDAT</b> zmáčkni až ve chvíli, kdy stanoviště skutečně přebírá partner.</p>{splitSuggestion && <p className="mt-2 text-xs font-bold leading-5 text-accent">{splitSuggestion}</p>}</>}
+          {(liveCurrent.mode === "simultaneous" || liveCurrent.mode === "solo" || liveCurrent.mode === "relay") && <button type="button" disabled={busy || liveProgress.completedByParticipantIds.includes(me.id)} onClick={() => void completeMyStep()} className="ui-button ui-button-primary w-full">{liveProgress.completedByParticipantIds.includes(me.id) ? "Hotovo · čekám na tým" : currentPhase === "warmup" ? "ROZCVIČENÍ HOTOVO" : currentPhase === "cooldown" ? "ZKLIDNĚNÍ HOTOVO" : "MŮJ ÚSEK HOTOVO"}</button>}
+          {liveCurrent.mode === "you-go-i-go" && <div className="grid gap-2"><button type="button" disabled={busy} onClick={() => void handoff()} className="ui-button ui-button-accent w-full">PŘEDAT →</button><button type="button" disabled={busy} onClick={() => void completeMyStep()} className="ui-button ui-button-outline w-full">Stanice hotová</button></div>}
+          {liveProgress.activeParticipantId && liveCurrent.mode !== "you-go-i-go" && liveCurrent.participantIds.length > 1 && <button type="button" disabled={busy} onClick={() => void handoff()} className="ui-button ui-button-accent mt-3 w-full">PŘEDAT →</button>}
         </> : <div className="text-center"><p className="text-2xl font-black">Připrav se</p><p className="mt-2 text-zinc-400">Teď pracuje {activeName ?? "tvůj týmový parťák"}. Na tvém telefonu se další stav přepne automaticky.</p>{next && <div className="ui-inset mt-4 px-4 py-3 text-left"><p className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">Potom následuje</p><p className="mt-1 font-black">{next.stepName}</p>{next.stepDetail && <p className="mt-1 text-xs text-zinc-400">{next.stepDetail}</p>}</div>}</div>}
         {isHost && <button type="button" disabled={busy} onClick={() => void completeTeamStep()} className="ui-button ui-button-ghost mt-4 w-full text-xs">Host: přeskočit / označit týmově hotovo</button>}
       </section>
 
-      <div className="mt-4 h-1 overflow-hidden rounded-full bg-elevated"><div className="h-full rounded-full bg-accent transition-[width] duration-200" style={{ width: `${((current.sequence + 1) / Math.max(1, session.assignments.length)) * 100}%` }} /></div>
-      <section className="mt-4 grid grid-cols-2 gap-2">{session.participants.map((participant) => { const contribution = state.contributions[participant.id]; return <div key={participant.id} className="ui-card p-3"><p className="truncate text-sm font-black">{participant.displayName}</p><p className="mt-1 text-xs font-semibold text-zinc-300">{participantLiveStatus(participant.id)}</p><p className="mt-1 text-[11px] text-zinc-500">{contribution?.reps ?? 0} reps · {contribution?.distanceMeters ?? 0} m</p></div>; })}</section>
-      <p className="mt-5 text-center text-xs text-zinc-600">Session {session.joinCode} · stav se synchronizuje mezi telefony. Hodnocení náročnosti a Health data se nesdílí.</p>
+      <div className="mt-4 h-1 overflow-hidden rounded-full bg-elevated"><div className="h-full rounded-full bg-accent transition-[width] duration-200" style={{ width: `${((liveCurrent.sequence + 1) / Math.max(1, liveSession.assignments.length)) * 100}%` }} /></div>
+      <section className="mt-4 grid grid-cols-2 gap-2">{liveSession.participants.map((participant) => { const contribution = state.contributions[participant.id]; return <div key={participant.id} className="ui-card p-3"><p className="truncate text-sm font-black">{participant.displayName}</p><p className="mt-1 text-xs font-semibold text-zinc-300">{participantLiveStatus(participant.id)}</p><p className="mt-1 text-[11px] text-zinc-500">{contribution?.reps ?? 0} reps · {contribution?.distanceMeters ?? 0} m</p></div>; })}</section>
+      <p className="mt-5 text-center text-xs text-zinc-600">Session {liveSession.joinCode} · stav se synchronizuje mezi telefony. Hodnocení náročnosti a Health data se nesdílí.</p>
       {error && <p className="ui-feedback mt-4 text-sm text-amber-200">{error}</p>}
 
       {showPrevious && previous && (
-        <div className="runner-shell fixed inset-0 z-[90] overflow-y-auto text-white" role="dialog" aria-modal="true" aria-labelledby="team-previous-title"><div className="safe-screen mx-auto min-h-dvh w-full max-w-md px-5"><div className="flex items-center justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[0.2em] text-accent">Předchozí úsek · {previous.sequence + 1}/{session.assignments.length}</p><h2 id="team-previous-title" className="mt-1 text-3xl font-black">{previous.stepName}</h2></div><span className="font-mono text-lg font-black text-zinc-300">{clock(timing?.sessionSeconds)}</span></div><p className="mt-3 text-sm font-black uppercase tracking-[0.16em] text-zinc-500">{phaseTitle(previous)}</p>{previous.stepDetail && <p className="mt-3 text-lg leading-7 text-zinc-300">{previous.stepDetail}</p>}<div className="ui-card mt-5 p-4"><p className="text-xs uppercase tracking-wider text-zinc-500">Režim</p><p className="mt-1 font-black">{modeLabel(previous)}</p></div><div className="mt-6 grid gap-3">{previous.exerciseId && <Link href={`/exercises/${encodeURIComponent(previous.exerciseId)}`} className="ui-button ui-button-outline w-full">Jak na předchozí cvik</Link>}<button type="button" onClick={() => setShowPrevious(false)} className="ui-button ui-button-primary ui-button-lg w-full">Zpět na aktuální cvik</button></div><p className="mt-4 text-center text-xs text-zinc-500">Pouze náhled. Týmový postup se tím nevrací zpět.</p></div></div>
+        <div className="runner-shell fixed inset-0 z-[90] overflow-y-auto text-white" role="dialog" aria-modal="true" aria-labelledby="team-previous-title"><div className="safe-screen mx-auto min-h-dvh w-full max-w-md px-5"><div className="flex items-center justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[0.2em] text-accent">Předchozí úsek · {previous.sequence + 1}/{liveSession.assignments.length}</p><h2 id="team-previous-title" className="mt-1 text-3xl font-black">{previous.stepName}</h2></div><span className="font-mono text-lg font-black text-zinc-300">{clock(timing?.sessionSeconds)}</span></div><p className="mt-3 text-sm font-black uppercase tracking-[0.16em] text-zinc-500">{phaseTitle(previous)}</p>{previous.stepDetail && <p className="mt-3 text-lg leading-7 text-zinc-300">{previous.stepDetail}</p>}<div className="ui-card mt-5 p-4"><p className="text-xs uppercase tracking-wider text-zinc-500">Režim</p><p className="mt-1 font-black">{modeLabel(previous)}</p></div><div className="mt-6 grid gap-3">{previous.exerciseId && <Link href={`/exercises/${encodeURIComponent(previous.exerciseId)}`} className="ui-button ui-button-outline w-full">Jak na předchozí cvik</Link>}<button type="button" onClick={() => setShowPrevious(false)} className="ui-button ui-button-primary ui-button-lg w-full">Zpět na aktuální cvik</button></div><p className="mt-4 text-center text-xs text-zinc-500">Pouze náhled. Týmový postup se tím nevrací zpět.</p></div></div>
       )}
     </section></main>
   );
