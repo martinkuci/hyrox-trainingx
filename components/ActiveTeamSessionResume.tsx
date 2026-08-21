@@ -43,7 +43,7 @@ export default function ActiveTeamSessionResume() {
       >
         <div className="min-w-0">
           <p className="text-[10px] font-black uppercase tracking-[0.18em] text-accent">
-            {resultPending ? "Výsledek čeká na uložení" : running ? "Probíhá týmový trénink" : "Aktivní týmová session"}
+            {resultPending ? "Výsledek zatím není uložený" : running ? "Probíhá týmový trénink" : "Aktivní týmová session"}
           </p>
           <p className="mt-0.5 truncate font-black text-white">{session.workoutTitle}</p>
           <p className="mt-0.5 text-xs text-zinc-400">{FORMAT_LABELS[session.format]} · {session.joinCode}</p>
