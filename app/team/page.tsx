@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { PlanningShell } from "@/components/planning/PlanningShell";
 import { useHyroxData } from "@/hooks/useHyroxData";
 import { loadCloudUser } from "@/lib/firebase-rest";
 import { createTeamJoinCode, isValidTeamJoinCode, normalizeTeamJoinCode } from "@/lib/team-join-code";
+import { workoutPacingSummary } from "@/lib/team-pacing";
 import { loadRecentTeammates, loadTeamProfile, saveTeamProfile } from "@/lib/team-profile";
 import { teamWorkoutTransport } from "@/lib/team-training-firestore";
 import type { TeamWorkoutFormat, TeamWorkoutParticipant, TeamWorkoutSession } from "@/lib/team-training";
@@ -17,6 +18,13 @@ const FORMAT_LABELS: Record<TeamWorkoutFormat, { title: string; description: str
   relay: { title: "Relay", description: "Enginn rozdělí úseky mezi členy týmu a hlídá pořadí střídání." },
 };
 
+function phaseLabel(title: string) {
+  const normalized = title.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  if (["rozcvi", "warmup", "warm-up", "rozbeh"].some((token) => normalized.includes(token))) return "Warm-up";
+  if (["zklid", "cooldown", "cool-down", "regener"].some((token) => normalized.includes(token))) return "Cooldown";
+  return title;
+}
+
 export default function TeamTrainingPage() {
   const router = useRouter();
   const { data, ready } = useHyroxData();
@@ -24,16 +32,24 @@ export default function TeamTrainingPage() {
   const initialProfile = useMemo(() => loadTeamProfile(user), [user?.uid]);
   const [displayName, setDisplayName] = useState(initialProfile.displayName);
   const [format, setFormat] = useState<TeamWorkoutFormat>("doubles");
-  const [templateId, setTemplateId] = useState("");
+  const [carouselIndex, setCarouselIndex] = useState(0);
   const [participantLimit, setParticipantLimit] = useState(2);
   const [scheduledFor, setScheduledFor] = useState("");
   const [joinCode, setJoinCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
+  const touchStartX = useRef<number | null>(null);
   const recent = useMemo(() => loadRecentTeammates(), []);
 
   const templates = useMemo(() => data.templates.filter((template) => template.blocks.some((block) => block.steps.length > 0)), [data.templates]);
-  const selectedTemplate = templates.find((template) => template.id === templateId) ?? templates[0];
+  const safeIndex = templates.length ? Math.min(carouselIndex, templates.length - 1) : 0;
+  const selectedTemplate = templates[safeIndex];
+  const pacing = selectedTemplate ? workoutPacingSummary(selectedTemplate, format, format === "relay" ? participantLimit : 2) : undefined;
+
+  function moveCarousel(direction: -1 | 1) {
+    if (!templates.length) return;
+    setCarouselIndex((current) => (current + direction + templates.length) % templates.length);
+  }
 
   function participant(role: "host" | "athlete"): TeamWorkoutParticipant {
     if (!user) throw new Error("Pro týmový trénink se nejdřív přihlas.");
@@ -117,18 +133,69 @@ export default function TeamTrainingPage() {
           <section className="ui-card mt-5 p-5 sm:p-6">
             <p className="text-xs font-black uppercase tracking-[0.18em] text-zinc-500">Vytvořit session</p>
             <div className="mt-4 grid gap-2">
-              {(Object.keys(FORMAT_LABELS) as TeamWorkoutFormat[]).map((item) => (
-                <button key={item} type="button" onClick={() => { setFormat(item); if (item !== "relay") setParticipantLimit(2); }} className={format === item ? "ui-choice border-accent text-left" : "ui-choice text-left"}>
-                  <span className="font-black">{FORMAT_LABELS[item].title}</span>
-                  <span className="mt-1 block text-xs leading-5 text-zinc-500">{FORMAT_LABELS[item].description}</span>
-                </button>
-              ))}
+              {(Object.keys(FORMAT_LABELS) as TeamWorkoutFormat[]).map((item) => {
+                const active = format === item;
+                return (
+                  <button key={item} type="button" aria-pressed={active} onClick={() => { setFormat(item); if (item !== "relay") setParticipantLimit(2); }} className={active ? "ui-choice border-accent bg-accent/10 text-left shadow-[0_0_0_1px_rgba(184,255,74,0.35)]" : "ui-choice text-left"}>
+                    <span className="flex items-center justify-between gap-3"><span className="font-black">{FORMAT_LABELS[item].title}</span>{active && <span className="ui-chip ui-chip-accent">✓ Vybráno</span>}</span>
+                    <span className="mt-1 block text-xs leading-5 text-zinc-500">{FORMAT_LABELS[item].description}</span>
+                  </button>
+                );
+              })}
             </div>
 
-            <label className="mt-5 block text-xs font-black uppercase tracking-[0.18em] text-zinc-500" htmlFor="team-workout">Workout</label>
-            <select id="team-workout" value={selectedTemplate?.id ?? ""} onChange={(event) => setTemplateId(event.target.value)} className="ui-field mt-3" disabled={!ready}>
-              {templates.map((template) => <option key={template.id} value={template.id}>{template.title} · {template.durationMinutes} min</option>)}
-            </select>
+            <div className="mt-6 flex items-end justify-between gap-3">
+              <div><p className="text-xs font-black uppercase tracking-[0.18em] text-zinc-500">Workout</p><p className="mt-1 text-xs text-zinc-500">Swipe doleva / doprava nebo použij šipky.</p></div>
+              {templates.length > 0 && <span className="ui-chip">{safeIndex + 1}/{templates.length}</span>}
+            </div>
+
+            {selectedTemplate && (
+              <div
+                className="ui-card ui-card-accent mt-3 overflow-hidden p-5"
+                onTouchStart={(event) => { touchStartX.current = event.touches[0]?.clientX ?? null; }}
+                onTouchEnd={(event) => {
+                  const start = touchStartX.current;
+                  const end = event.changedTouches[0]?.clientX;
+                  touchStartX.current = null;
+                  if (start === null || end === undefined || Math.abs(start - end) < 45) return;
+                  moveCarousel(start > end ? 1 : -1);
+                }}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div><h2 className="text-2xl font-black leading-tight">{selectedTemplate.title}</h2><p className="mt-2 text-sm leading-6 text-zinc-400">{selectedTemplate.description}</p></div>
+                  <span className="ui-chip shrink-0">{selectedTemplate.durationMinutes} min</span>
+                </div>
+
+                {selectedTemplate.metadata?.goal && <p className="ui-inset mt-4 px-4 py-3 text-sm leading-6 text-zinc-300"><b className="text-white">Cíl:</b> {selectedTemplate.metadata.goal}</p>}
+
+                <div className="mt-4 space-y-2">
+                  {selectedTemplate.blocks.map((block, index) => (
+                    <div key={block.id} className="ui-inset px-4 py-3">
+                      <div className="flex items-center gap-2"><span className="ui-chip">{index + 1}</span><p className="font-black">{phaseLabel(block.title)}</p></div>
+                      <p className="mt-2 text-xs leading-5 text-zinc-400">{block.steps.map((step) => step.name).join(" · ")}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {pacing && (
+                  <div className="mt-4 rounded-2xl border border-accent/30 bg-black/20 p-4">
+                    <div className="flex items-center justify-between gap-3"><p className="text-xs font-black uppercase tracking-[0.16em] text-accent">Pacing</p><span className="ui-chip">work only</span></div>
+                    <p className="mt-2 font-black">{pacing.title}</p>
+                    {pacing.running && <p className="mt-2 text-xs leading-5 text-zinc-400">Běh: {pacing.running}</p>}
+                    <p className="mt-2 text-xs leading-5 text-zinc-400">{pacing.formatCue}</p>
+                    <p className="mt-2 text-[11px] leading-5 text-zinc-600">Warm-up a cooldown se do výsledného workout času nezapočítávají.</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {templates.length > 1 && (
+              <div className="mt-3 flex items-center justify-between gap-3">
+                <button type="button" aria-label="Předchozí workout" onClick={() => moveCarousel(-1)} className="ui-button ui-button-outline ui-button-sm">←</button>
+                <div className="flex flex-1 justify-center gap-2">{templates.map((template, index) => <button key={template.id} type="button" aria-label={`Workout ${index + 1}`} onClick={() => setCarouselIndex(index)} className={index === safeIndex ? "h-2.5 w-2.5 rounded-full bg-accent" : "h-2.5 w-2.5 rounded-full bg-zinc-700"} />)}</div>
+                <button type="button" aria-label="Další workout" onClick={() => moveCarousel(1)} className="ui-button ui-button-outline ui-button-sm">→</button>
+              </div>
+            )}
 
             {format === "relay" && (
               <div className="mt-5">
@@ -140,7 +207,7 @@ export default function TeamTrainingPage() {
             <label className="mt-5 block text-xs font-black uppercase tracking-[0.18em] text-zinc-500" htmlFor="team-schedule">Kdy? <span className="normal-case tracking-normal text-zinc-600">(volitelné · pro remote)</span></label>
             <input id="team-schedule" type="datetime-local" value={scheduledFor} onChange={(event) => setScheduledFor(event.target.value)} className="ui-field mt-3" />
 
-            <button type="button" disabled={busy || !selectedTemplate} onClick={() => void createSession()} className="ui-button ui-button-primary mt-5 w-full">{busy ? "Vytvářím…" : "Vytvořit týmovou session"}</button>
+            <button type="button" disabled={busy || !selectedTemplate || !ready} onClick={() => void createSession()} className="ui-button ui-button-primary mt-5 w-full">{busy ? "Vytvářím…" : "Vytvořit týmovou session"}</button>
           </section>
 
           <section className="ui-card mt-5 p-5 sm:p-6">
