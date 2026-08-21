@@ -30,9 +30,9 @@ export default function ActiveTeamSessionResume() {
     };
   }, []);
 
-  if (!session || pathname.startsWith(`/team/session/${session.sessionId}`)) return null;
-  if (session.status === "completed" || session.status === "cancelled") return null;
+  if (!session || pathname.startsWith(`/team/session/${session.sessionId}`) || session.status === "cancelled") return null;
 
+  const resultPending = session.personalFinished || session.status === "completed";
   const running = session.status === "running" || session.status === "paused";
 
   return (
@@ -43,12 +43,12 @@ export default function ActiveTeamSessionResume() {
       >
         <div className="min-w-0">
           <p className="text-[10px] font-black uppercase tracking-[0.18em] text-accent">
-            {running ? "Probíhá týmový trénink" : "Aktivní týmová session"}
+            {resultPending ? "Výsledek čeká na uložení" : running ? "Probíhá týmový trénink" : "Aktivní týmová session"}
           </p>
           <p className="mt-0.5 truncate font-black text-white">{session.workoutTitle}</p>
           <p className="mt-0.5 text-xs text-zinc-400">{FORMAT_LABELS[session.format]} · {session.joinCode}</p>
         </div>
-        <span className="ui-button ui-button-primary ui-button-sm shrink-0">Vrátit se</span>
+        <span className="ui-button ui-button-primary ui-button-sm shrink-0">{resultPending ? "Dokončit" : "Vrátit se"}</span>
       </Link>
     </div>
   );
