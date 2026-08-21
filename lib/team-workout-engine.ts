@@ -93,6 +93,10 @@ export function createParticipantId() {
   return `athlete-${crypto.randomUUID()}`;
 }
 
+export function requiresStarterClaim(assignment: TeamStepAssignment) {
+  return assignment.participantIds.length > 1 && ["you-go-i-go", "shared-reps", "shared-distance"].includes(assignment.mode);
+}
+
 export function buildTeamAssignments({
   template,
   participants,
@@ -136,8 +140,10 @@ export function buildTeamAssignments({
         else if (supported.includes("you-go-i-go")) mode = "you-go-i-go";
         else if (supported.includes("simultaneous")) mode = "simultaneous";
         else mode = "solo";
-        if (["you-go-i-go", "shared-reps", "shared-distance"].includes(mode) || exercise?.team.requiresSingleStation) {
-          activeParticipantId = participantIds[0];
+        // Shared Doubles stations intentionally start unclaimed. Either athlete can take
+        // the first turn from their phone according to fatigue and real-world strategy.
+        if (exercise?.team.requiresSingleStation && mode === "simultaneous" && participantIds.length > 1) {
+          mode = prescribedDistance ? "shared-distance" : prescribedReps ? "shared-reps" : "you-go-i-go";
         }
       } else {
         mode = supported.includes("simultaneous") ? "simultaneous" : "solo";
@@ -286,7 +292,7 @@ function deriveAutomaticContributions(
       return;
     }
 
-    let activeParticipantId = assignment.activeParticipantId ?? assignment.participantIds[0];
+    let activeParticipantId = assignment.activeParticipantId;
     let cursorMs = startMs;
     const relevant = events
       .filter((item) => "assignmentId" in item && item.assignmentId === assignment.id)
@@ -306,7 +312,12 @@ function deriveAutomaticContributions(
     for (const item of relevant) {
       const itemMs = eventTime(item.at);
       if (itemMs === undefined || itemMs < startMs || itemMs > completedMs) continue;
-      if (item.type === "handoff") {
+      if (item.type === "step-started" && !activeParticipantId) {
+        activeParticipantId = item.participantId;
+        cursorMs = Math.max(cursorMs, itemMs);
+        continue;
+      }
+      if (item.type === "handoff" && activeParticipantId) {
         closeSegment(activeParticipantId, itemMs);
         activeParticipantId = item.nextParticipantId;
       }
@@ -315,9 +326,40 @@ function deriveAutomaticContributions(
   });
 }
 
+function applyWorkedAssignmentCounts(
+  session: TeamWorkoutSession,
+  events: TeamWorkoutEvent[],
+  contributions: Record<string, TeamParticipantContribution>,
+) {
+  const assignments = new Map(session.assignments.map((assignment) => [assignment.id, assignment]));
+  const worked = new Map<string, Set<string>>(session.participants.map((participant) => [participant.id, new Set<string>()]));
+
+  const mark = (participantId: string, assignmentId: string) => {
+    const assignment = assignments.get(assignmentId);
+    if (!assignment || classifyWorkoutPhase(assignment.blockTitle, assignment.stepName, assignment.stepDetail ?? "") !== "work") return;
+    if (!worked.has(participantId)) worked.set(participantId, new Set<string>());
+    worked.get(participantId)?.add(assignmentId);
+  };
+
+  for (const item of events) {
+    if (!("assignmentId" in item)) continue;
+    if (item.type === "step-started") mark(item.participantId, item.assignmentId);
+    if (item.type === "participant-step-completed") mark(item.participantId, item.assignmentId);
+    if (item.type === "handoff") mark(item.participantId, item.assignmentId);
+    if (item.type === "step-progress" && ((item.repsDelta ?? 0) > 0 || (item.distanceMetersDelta ?? 0) > 0 || (item.durationSecondsDelta ?? 0) > 0)) {
+      mark(item.participantId, item.assignmentId);
+    }
+  }
+
+  for (const [participantId, contribution] of Object.entries(contributions)) {
+    contribution.completedAssignments = worked.get(participantId)?.size ?? 0;
+  }
+}
+
 export function deriveTeamWorkoutState(session: TeamWorkoutSession, events: TeamWorkoutEvent[]): TeamWorkoutDerivedState {
   const readyParticipantIds: string[] = [];
   const assignmentProgress = Object.fromEntries(session.assignments.map((assignment) => [assignment.id, emptyProgress(assignment)]));
+  const assignmentsById = new Map(session.assignments.map((assignment) => [assignment.id, assignment]));
   const contributions = Object.fromEntries(session.participants.map((participant) => [participant.id, emptyContribution(participant.id)]));
   const participantFinish: TeamWorkoutDerivedState["participantFinish"] = {};
   const explicitProgress = new Set<string>();
@@ -356,7 +398,12 @@ export function deriveTeamWorkoutState(session: TeamWorkoutSession, events: Team
     if (!progress) continue;
     const contribution = contributions[event.participantId] ?? emptyContribution(event.participantId);
 
-    if (event.type === "step-progress") {
+    if (event.type === "step-started") {
+      const assignment = assignmentsById.get(event.assignmentId);
+      if (assignment && requiresStarterClaim(assignment) && !progress.activeParticipantId) {
+        progress.activeParticipantId = event.participantId;
+      }
+    } else if (event.type === "step-progress") {
       const reps = Math.max(0, event.repsDelta ?? 0);
       const distance = Math.max(0, event.distanceMetersDelta ?? 0);
       const duration = Math.max(0, event.durationSecondsDelta ?? 0);
@@ -373,7 +420,6 @@ export function deriveTeamWorkoutState(session: TeamWorkoutSession, events: Team
       progress.activeParticipantId = event.nextParticipantId;
     } else if (event.type === "participant-step-completed") {
       progress.completedByParticipantIds = uniquePush(progress.completedByParticipantIds, event.participantId);
-      contribution.completedAssignments += 1;
       contributions[event.participantId] = contribution;
     } else if (event.type === "team-step-completed") {
       progress.teamCompleted = true;
@@ -381,6 +427,7 @@ export function deriveTeamWorkoutState(session: TeamWorkoutSession, events: Team
   }
 
   deriveAutomaticContributions(session, events, contributions, assignmentProgress, explicitProgress, explicitDuration, startedAt);
+  applyWorkedAssignmentCounts(session, events, contributions);
 
   for (const assignment of session.assignments) {
     const progress = assignmentProgress[assignment.id];
@@ -422,6 +469,7 @@ export function canParticipantWork(assignment: TeamStepAssignment, participantId
   if (!assignment.participantIds.includes(participantId)) return false;
   const progress = state.assignmentProgress[assignment.id];
   if (!progress || progress.teamCompleted) return false;
+  if (requiresStarterClaim(assignment) && !progress.activeParticipantId) return false;
   if (progress.activeParticipantId && ["you-go-i-go", "relay", "shared-reps", "shared-distance"].includes(assignment.mode)) {
     return progress.activeParticipantId === participantId;
   }
