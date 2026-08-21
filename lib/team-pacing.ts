@@ -1,5 +1,7 @@
-import type { TeamStepAssignment, TeamWorkoutFormat, TeamWorkoutPhase } from "./team-training";
+import type { TeamStepAssignment, TeamWorkoutFormat } from "./team-training";
 import type { WorkoutTemplate } from "./types";
+
+export type TeamWorkoutPhase = "warmup" | "work" | "cooldown";
 
 export type TeamPacingEntry = {
   assignmentId: string;
@@ -41,6 +43,10 @@ export function classifyTeamWorkoutPhase(
   return "work";
 }
 
+export function phaseForAssignment(assignment: TeamStepAssignment) {
+  return classifyTeamWorkoutPhase(assignment.blockTitle, assignment.stepName, assignment.stepDetail ?? "");
+}
+
 export function recommendedWorkoutTargetSeconds(template: WorkoutTemplate) {
   const expectedMinutes = template.metadata
     ? (template.metadata.expectedDurationMin + template.metadata.expectedDurationMax) / 2
@@ -59,7 +65,7 @@ export function recommendedWorkoutTargetSeconds(template: WorkoutTemplate) {
 
 function assignmentWeight(assignment: TeamStepAssignment) {
   const text = normalized(assignment.exerciseId, assignment.stepName, assignment.stepDetail);
-  if (assignment.phase !== "work") return 0;
+  if (phaseForAssignment(assignment) !== "work") return 0;
   if (assignment.targetDistanceMeters) {
     if (text.includes("run") || text.includes("beh")) return Math.max(45, assignment.targetDistanceMeters * 0.30);
     if (text.includes("ski") || text.includes("row") || text.includes("vesl")) return Math.max(40, assignment.targetDistanceMeters * 0.24);
@@ -107,15 +113,16 @@ export function buildTeamPacingPlan({
   runningTarget?: string;
   format: TeamWorkoutFormat;
 }): Record<string, TeamPacingEntry> {
-  const workAssignments = assignments.filter((assignment) => assignment.phase === "work");
+  const workAssignments = assignments.filter((assignment) => phaseForAssignment(assignment) === "work");
   const totalWeight = workAssignments.reduce((sum, assignment) => sum + assignmentWeight(assignment), 0) || 1;
   const entries: Record<string, TeamPacingEntry> = {};
 
   for (const assignment of assignments) {
-    if (assignment.phase !== "work") {
+    const phase = phaseForAssignment(assignment);
+    if (phase !== "work") {
       entries[assignment.id] = {
         assignmentId: assignment.id,
-        cue: assignment.phase === "warmup"
+        cue: phase === "warmup"
           ? "Rozcvičení se synchronizuje, ale nepočítá se do workout času."
           : "Cooldown patří do celkového času tréninku, ne do výsledku workoutu.",
       };
