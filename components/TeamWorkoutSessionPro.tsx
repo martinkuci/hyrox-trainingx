@@ -422,19 +422,6 @@ export default function TeamWorkoutSessionPro({ sessionId }: { sessionId: string
     await addProgress(kind, value);
   }
 
-  async function markPersonalFinished(at = new Date().toISOString()) {
-    if (!session || !me || !timing || personalFinish) return;
-    personalFinishRequestedRef.current = true;
-    const nextSnapshot = await publish({
-      id: crypto.randomUUID(),
-      type: "participant-finished",
-      participantId: me.id,
-      durationSeconds: Math.max(1, timing.workoutSeconds),
-      at,
-    });
-    if (!nextSnapshot) personalFinishRequestedRef.current = false;
-  }
-
   async function completeMyStep() {
     if (!session || !snapshot || !state || !me || !current || !canWork) return;
     setBusy(true);
@@ -503,7 +490,7 @@ export default function TeamWorkoutSessionPro({ sessionId }: { sessionId: string
     setError(undefined);
     try {
       const finishAt = personalFinish?.at ?? new Date().toISOString();
-      const durationSeconds = Math.max(1, personalFinish?.durationSeconds ?? timing.workoutSeconds || teamResult.teamDurationSeconds || 1);
+      const durationSeconds = Math.max(1, personalFinish?.durationSeconds ?? timing.workoutSeconds ?? teamResult.teamDurationSeconds ?? 1);
       if (!personalFinish || personalFinish.rpe !== rpe) {
         setSnapshot(await teamWorkoutTransport.publishEvent(session.id, {
           id: crypto.randomUUID(),
