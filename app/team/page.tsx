@@ -18,6 +18,8 @@ const FORMAT_LABELS: Record<TeamWorkoutFormat, { title: string; description: str
   relay: { title: "Relay", description: "Enginn rozdělí úseky mezi členy týmu a hlídá pořadí střídání." },
 };
 
+const HYROX_REFERENCE_RACE_SECONDS = 90 * 60;
+
 function phaseLabel(title: string) {
   const normalized = title.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   if (["rozcvi", "warmup", "warm-up", "rozbeh"].some((token) => normalized.includes(token))) return "Warm-up";
@@ -76,6 +78,7 @@ export default function TeamTrainingPage() {
   const templates = useMemo(() => data.templates.filter((template) => template.blocks.some((block) => block.steps.length > 0)), [data.templates]);
   const safeIndex = templates.length ? Math.min(carouselIndex, templates.length - 1) : 0;
   const selectedTemplate = templates[safeIndex];
+  const isRaceSimulation = selectedTemplate?.metadata?.category === "race-simulation";
   const previousResult = useMemo(() => {
     if (!selectedTemplate) return undefined;
     const exactTeam = data.results
@@ -87,11 +90,14 @@ export default function TeamTrainingPage() {
       .sort((left, right) => left.durationSeconds - right.durationSeconds)[0];
   }, [data.results, format, selectedTemplate]);
   const automaticTargetSeconds = selectedTemplate ? recommendedWorkoutTargetSeconds(selectedTemplate) : undefined;
-  const customTargetSeconds = parseTargetTime(customPacingTarget);
+  const customInputSeconds = parseTargetTime(customPacingTarget);
+  const customWorkoutTargetSeconds = isRaceSimulation && automaticTargetSeconds && customInputSeconds
+    ? Math.max(5 * 60, Math.round(automaticTargetSeconds * customInputSeconds / HYROX_REFERENCE_RACE_SECONDS))
+    : customInputSeconds;
   const selectedPacingTargetSeconds = pacingSource === "custom"
-    ? customTargetSeconds
+    ? customWorkoutTargetSeconds
     : pacingSource === "history"
-      ? previousResult?.durationSeconds
+      ? previousResult?.durationSeconds ?? automaticTargetSeconds
       : automaticTargetSeconds;
   const pacing = selectedTemplate
     ? workoutPacingSummary(selectedTemplate, format, format === "relay" ? participantLimit : 2, selectedPacingTargetSeconds)
@@ -251,7 +257,7 @@ export default function TeamTrainingPage() {
                     <div className="flex items-center justify-between gap-3"><p className="text-xs font-black uppercase tracking-[0.16em] text-accent">Pacing</p><span className="ui-chip">měřená část</span></div>
                     <p className="mt-2 font-black">{pacing.title}</p>
                     <button type="button" onClick={() => setShowPacingDetail((value) => !value)} className="mt-2 text-xs font-bold text-accent">{showPacingDetail ? "Skrýt detail" : "Zobrazit detail pacingu"}</button>
-                    {showPacingDetail && <div className="mt-2"><>{pacing.running && <p className="text-xs leading-5 text-zinc-400">Běh: {pacing.running}</p>}</><p className="mt-2 text-xs leading-5 text-zinc-400">{pacing.formatCue}</p><p className="mt-2 text-[11px] leading-5 text-zinc-600">Warm-up a cooldown se do výsledného workout času nezapočítávají.</p></div>}
+                    {showPacingDetail && <div className="mt-2">{pacing.running && <p className="text-xs leading-5 text-zinc-400">Běh: {pacing.running}</p>}<p className="mt-2 text-xs leading-5 text-zinc-400">{pacing.formatCue}</p><p className="mt-2 text-[11px] leading-5 text-zinc-600">Warm-up a cooldown se do výsledného workout času nezapočítávají.</p></div>}
                   </div>
                 )}
               </div>
@@ -270,15 +276,16 @@ export default function TeamTrainingPage() {
             )}
 
             <section className="ui-inset mt-5 min-w-0 p-4">
-              <div className="flex items-center justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[0.18em] text-zinc-500">Pacing cíl</p><p className="mt-1 text-xs text-zinc-500">Zvol odhad pro nováčka, svůj předchozí výkon nebo vlastní cílový čas.</p></div><span className="ui-chip shrink-0">{formatTarget(selectedPacingTargetSeconds)}</span></div>
+              <div className="flex items-center justify-between gap-3"><div className="min-w-0"><p className="text-xs font-black uppercase tracking-[0.18em] text-zinc-500">Pacing cíl</p><p className="mt-1 text-xs text-zinc-500">{isRaceSimulation ? "Pro nováčka použij odhad, zkušený sportovec může zadat cíl celého HYROXu nebo vyjít z historie." : "Zvol odhad, svůj předchozí výkon nebo vlastní cílový čas workoutu."}</p></div><span className="ui-chip shrink-0">{formatTarget(selectedPacingTargetSeconds)}</span></div>
               <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
                 <button type="button" onClick={() => setPacingSource("auto")} className={pacingSource === "auto" ? "ui-button ui-button-primary ui-button-sm" : "ui-button ui-button-outline ui-button-sm"}>Automaticky</button>
                 {previousResult && <button type="button" onClick={() => setPacingSource("history")} className={pacingSource === "history" ? "ui-button ui-button-primary ui-button-sm" : "ui-button ui-button-outline ui-button-sm"}>Z historie</button>}
-                <button type="button" onClick={() => setPacingSource("custom")} className={pacingSource === "custom" ? "ui-button ui-button-primary ui-button-sm" : "ui-button ui-button-outline ui-button-sm"}>Vlastní cíl</button>
+                <button type="button" onClick={() => setPacingSource("custom")} className={pacingSource === "custom" ? "ui-button ui-button-primary ui-button-sm" : "ui-button ui-button-outline ui-button-sm"}>{isRaceSimulation ? "Cíl závodu" : "Vlastní cíl"}</button>
               </div>
-              {pacingSource === "auto" && <p className="mt-3 text-xs leading-5 text-zinc-500">Automatický cíl vychází z typu aktivit, vzdáleností/opakování a u HYROX simulací i z rozdílné náročnosti jednotlivých stanovišť.</p>}
-              {pacingSource === "history" && previousResult && <p className="mt-3 text-xs leading-5 text-zinc-500">Používám nejlepší uložený čas tohoto workoutu: <b className="text-zinc-300">{formatTarget(previousResult.durationSeconds)}</b>. Pro pokus o zlepšení můžeš přepnout na Vlastní cíl a zadat nižší čas.</p>}
-              {pacingSource === "custom" && <div className="mt-3"><input value={customPacingTarget} onChange={(event) => setCustomPacingTarget(event.target.value)} placeholder="např. 36:00 nebo 1:30:00" inputMode="numeric" className="ui-field" /><p className={customPacingTarget && !customTargetSeconds ? "mt-2 text-xs text-amber-300" : "mt-2 text-xs text-zinc-500"}>{customPacingTarget && !customTargetSeconds ? "Čas zadej jako minuty, mm:ss nebo h:mm:ss." : "Enginn z cílového času dopočítá rozdílné cíle běhů a stanovišť."}</p></div>}
+              {pacingSource === "auto" && <p className="mt-3 text-xs leading-5 text-zinc-500">Automatický cíl vychází z typu aktivit, vzdáleností/opakování a u HYROX simulací i z rozdílné náročnosti jednotlivých stanovišť a přechodů.</p>}
+              {pacingSource === "history" && previousResult && <p className="mt-3 text-xs leading-5 text-zinc-500">Používám nejlepší uložený čas tohoto workoutu: <b className="text-zinc-300">{formatTarget(previousResult.durationSeconds)}</b>. Pro pokus o zlepšení můžeš zadat vlastní nižší cíl.</p>}
+              {pacingSource === "history" && !previousResult && <p className="mt-3 text-xs leading-5 text-zinc-500">Pro tento workout zatím historie není, proto používám automatický odhad.</p>}
+              {pacingSource === "custom" && <div className="mt-3"><input value={customPacingTarget} onChange={(event) => setCustomPacingTarget(event.target.value)} placeholder={isRaceSimulation ? "např. 1:30:00 · cíl celého HYROXu" : "např. 36:00 · cíl workoutu"} inputMode="numeric" className="ui-field" /><p className={customPacingTarget && !customInputSeconds ? "mt-2 text-xs text-amber-300" : "mt-2 text-xs text-zinc-500"}>{customPacingTarget && !customInputSeconds ? "Čas zadej jako minuty, mm:ss nebo h:mm:ss." : isRaceSimulation && customInputSeconds ? `Cíl celého HYROXu ${formatTarget(customInputSeconds)} → cíl této simulace ${formatTarget(customWorkoutTargetSeconds)}. Enginn podle toho přepočítá jednotlivé běhy a stanoviště.` : "Enginn z cílového času dopočítá rozdílné cíle jednotlivých částí workoutu."}</p></div>}
             </section>
 
             {format === "relay" && (
