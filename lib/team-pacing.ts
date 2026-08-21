@@ -1,7 +1,15 @@
 import type { TeamStepAssignment, TeamWorkoutEvent, TeamWorkoutFormat } from "./team-training";
+import {
+  classifyWorkoutPhase,
+  normalizedWorkoutText,
+  recommendedWorkoutTargetSeconds,
+  type WorkoutPacingPhase,
+} from "./workout-pacing";
 import type { WorkoutTemplate } from "./types";
 
-export type TeamWorkoutPhase = "warmup" | "work" | "cooldown";
+export type TeamWorkoutPhase = WorkoutPacingPhase;
+export const classifyTeamWorkoutPhase = classifyWorkoutPhase;
+export { recommendedWorkoutTargetSeconds } from "./workout-pacing";
 
 export type TeamPacingEntry = {
   assignmentId: string;
@@ -20,56 +28,11 @@ export type TeamWorkoutTiming = {
 };
 
 function normalized(...values: Array<string | undefined>) {
-  return values
-    .filter(Boolean)
-    .join(" ")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
-}
-
-function parseMinutes(text: string) {
-  const matches = [...text.matchAll(/(\d{1,3})(?:\s*[-–]\s*(\d{1,3}))?\s*min(?:\.|ut(?:y|a)?)?/gi)];
-  if (!matches.length) return undefined;
-  return matches.reduce((sum, match) => {
-    const from = Number(match[1]);
-    const to = Number(match[2] ?? match[1]);
-    return sum + (from + to) / 2;
-  }, 0);
-}
-
-export function classifyTeamWorkoutPhase(
-  blockTitle: string,
-  stepName: string,
-  stepDetail: string,
-  category?: string,
-): TeamWorkoutPhase {
-  if (["warmup", "mobility", "compensation"].includes(category ?? "")) return "warmup";
-  if (category === "recovery") return "cooldown";
-  const text = normalized(blockTitle, stepName, stepDetail);
-  if (["zklid", "cooldown", "cool-down", "regener", "recovery", "vychozeni", "prota"].some((token) => text.includes(token))) return "cooldown";
-  if (["rozcvi", "warmup", "warm-up", "mobilit", "aktivac", "rozbehani"].some((token) => text.includes(token))) return "warmup";
-  return "work";
+  return normalizedWorkoutText(...values);
 }
 
 export function phaseForAssignment(assignment: TeamStepAssignment) {
-  return classifyTeamWorkoutPhase(assignment.blockTitle, assignment.stepName, assignment.stepDetail ?? "");
-}
-
-export function recommendedWorkoutTargetSeconds(template: WorkoutTemplate) {
-  const expectedMinutes = template.metadata
-    ? (template.metadata.expectedDurationMin + template.metadata.expectedDurationMax) / 2
-    : template.durationMinutes;
-
-  let excludedMinutes = 0;
-  for (const block of template.blocks) {
-    const phase = classifyTeamWorkoutPhase(block.title, block.steps[0]?.name ?? "", block.steps[0]?.detail ?? "");
-    if (phase === "work") continue;
-    const parsed = parseMinutes(`${block.title} ${block.steps.map((step) => `${step.name} ${step.detail}`).join(" ")}`);
-    excludedMinutes += parsed ?? 5;
-  }
-
-  return Math.max(5 * 60, Math.round((expectedMinutes - excludedMinutes) * 60));
+  return classifyWorkoutPhase(assignment.blockTitle, assignment.stepName, assignment.stepDetail ?? "");
 }
 
 function assignmentWeight(assignment: TeamStepAssignment) {
