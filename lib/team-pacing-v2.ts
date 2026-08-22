@@ -10,24 +10,75 @@ function explicitDurationSeconds(assignment: TeamStepAssignment) {
   return seconds ? Math.max(1, Math.round(Number(seconds[1]))) : undefined;
 }
 
+function movementText(assignment: TeamStepAssignment) {
+  return normalizedWorkoutText(assignment.exerciseId, assignment.stepName, assignment.stepDetail);
+}
+
 function isRun(assignment: TeamStepAssignment) {
-  const text = normalizedWorkoutText(assignment.exerciseId, assignment.stepName, assignment.stepDetail);
+  const text = movementText(assignment);
   return text.includes("run") || text.includes("beh") || text.includes("klus");
 }
 
 function isErg(assignment: TeamStepAssignment) {
-  const text = normalizedWorkoutText(assignment.exerciseId, assignment.stepName, assignment.stepDetail);
+  const text = movementText(assignment);
   return text.includes("ski") || text.includes("row") || text.includes("vesl");
+}
+
+function isSled(assignment: TeamStepAssignment) {
+  const text = movementText(assignment);
+  return text.includes("sled") || text.includes("sane");
+}
+
+function isBurpeeBroadJump(assignment: TeamStepAssignment) {
+  const text = movementText(assignment);
+  return text.includes("burpee") && (text.includes("broad") || text.includes("jump"));
+}
+
+function isFarmersCarry(assignment: TeamStepAssignment) {
+  const text = movementText(assignment);
+  return text.includes("farmer") || text.includes("carry");
+}
+
+function isLunge(assignment: TeamStepAssignment) {
+  const text = movementText(assignment);
+  return text.includes("lunge") || text.includes("vypad");
+}
+
+function isWallBall(assignment: TeamStepAssignment) {
+  const text = movementText(assignment);
+  return text.includes("wall ball") || text.includes("wallball");
+}
+
+function splitPace(seconds: number, distanceMeters: number, referenceMeters: number) {
+  if (distanceMeters <= 0) return undefined;
+  const split = Math.max(1, Math.round(seconds * referenceMeters / distanceMeters));
+  return `${Math.floor(split / 60)}:${String(split % 60).padStart(2, "0")} / ${referenceMeters} m`;
 }
 
 function paceLabel(assignment: TeamStepAssignment, movementTargetSeconds: number) {
   if (assignment.targetDistanceMeters && isErg(assignment)) {
-    const per500 = Math.max(1, Math.round(movementTargetSeconds * 500 / assignment.targetDistanceMeters));
-    return `${Math.floor(per500 / 60)}:${String(per500 % 60).padStart(2, "0")} / 500 m`;
+    return splitPace(movementTargetSeconds, assignment.targetDistanceMeters, 500);
   }
   if (assignment.targetDistanceMeters && isRun(assignment) && assignment.targetDistanceMeters >= 400) {
     const perKm = Math.max(1, Math.round(movementTargetSeconds * 1000 / assignment.targetDistanceMeters));
     return `${Math.floor(perKm / 60)}:${String(perKm % 60).padStart(2, "0")} / km`;
+  }
+  if (assignment.targetDistanceMeters && isSled(assignment)) {
+    return splitPace(movementTargetSeconds, assignment.targetDistanceMeters, 12.5);
+  }
+  if (assignment.targetDistanceMeters && isBurpeeBroadJump(assignment)) {
+    return splitPace(movementTargetSeconds, assignment.targetDistanceMeters, 10);
+  }
+  if (assignment.targetDistanceMeters && isFarmersCarry(assignment)) {
+    return splitPace(movementTargetSeconds, assignment.targetDistanceMeters, 100);
+  }
+  if (assignment.targetDistanceMeters && isLunge(assignment)) {
+    return splitPace(movementTargetSeconds, assignment.targetDistanceMeters, 25);
+  }
+  if (assignment.targetReps && isWallBall(assignment) && movementTargetSeconds > 0) {
+    const repsPerMinute = assignment.targetReps * 60 / movementTargetSeconds;
+    const rounded = repsPerMinute >= 10 ? Math.round(repsPerMinute) : Math.round(repsPerMinute * 10) / 10;
+    return `${rounded} reps / min`;
   }
   return undefined;
 }
@@ -89,7 +140,7 @@ export function buildStructuredTeamPacingPlan({
       entries[assignment.id] = {
         assignmentId: assignment.id,
         cue: phase === "warmup"
-          ? "Rozcvičení se synchronizuje, ale nepočítá se do workout času."
+          ? "Warm-up se synchronizuje, ale nepočítá se do workout času."
           : "Cooldown patří do celkového času tréninku, ne do výsledku workoutu.",
       };
       continue;
@@ -109,6 +160,7 @@ export function buildStructuredTeamPacingPlan({
     let cue = item?.fixed
       ? `Předepsaná délka ${clockShort(movementTargetSeconds)}.`
       : `Cíl úseku cca ${clockShort(assignmentTargetSeconds)}.`;
+    if (label) cue += ` Drž ${label}.`;
     if (transitionSeconds > 0) cue += ` Přechod cca ${clockShort(transitionSeconds)}.`;
     if (isRun(assignment) && runningTarget) cue += ` ${runningTarget}`;
 
