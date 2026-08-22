@@ -96,6 +96,18 @@ Status: approved and connected to the application
 - Add technique, common mistakes, scaling and contextual “Jak na to” guidance.
 - Personalize onboarding from the athlete's selected disciplines.
 
+### Planned 3C - Athlete profile, onboarding and calibration ladder
+
+- Build the personal athlete profile from optional identity/body data, experience level, goals, schedule, locations and exercise knowledge.
+- Keep Beginner / Advanced / Athlete as a guidance and progression layer, not as a single permanent self-selected label.
+- Add repeatable benchmark challenges that calibrate the athlete per discipline and distance, for example Row/SkiErg 100 m, 250 m, 500 m and 1000 m, standard running distances and equivalent station tests.
+- Store benchmark history and derive a personal baseline/average with confidence so pacing can prefer measured athlete data over generic assumptions.
+- Reuse the personal calibration across program generation, pacing targets, workout difficulty and later team strategy.
+- Award badges and level progress for completed benchmark sets, consistency and verified improvements; progression from Beginner to Advanced to Athlete should depend on measured capability, exercise knowledge and training history rather than one result alone.
+- Treat onboarding benchmark tests as optional: a complete beginner can start with safe default estimates and improve the profile gradually through normal workouts.
+- Keep public/social comparison separate from the private athlete profile. Future challenges, gym/friends leaderboards and Pro analytics may use opted-in benchmark results without exposing private health/body data.
+- Future live pacing and partner-start recommendations may use trustworthy sensor inputs such as actual pace, heart rate and other recovery/fatigue signals. Do not infer acute fatigue only from who completed the previous equal-distance segment faster.
+
 ## Later
 
 Consider social features, subscriptions and a broader reusable platform only after the Enginn rebrand and hybrid-training expansion are stable.
