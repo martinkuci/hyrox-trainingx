@@ -140,8 +140,6 @@ export function buildTeamAssignments({
         else if (supported.includes("you-go-i-go")) mode = "you-go-i-go";
         else if (supported.includes("simultaneous")) mode = "simultaneous";
         else mode = "solo";
-        // Shared Doubles stations intentionally start unclaimed. Either athlete can take
-        // the first turn from their phone according to fatigue and real-world strategy.
         if (exercise?.team.requiresSingleStation && mode === "simultaneous" && participantIds.length > 1) {
           mode = prescribedDistance ? "shared-distance" : prescribedReps ? "shared-reps" : "you-go-i-go";
         }
@@ -246,6 +244,8 @@ function deriveAutomaticContributions(
   startedAt: string | undefined,
 ) {
   const completionTimes = session.assignments.map((assignment) => completionTime(assignment, events));
+  const firstWorkIndex = session.assignments.findIndex((assignment) => classifyWorkoutPhase(assignment.blockTitle, assignment.stepName, assignment.stepDetail ?? "") === "work");
+  const workoutStartAt = events.find((item) => item.type === "workout-started")?.at;
 
   session.assignments.forEach((assignment, index) => {
     const phase = classifyWorkoutPhase(assignment.blockTitle, assignment.stepName, assignment.stepDetail ?? "");
@@ -273,7 +273,8 @@ function deriveAutomaticContributions(
       }
     }
 
-    const startAt = index === 0 ? startedAt : completionTimes[index - 1];
+    const defaultStartAt = index === 0 ? startedAt : completionTimes[index - 1];
+    const startAt = index === firstWorkIndex ? workoutStartAt ?? defaultStartAt : defaultStartAt;
     const startMs = eventTime(startAt);
     const completedAt = completionTimes[index];
     const completedMs = eventTime(completedAt);
